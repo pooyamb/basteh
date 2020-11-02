@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "actix-storage",
+    "actix-storage-hashmap",
+    "actix-storage-dashmap",
+    "actix-storage-sled",
+    "actix-storage-redis",
+    "examples/*"
+]
+
+[patch.crates-io]
+actix-storage = { path = "./actix-storage/" }
+actix-storage-hashmap = { path = "./actix-storage-hashmap/" }
+actix-storage-dashmap = { path = "./actix-storage-dashmap/" }
+actix-storage-sled = { path = "./actix-storage-sled/" }
+actix-storage-redis = { path = "./actix-storage-redis/" }
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1

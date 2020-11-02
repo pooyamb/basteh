@@ -1,0 +1,15 @@
+[package]
+name = "redis"
+version = "0.1.0"
+authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+actix-storage = { version = "0.1", features = ["serde-yaml"] }
+actix-storage-redis = "0.1"
+actix-web = "3"
+serde = "1.0.117"
+
+[[example]]
+name = "redis"
+path = "./src/app.rs"

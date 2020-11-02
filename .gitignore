@@ -1,0 +1,7 @@
+/target
+/debug
+/cov
+/scripts
+.vscode
+cobertura.xml
+tarpaulin-report.html

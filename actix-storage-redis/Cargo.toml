@@ -1,0 +1,31 @@
+[package]
+name = "actix-storage-redis"
+version = "0.1.0"
+authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+description = "An implementation of actix-storage based on redis-rs"
+edition = "2018"
+readme = "README.md"
+repository = "https://github.com/pooyamb/actix-storage/"
+homepage = "https://github.com/pooyamb/actix-storage/"
+license = "MIT OR Apache-2.0"
+keywords = ["actix", "storage", "web", "async", "redis"]
+categories = ["asynchronous", "caching", "web-programming::http-server"]
+
+[dependencies]
+actix = { version = "0.10", default-features = false }
+async-trait = "0.1"
+thiserror = "1"
+actix-storage = { version = "0.1", features = ["with-serde"] }
+redis = { version = "0.17", default-features = false, features = [
+    "connection-manager"
+] }
+
+[features]
+tls = ["redis/tokio-tls-comp"]
+
+[dev-dependencies]
+actix-web = "3"
+actix-rt = "1.1"
+rand = "0.7"
+serde = "1"
+actix-storage = { version = "0.1", features = ["all", "tests"] }

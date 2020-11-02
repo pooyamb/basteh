@@ -1,0 +1,38 @@
+[package]
+name = "actix-storage-hashmap"
+version = "0.1.0"
+authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+description = "An implementation of actix-storage based on hashmap"
+edition = "2018"
+readme = "README.md"
+repository = "https://github.com/pooyamb/actix-storage/"
+homepage = "https://github.com/pooyamb/actix-storage/"
+license = "MIT OR Apache-2.0"
+keywords = ["actix", "storage", "web", "async", "hashmap"]
+categories = ["asynchronous", "caching", "web-programming::http-server"]
+
+[package.metadata.docs.rs]
+features = ["actor"]
+
+[dependencies]
+actix = { version = "0.10", default-features = false }
+async-trait = "0.1"
+tokio = { version = "0.2", features = [
+    "time",
+    "sync",
+    "stream",
+    "macros"
+], optional = true }
+thiserror = "1"
+futures = { version = "0.3", optional = true }
+actix-storage = { version = "0.1" }
+
+[dev-dependencies]
+actix-web = "3"
+rand = "0.7"
+serde = "1"
+actix-storage = { version = "0.1", features = ["all", "tests"] }
+actix-rt = "1.1"
+
+[features]
+actor = ["tokio", "futures"]

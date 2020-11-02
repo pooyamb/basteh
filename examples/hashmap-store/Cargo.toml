@@ -1,0 +1,15 @@
+[package]
+name = "hashmap-store"
+version = "0.1.0"
+authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+actix-storage = { version = "0.1", features = ["serde-cbor"] }
+actix-storage-hashmap = "0.1"
+actix-web = "3"
+serde = "1.0.117"
+
+[[example]]
+name = "hashmap-store"
+path = "./src/app.rs"
