@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -78,7 +78,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - run: sudo apt install redis-server -y
@@ -86,6 +86,6 @@ jobs:
 
       - uses: actions-rs/tarpaulin@v0.1.0
         with:
-          args: --all-features --workspace -o Xml -- --test-threads=1
+          args: --all-features --workspace -o Xml -- --test-threads=2
 
       - uses: codecov/codecov-action@v1.0.14
