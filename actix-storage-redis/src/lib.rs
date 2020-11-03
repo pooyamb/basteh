@@ -15,7 +15,7 @@ pub use redis::{ConnectionAddr, ConnectionInfo, RedisError};
 /// ## Example
 /// ```no_run
 /// use actix_storage::Storage;
-/// use actix_storage_redis::RedisBackend;
+/// use actix_storage_redis::{RedisBackend, ConnectionInfo, ConnectionAddr};
 /// use actix_web::{App, HttpServer};
 ///
 /// #[actix_web::main]
@@ -29,7 +29,7 @@ pub use redis::{ConnectionAddr, ConnectionInfo, RedisError};
 ///         username: Some("god".to_string()),
 ///         passwd: Some("bless".to_string()),
 ///     };
-///     let store = RedisBackend::connect(connection_info);
+///     let store = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
 ///
 ///     let storage = Storage::build().expiry_store(store).finish();
 ///     let server = HttpServer::new(move || {
