@@ -14,7 +14,7 @@ pub async fn test_store<S: 'static + Store>(store: S) {
 
 pub async fn test_expiry<S: 'static + Store, E: 'static + Expiry>(store: S, expiry: E) {
     let store = Storage::build().store(store).expiry(expiry).finish();
-    let dur = Duration::from_secs(2);
+    let dur = Duration::from_secs(4);
 
     // Expiry for invalid key should return None
     assert!(store.expiry("key2").await.unwrap().is_none());
@@ -27,14 +27,14 @@ pub async fn test_expiry<S: 'static + Store, E: 'static + Expiry>(store: S, expi
     // The exact number of seconds returned depends on the implementation
     let exp = store.expiry("key2").await.unwrap().unwrap();
     assert!(exp.as_secs() > 0);
-    assert!(exp.as_secs() <= 2);
+    assert!(exp.as_secs() <= 4);
 
     // Testing extending the expiry time
     // The exact number of seconds returned depends on the implementation
     store.extend("key2", dur).await.unwrap();
     let exp = store.expiry("key2").await.unwrap().unwrap();
-    assert!(exp.as_secs() >= 2);
-    assert!(exp.as_secs() <= 4);
+    assert!(exp.as_secs() >= 4);
+    assert!(exp.as_secs() <= 8);
 
     // Test persist
     assert!(store.set_bytes("key_persist", "val").await.is_ok());
@@ -63,7 +63,7 @@ pub async fn test_expiry<S: 'static + Store, E: 'static + Expiry>(store: S, expi
         .await
         .is_ok());
 
-    actix::clock::delay_for(Duration::from_millis(4010)).await;
+    actix::clock::delay_for(Duration::from_millis(8010)).await;
 
     // Check if extended item has been expired
     assert!(store.get_bytes("key2").await.unwrap() == None);
