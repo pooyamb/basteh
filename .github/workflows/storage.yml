@@ -60,15 +60,15 @@ jobs:
           toolchain: stable
           override: true
 
-      - run: sudo apt install redis-server
+      - run: sudo apt install redis-server -y
       - run: sudo service redis-server start
-      - run: sleep 60
 
       - uses: actions-rs/cargo@v1
         with:
           command: test
           args: >
-            --all-features
+            --all-features --workspace -- --test-threads=1
+
   coverage:
     name: Coverage
     runs-on: ubuntu-20.04
@@ -81,12 +81,11 @@ jobs:
           toolchain: stable
           override: true
 
-      - run: sudo apt install redis-server
+      - run: sudo apt install redis-server -y
       - run: sudo service redis-server start
-      - run: sleep 60
-        
+
       - uses: actions-rs/tarpaulin@v0.1.0
         with:
-          args: --all-features --workspace -o Xml
+          args: --all-features --workspace -o Xml -- --test-threads=1
 
       - uses: codecov/codecov-action@v1.0.14
