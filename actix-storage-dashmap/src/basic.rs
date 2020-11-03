@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_storage::{dev::Store, Result};
 use dashmap::DashMap;
 
-/// A simple implementation of [`Store`](../actix_storage/dev/trait.Store.html) based on DashMap
+/// A simple implementation of [`Store`](actix_storage::dev::Store) based on DashMap
 ///
 /// This provider doesn't support key expiration thus Storage will return errors when trying to use methods
 /// that require expiration functionality if there is no expiry provided.

@@ -1,5 +1,5 @@
 #[cfg(feature = "actor")]
-/// An implementation of [`ExpiryStore`](../actix_storage/dev/trait.ExpiryStore.html) based on actix
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on actix
 /// and sled, requires `["actor"]` feature
 pub mod actor;
 mod basic;

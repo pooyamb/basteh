@@ -9,7 +9,7 @@ use crate::{SledConfig, SledError};
 #[error("A proccess obtaining the lock has failed while keeping it.")]
 pub struct LockStorageError;
 
-/// A simple implementation of [`Store`](../actix_storage/dev/trait.Store.html) based on Sled
+/// A simple implementation of [`Store`](actix_storage::dev::Store) based on Sled
 ///
 /// This provider doesn't support key expiration thus Storage will return errors when trying to use methods
 /// that require expiration functionality if there is no expiry provided.

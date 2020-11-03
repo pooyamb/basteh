@@ -10,7 +10,7 @@ pub struct LockStorageError;
 
 type InternalMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
 
-/// A simple implementation of [`Store`](../actix_storage/dev/trait.Store.html) based on RwLock wrapped HashMap
+/// A simple implementation of [`Store`](actix_storage::dev::Store) based on RwLock wrapped HashMap
 ///
 /// This provider doesn't support key expiration thus Storage will return errors when trying to use methods
 /// that require expiration functionality.  

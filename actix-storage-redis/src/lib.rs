@@ -9,7 +9,7 @@ use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
 
 pub use redis::{ConnectionAddr, ConnectionInfo, RedisError};
 
-/// An implementation of [`ExpiryStore`](../actix_storage/dev/trait.ExpiryStore.html) based on redis
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on redis
 /// using redis-rs async runtime
 ///
 /// ## Example

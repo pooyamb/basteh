@@ -86,7 +86,7 @@ impl ExpiryFlags {
     }
 }
 
-/// An implementation of [`ExpiryStore`](../actix_storage/dev/trait.ExpiryStore.html) based on sync
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
 /// actix actors and sled, using delay_queue crate to provide expiration
 ///
 /// It stores expiration data as the value's suffix in sled, using byteorder, so to share data this actor

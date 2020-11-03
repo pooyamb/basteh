@@ -13,7 +13,7 @@ use actix_storage::dev::actor::{
 mod delayqueue;
 use delayqueue::{delayqueue, DelayQueueEmergency, DelayQueueReceiver, DelayQueueSender, Expired};
 
-/// An implementation of [`ExpiryStore`](../actix_storage/dev/trait.ExpiryStore.html) based on async
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on async
 /// actix actors and HashMap
 ///
 /// It relies on tokio's DelayQueue internally to manage expiration, and it doesn't have any lock as

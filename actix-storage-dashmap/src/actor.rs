@@ -17,7 +17,7 @@ struct Value {
     nonce: u32,
 }
 
-/// An implementation of [`ExpiryStore`](../actix_storage/dev/trait.ExpiryStore.html) based on sync
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
 /// actix actors and HashMap
 ///
 /// It relies on delay_queue crate to provide expiration.
