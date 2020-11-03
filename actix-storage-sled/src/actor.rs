@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 use std::time::{Duration, SystemTime};
 
 use actix::{Actor, Addr, Handler, SyncArbiter, SyncContext};
@@ -126,6 +126,9 @@ pub struct SledActor {
     queue: DelayQueue<Delay<(Arc<[u8]>, u64)>>,
     perform_deletion: bool,
     scan_db_on_start: bool,
+
+    #[doc(hidden)]
+    stopped: Arc<AtomicBool>,
 }
 
 /// Takes an IVec and returns value bytes with its expiry flags as mutable
@@ -176,6 +179,7 @@ impl SledActor {
             queue: DelayQueue::default(),
             perform_deletion: false,
             scan_db_on_start: false,
+            stopped: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -217,19 +221,29 @@ impl Actor for SledActor {
             self.scan_expired_items();
         }
 
+        let stopped = self.stopped.clone();
+
         if self.perform_deletion {
             std::thread::spawn(move || loop {
-                let item = queue.pop();
-                let val = map.get(&item.value.0).ok().flatten();
-                if let Some(mut bytes) = val {
-                    if let Some((_, exp)) = decode_mut(&mut bytes) {
-                        if exp.nonce.get() == item.value.1 && exp.persist.get() == 0 {
-                            map.remove(&item.value.0).ok();
+                if let Some(item) = queue.try_pop_for(Duration::from_secs(1)) {
+                    let val = map.get(&item.value.0).ok().flatten();
+                    if let Some(mut bytes) = val {
+                        if let Some((_, exp)) = decode_mut(&mut bytes) {
+                            if exp.nonce.get() == item.value.1 && exp.persist.get() == 0 {
+                                map.remove(&item.value.0).ok();
+                            }
                         }
                     }
+                } else if stopped.load(std::sync::atomic::Ordering::Relaxed) {
+                    break;
                 }
             });
         }
+    }
+
+    fn stopped(&mut self, _: &mut Self::Context) {
+        self.stopped
+            .compare_and_swap(false, true, std::sync::atomic::Ordering::Acquire);
     }
 }
 
