@@ -84,11 +84,29 @@ impl Store for SledStore {
 mod test {
     use super::*;
     use actix_storage::tests::*;
+    use std::time::Duration;
+
+    async fn open_database() -> sled::Db {
+        let mut tries: u8 = 0;
+        loop {
+            tries += 1;
+            let db = SledConfig::default().temporary(true).open();
+            match db {
+                Ok(db) => return db,
+                Err(err) => {
+                    if tries > 10 {
+                        panic!(err)
+                    };
+                }
+            }
+            actix::clock::delay_for(Duration::from_millis(500)).await;
+        }
+    }
 
     #[actix_rt::test]
     async fn test_sled_basic_store() {
-        let storage = SledConfig::default().path("../target/sled").open().unwrap();
-        let store = SledStore::from_db(storage);
+        let store = open_database().await;
+        let store = SledStore::from_db(store);
         test_store(store).await;
     }
 
@@ -101,8 +119,8 @@ mod test {
                 }
             }
         }
-        let storage = SledConfig::default().path("../target/sled").open().unwrap();
-        let store = SledStore::from_db(storage);
+        let store = open_database().await;
+        let store = SledStore::from_db(store);
         test_all_formats(store).await;
     }
 }

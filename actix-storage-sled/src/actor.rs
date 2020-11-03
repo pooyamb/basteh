@@ -470,7 +470,7 @@ mod test {
             if tries > 5 {
                 break;
             };
-            let db = SledConfig::default().path("../target/sled-actor").open();
+            let db = SledConfig::default().temporary(true).open();
             if let Ok(db) = db {
                 return db;
             } else {

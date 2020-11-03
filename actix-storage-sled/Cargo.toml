@@ -34,4 +34,3 @@ actix-storage = { version = "0.1", features = ["all", "tests"] }
 [features]
 actor = ["delay-queue", "zerocopy", "byteorder"]
 compression = ["sled/compression"]
-io_uring = ["sled/io_uring"]
