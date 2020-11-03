@@ -22,7 +22,7 @@ pub struct LockStorageError;
 ///
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let db = SledStore::new().except("Error opening the database");
+///     let db = SledStore::new().expect("Error opening the database");
 ///     let storage = Storage::build().store(db).finish();
 ///     let server = HttpServer::new(move || {
 ///         App::new()
