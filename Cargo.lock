@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "actix-storage"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "actix-storage-dashmap"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -209,7 +209,7 @@ dependencies = [
 
 [[package]]
 name = "actix-storage-hashmap"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "actix-storage-redis"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-rt",
@@ -240,7 +240,7 @@ dependencies = [
 
 [[package]]
 name = "actix-storage-sled"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix",
  "actix-rt",

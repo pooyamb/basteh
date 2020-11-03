@@ -1,6 +1,6 @@
 [package]
 name = "actix-storage-sled"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 description = "An implementation of actix-storage based on sled"
 edition = "2018"
