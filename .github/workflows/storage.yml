@@ -46,9 +46,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: >
-            --no-default-features
-            --all-features
+          args: --all-features
 
   test:
     name: Tests
