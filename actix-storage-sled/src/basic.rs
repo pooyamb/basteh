@@ -87,7 +87,7 @@ mod test {
 
     #[actix_rt::test]
     async fn test_sled_basic_store() {
-        let storage = SledConfig::default().temporary(true).open().unwrap();
+        let storage = SledConfig::default().path("../target/sled").open().unwrap();
         let store = SledStore::from_db(storage);
         test_store(store).await;
     }
@@ -101,7 +101,7 @@ mod test {
                 }
             }
         }
-        let storage = SledConfig::default().temporary(true).open().unwrap();
+        let storage = SledConfig::default().path("../target/sled").open().unwrap();
         let store = SledStore::from_db(storage);
         test_all_formats(store).await;
     }

@@ -449,45 +449,45 @@ mod test {
     use super::*;
     use actix_storage::tests::*;
 
+    async fn open_database() -> sled::Db {
+        let mut tries = 0;
+        loop {
+            tries += 1;
+            if tries > 5 {
+                break;
+            };
+            let db = SledConfig::default().path("../target/sled-actor").open();
+            if let Ok(db) = db {
+                return db;
+            } else {
+                // Wait for sometime and try again.
+                actix::clock::delay_for(Duration::from_millis(500)).await;
+            }
+        }
+        panic!("Sled can not open the database files")
+    }
+
     #[actix_rt::test]
     async fn test_sled_store() {
-        let store = SledConfig::default()
-            .temporary(true)
-            .to_actor()
-            .unwrap()
-            .start(1);
-        test_store(store).await;
+        let store = SledActor::from_db(open_database().await).start(1);
+        test_store(store.clone()).await;
     }
 
     #[actix_rt::test]
     async fn test_sled_expiry() {
-        let store = SledConfig::default()
-            .temporary(true)
-            .to_actor()
-            .unwrap()
-            .perform_deletion(true)
-            .start(1);
-        test_expiry(store.clone(), store).await;
+        let store = SledActor::from_db(open_database().await).start(1);
+        test_expiry(store.clone(), store.clone()).await;
     }
 
     #[actix_rt::test]
     async fn test_sled_expiry_store() {
-        let store = SledConfig::default()
-            .temporary(true)
-            .to_actor()
-            .unwrap()
-            .perform_deletion(true)
-            .start(1);
+        let store = SledActor::from_db(open_database().await).start(1);
         test_expiry_store(store).await;
     }
 
     #[actix_rt::test]
     async fn test_sled_formats() {
-        let store = SledConfig::default()
-            .temporary(true)
-            .to_actor()
-            .unwrap()
-            .start(1);
+        let store = SledActor::from_db(open_database().await).start(1);
         test_all_formats(store).await;
     }
 
@@ -495,16 +495,11 @@ mod test {
     async fn test_sled_perform_deletion() {
         let key: Arc<[u8]> = "key".as_bytes().into();
         let value = "val".as_bytes().into();
-        let db = SledConfig::default().temporary(true).open().unwrap();
+        let db = open_database().await;
         let dur = Duration::from_secs(1);
-        let store = SledActor {
-            scan_db_on_start: false,
-            perform_deletion: false,
-            db: db.clone(),
-            queue: DelayQueue::default(),
-        }
-        .perform_deletion(true)
-        .start(1);
+        let store = SledActor::from_db(db.clone())
+            .perform_deletion(true)
+            .start(1);
         store
             .send(StoreRequest::Set(key.clone(), value))
             .await
@@ -520,6 +515,8 @@ mod test {
 
     #[actix_rt::test]
     async fn test_sled_scan_on_start() {
+        let db = open_database().await;
+
         let dur = Duration::from_secs(2);
         let value = encode("value".as_bytes(), ExpiryFlags::new_expiring(1, dur));
         let value2 = encode(
@@ -531,18 +528,21 @@ mod test {
             },
         );
 
-        let db = SledConfig::default().temporary(true).open().unwrap();
         db.insert("key", value).unwrap();
         db.insert("key2", value2).unwrap();
-        let _ = SledActor::from_db(db.clone())
+        let actor = SledActor::from_db(db.clone())
             .scan_db_on_start(true)
             .perform_deletion(true)
             .start(1);
+
         // Waiting for the actor to start up, there should be a better way
         actix::clock::delay_for(Duration::from_millis(500)).await;
         assert!(db.contains_key("key").unwrap());
         assert!(!db.contains_key("key2").unwrap());
-        actix::clock::delay_for(Duration::from_millis(1510)).await;
+        actix::clock::delay_for(Duration::from_millis(2000)).await;
         assert!(!db.contains_key("key").unwrap());
+
+        // Making sure actor stays alive
+        drop(actor)
     }
 }
