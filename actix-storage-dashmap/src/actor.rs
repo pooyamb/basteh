@@ -1,5 +1,5 @@
-use std::sync::Arc;
-use std::time::Instant;
+use std::sync::{atomic::AtomicBool, Arc};
+use std::time::{Duration, Instant};
 
 use actix::{Actor, Addr, Handler, SyncArbiter, SyncContext};
 use actix_storage::dev::actor::{
@@ -49,6 +49,9 @@ struct Value {
 pub struct DashMapActor {
     map: Arc<DashMap<Arc<[u8]>, Value>>,
     queue: DelayQueue<Delay<(Arc<[u8]>, u32)>>,
+
+    #[doc(hidden)]
+    stopped: Arc<AtomicBool>,
 }
 
 impl DashMapActor {
@@ -64,6 +67,7 @@ impl DashMapActor {
         Self {
             map: DashMap::with_capacity(capacity).into(),
             queue: DelayQueue::default(),
+            stopped: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -87,22 +91,27 @@ impl Actor for DashMapActor {
         let map = self.map.clone();
         let mut queue = self.queue.clone();
 
+        let stopped = self.stopped.clone();
+
         std::thread::spawn(move || loop {
-            let item = queue.pop();
-            let mut should_delete = false;
-            if let Some(mut value) = map.get_mut(&item.value.0) {
-                if value.nonce != item.value.1 {
-                    continue;
-                }
+            if let Some(item) = queue.try_pop_for(Duration::from_secs(1)) {
+                let mut should_delete = false;
+                if let Some(mut value) = map.get_mut(&item.value.0) {
+                    if value.nonce != item.value.1 {
+                        continue;
+                    }
 
-                value.ref_count -= 1;
+                    value.ref_count -= 1;
 
-                if value.ref_count == 0 && !value.persist {
-                    should_delete = true;
+                    if value.ref_count == 0 && !value.persist {
+                        should_delete = true;
+                    }
                 }
-            }
-            if should_delete {
-                map.remove(&item.value.0);
+                if should_delete {
+                    map.remove(&item.value.0);
+                }
+            } else if stopped.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
             }
         });
     }
