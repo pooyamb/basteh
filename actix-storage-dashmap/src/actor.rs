@@ -261,13 +261,13 @@ mod test {
     #[actix_rt::test]
     async fn test_dashmap_expiry() {
         let store = DashMapActor::default().start(1);
-        test_expiry(store.clone(), store).await;
+        test_expiry(store.clone(), store, 2).await;
     }
 
     #[actix_rt::test]
     async fn test_dashmap_expiry_store() {
         let store = DashMapActor::default().start(1);
-        test_expiry_store(store).await;
+        test_expiry_store(store, 2).await;
     }
 
     #[actix_rt::test]

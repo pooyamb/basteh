@@ -178,13 +178,13 @@ mod test {
     #[actix_rt::test]
     async fn test_redis_expiry() {
         let store = RedisBackend::connect_test().await.unwrap();
-        test_expiry(store.clone(), store).await;
+        test_expiry(store.clone(), store, 5).await;
     }
 
     #[actix_rt::test]
     async fn test_redis_expiry_store() {
         let store = RedisBackend::connect_test().await.unwrap();
-        test_expiry_store(store).await;
+        test_expiry_store(store, 5).await;
     }
 
     #[actix_rt::test]

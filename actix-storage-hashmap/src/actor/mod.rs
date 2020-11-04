@@ -293,13 +293,13 @@ mod test {
     #[actix_rt::test]
     async fn test_hashmap_expiry() {
         let store = HashMapActor::start_default();
-        test_expiry(store.clone(), store).await;
+        test_expiry(store.clone(), store, 2).await;
     }
 
     #[actix_rt::test]
     async fn test_hashmap_expiry_store() {
         let store = HashMapActor::start_default();
-        test_expiry_store(store).await;
+        test_expiry_store(store, 2).await;
     }
 
     #[actix_rt::test]

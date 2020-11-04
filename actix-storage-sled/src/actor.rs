@@ -490,13 +490,13 @@ mod test {
     #[actix_rt::test]
     async fn test_sled_expiry() {
         let store = SledActor::from_db(open_database().await).start(1);
-        test_expiry(store.clone(), store.clone()).await;
+        test_expiry(store.clone(), store.clone(), 4).await;
     }
 
     #[actix_rt::test]
     async fn test_sled_expiry_store() {
         let store = SledActor::from_db(open_database().await).start(1);
-        test_expiry_store(store).await;
+        test_expiry_store(store, 4).await;
     }
 
     #[actix_rt::test]
