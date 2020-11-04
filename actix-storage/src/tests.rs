@@ -74,7 +74,8 @@ pub async fn test_expiry<S: 'static + Store, E: 'static + Expiry>(
         .await
         .is_ok());
 
-    actix::clock::delay_for(delayx2).await;
+    // Adding some error to the delay, for the implementors sake
+    actix::clock::delay_for(Duration::from_secs((delay_secs * 2) + 1)).await;
 
     // Check if extended item has been expired
     assert!(store.get_bytes("key2").await.unwrap() == None);
@@ -119,7 +120,8 @@ pub async fn test_expiry_store<S: 'static + ExpiryStore>(store: S, delay_secs: u
     assert!(exp.as_secs() > delay_secs);
     assert!(exp.as_secs() <= delay_secs * 2);
 
-    actix::clock::delay_for(delay).await;
+    // Adding some error to the delay, for the implementors sake
+    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
     assert!(store.get_expiring_bytes("key3").await.unwrap() == None);
