@@ -1,6 +1,6 @@
 [package]
 name = "actix-storage-dashmap"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 description = "An implementation of actix-storage based on dashmap"
 edition = "2018"
@@ -20,14 +20,14 @@ async-trait = "0.1"
 thiserror = "1"
 dashmap = "3"
 delay-queue = { version = "0.2", optional = true }
-actix-storage = { version = "0.1.1", features = ["with-serde"] }
+actix-storage = { version = "0.1.2", features = ["with-serde"] }
 
 [dev-dependencies]
 actix-web = "3"
 actix-rt = "1.1"
 rand = "0.7"
 serde = "1.0"
-actix-storage = { version = "0.1", features = ["all", "tests"] }
+actix-storage = { version = "0.1.2", features = ["all", "tests"] }
 
 [features]
 actor = ["delay-queue"]
