@@ -20,7 +20,7 @@ async-trait = "0.1"
 thiserror = "1"
 dashmap = "3"
 delay-queue = { version = "0.2", optional = true }
-actix-storage = { version = "0.1", features = ["with-serde"] }
+actix-storage = { version = "0.1.1", features = ["with-serde"] }
 
 [dev-dependencies]
 actix-web = "3"
