@@ -58,17 +58,6 @@ impl RedisBackend {
     pub async fn connect_default() -> RedisResult<Self> {
         Self::connect("redis://127.0.0.1/".parse().unwrap()).await
     }
-
-    #[cfg(test)]
-    pub async fn connect_test() -> RedisResult<Self> {
-        use redis::aio::ConnectionLike;
-        let r = Self::connect_default().await?;
-        r.con
-            .clone()
-            .req_packed_command(&redis::cmd("FLUSHDB"))
-            .await?;
-        Ok(r)
-    }
 }
 
 #[async_trait::async_trait]
@@ -168,28 +157,45 @@ impl ExpiryStore for RedisBackend {
 mod test {
     use super::*;
     use actix_storage::tests::*;
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    async fn get_connection() -> RedisBackend {
+        let con = RedisBackend::connect_default().await;
+        match con {
+            Ok(con) => {
+                INIT.call_once(|| {
+                    let mut client = redis::Client::open("redis://localhost").unwrap();
+                    let _: () = redis::cmd("FLUSHDB").query(&mut client).unwrap();
+                });
+                con
+            }
+            Err(err) => panic!(err),
+        }
+    }
 
     #[actix_rt::test]
     async fn test_redis_store() {
-        let store = RedisBackend::connect_test().await.unwrap();
+        let store = get_connection().await;
         test_store(store).await;
     }
 
     #[actix_rt::test]
     async fn test_redis_expiry() {
-        let store = RedisBackend::connect_test().await.unwrap();
+        let store = get_connection().await;
         test_expiry(store.clone(), store, 5).await;
     }
 
     #[actix_rt::test]
     async fn test_redis_expiry_store() {
-        let store = RedisBackend::connect_test().await.unwrap();
+        let store = get_connection().await;
         test_expiry_store(store, 5).await;
     }
 
     #[actix_rt::test]
     async fn test_redis_formats() {
-        let store = RedisBackend::connect_test().await.unwrap();
+        let store = get_connection().await;
         test_all_formats(store).await;
     }
 }
