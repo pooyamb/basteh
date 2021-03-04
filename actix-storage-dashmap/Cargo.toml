@@ -18,16 +18,16 @@ features = ["actor"]
 actix = { version = "0.10", default-features = false }
 async-trait = "0.1"
 thiserror = "1"
-dashmap = "3"
+dashmap = "4.0.0"
 delay-queue = { version = "0.2", optional = true }
-actix-storage = { version = "0.1.2", features = ["with-serde"] }
+actix-storage = { version = "0.2.0", features = ["with-serde"] }
 
 [dev-dependencies]
 actix-web = "3"
 actix-rt = "1.1"
-rand = "0.7"
+rand = "0.8"
 serde = "1.0"
-actix-storage = { version = "0.1.2", features = ["all", "tests"] }
+actix-storage = { version = "0.2.0", features = ["all", "tests"] }
 
 [features]
 actor = ["delay-queue"]
