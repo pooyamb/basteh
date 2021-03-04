@@ -153,7 +153,7 @@ mod test {
     use super::*;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Serialize, Deserialize, Eq, PartialEq)]
+    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
     struct Human {
         name: String,
         height: u32,
@@ -182,7 +182,7 @@ mod test {
         #[test]
         fn test_features() {
             let format = Format::default();
-            assert!(format == Format::None);
+            assert!(format, Format::None);
         }
 
         #[test]
@@ -220,7 +220,7 @@ mod test {
         let s = serialize(&mamad, &format).unwrap();
         let demamad: Human = deserialize(&s, &format).unwrap();
 
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 
     #[cfg(any(
@@ -245,9 +245,9 @@ mod test {
         let format = Format::Json;
         let mamad = get_mamad();
         let s = serialize(&mamad, &format).unwrap();
-        assert!(s == br#"{"name":"Mamad","height":160,"says_hello":false}"#);
+        assert_eq!(s, br#"{"name":"Mamad","height":160,"says_hello":false}"#);
         let demamad: Human = deserialize(&s, &format).unwrap();
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 
     #[cfg(any(feature = "serde-cbor"))]
@@ -256,14 +256,15 @@ mod test {
         let format = Format::Cbor;
         let mamad = get_mamad();
         let s = serialize(&mamad, &format).unwrap();
-        assert!(
-            s == [
+        assert_eq!(
+            s,
+            [
                 163, 100, 110, 97, 109, 101, 101, 77, 97, 109, 97, 100, 102, 104, 101, 105, 103,
                 104, 116, 24, 160, 106, 115, 97, 121, 115, 95, 104, 101, 108, 108, 111, 244
             ]
         );
         let demamad: Human = deserialize(&s, &format).unwrap();
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 
     #[cfg(any(feature = "serde-ron"))]
@@ -272,9 +273,9 @@ mod test {
         let format = Format::Ron;
         let mamad = get_mamad();
         let s = serialize(&mamad, &format).unwrap();
-        assert!(s == br#"(name:"Mamad",height:160,says_hello:false)"#);
+        assert_eq!(s, br#"(name:"Mamad",height:160,says_hello:false)"#);
         let demamad: Human = deserialize(&s, &format).unwrap();
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 
     #[cfg(any(feature = "serde-yaml"))]
@@ -283,9 +284,12 @@ mod test {
         let format = Format::Yaml;
         let mamad = get_mamad();
         let s = serialize(&mamad, &format).unwrap();
-        assert!(s == "---\nname: Mamad\nheight: 160\nsays_hello: false".as_bytes());
+        assert_eq!(
+            s,
+            "---\nname: Mamad\nheight: 160\nsays_hello: false\n".as_bytes()
+        );
         let demamad: Human = deserialize(&s, &format).unwrap();
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 
     #[cfg(any(feature = "serde-bincode"))]
@@ -294,9 +298,12 @@ mod test {
         let format = Format::Bincode;
         let mamad = get_mamad();
         let s = serialize(&mamad, &format).unwrap();
-        assert!(s == [5, 0, 0, 0, 0, 0, 0, 0, 77, 97, 109, 97, 100, 160, 0, 0, 0, 0]);
+        assert_eq!(
+            s,
+            [5, 0, 0, 0, 0, 0, 0, 0, 77, 97, 109, 97, 100, 160, 0, 0, 0, 0]
+        );
         let demamad: Human = deserialize(&s, &format).unwrap();
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 
     #[cfg(any(feature = "serde-xml"))]
@@ -305,8 +312,11 @@ mod test {
         let format = Format::Xml;
         let mamad = get_mamad();
         let s = serialize(&mamad, &format).unwrap();
-        assert!(s == br#"<Human name="Mamad" height="160" says_hello="false"/>"#);
+        assert_eq!(
+            s,
+            br#"<Human name="Mamad" height="160" says_hello="false"/>"#
+        );
         let demamad: Human = deserialize(&s, &format).unwrap();
-        assert!(mamad == demamad)
+        assert_eq!(mamad, demamad)
     }
 }
