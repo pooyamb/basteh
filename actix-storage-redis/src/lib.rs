@@ -62,39 +62,43 @@ impl RedisBackend {
 
 #[async_trait::async_trait]
 impl Store for RedisBackend {
-    async fn set(&self, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         self.con
             .clone()
-            .set(key.as_ref(), value.as_ref())
+            .set(full_key, value.as_ref())
             .await
             .map_err(StorageError::custom)?;
         Ok(())
     }
 
-    async fn get(&self, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         let res: Option<Vec<u8>> = self
             .con
             .clone()
-            .get(key.as_ref())
+            .get(full_key)
             .await
             .map_err(StorageError::custom)?;
         Ok(res.map(|val| val.into()))
     }
 
-    async fn delete(&self, key: Arc<[u8]>) -> Result<()> {
+    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         self.con
             .clone()
-            .del(key.as_ref())
+            .del(full_key)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
     }
 
-    async fn contains_key(&self, key: Arc<[u8]>) -> Result<bool> {
+    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         let res: u8 = self
             .con
             .clone()
-            .exists(key.as_ref())
+            .exists(full_key)
             .await
             .map_err(StorageError::custom)?;
         Ok(res > 0)
@@ -103,20 +107,22 @@ impl Store for RedisBackend {
 
 #[async_trait::async_trait]
 impl Expiry for RedisBackend {
-    async fn persist(&self, key: Arc<[u8]>) -> Result<()> {
+    async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         self.con
             .clone()
-            .persist(key.as_ref())
+            .persist(full_key)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
     }
 
-    async fn expiry(&self, key: Arc<[u8]>) -> Result<Option<Duration>> {
+    async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         let res: i32 = self
             .con
             .clone()
-            .ttl(key.as_ref())
+            .ttl(full_key)
             .await
             .map_err(StorageError::custom)?;
         Ok(if res >= 0 {
@@ -126,10 +132,11 @@ impl Expiry for RedisBackend {
         })
     }
 
-    async fn expire(&self, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
+    async fn expire(&self, scope: Arc<[u8]>, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         self.con
             .clone()
-            .expire(key.as_ref(), expire_in.as_secs() as usize)
+            .expire(full_key, expire_in.as_secs() as usize)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
@@ -140,13 +147,15 @@ impl Expiry for RedisBackend {
 impl ExpiryStore for RedisBackend {
     async fn set_expiring(
         &self,
+        scope: Arc<[u8]>,
         key: Arc<[u8]>,
         value: Arc<[u8]>,
         expire_in: Duration,
     ) -> Result<()> {
+        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
         self.con
             .clone()
-            .set_ex(key.as_ref(), value.as_ref(), expire_in.as_secs() as usize)
+            .set_ex(full_key, value.as_ref(), expire_in.as_secs() as usize)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
