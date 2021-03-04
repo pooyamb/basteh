@@ -5,8 +5,8 @@ authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-actix-storage = { version = "0.1", features = ["serde-json"] }
-actix-storage-dashmap = { version = "0.1", features = ["actor"] }
+actix-storage = { version = "0.2.0-alpha", features = ["serde-json"] }
+actix-storage-dashmap = { version = "0.2.0-alpha", features = ["actor"] }
 actix-web = "3"
 serde = "1.0.117"
 
