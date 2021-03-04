@@ -8,6 +8,8 @@ use crate::error::Result;
 #[cfg(feature = "with-serde")]
 use crate::format::{deserialize, serialize, Format};
 
+const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
+
 /// Takes the underlying backend and provides common methods for it
 ///
 /// It can be stored in actix_web's Data and be used from handlers
@@ -36,6 +38,7 @@ use crate::format::{deserialize, serialize, Format};
 ///
 #[derive(Clone)]
 pub struct Storage {
+    scope: Arc<[u8]>,
     store: Arc<dyn ExpiryStore>,
     #[cfg(feature = "with-serde")]
     format: Format,
@@ -45,6 +48,18 @@ impl Storage {
     /// Returns the storage builder struct
     pub fn build() -> StorageBuilder {
         StorageBuilder::default()
+    }
+
+    /// Return a new Storage struct for the specified scope.
+    /// Scopes may or may not be implemented as key prefixes but should provide
+    /// some guarantees to not mutate other scopes.
+    pub fn scope(&self, scope: impl AsRef<[u8]>) -> Storage {
+        Storage {
+            scope: scope.as_ref().into(),
+            store: self.store.clone(),
+            #[cfg(feature = "with-serde")]
+            format: self.format,
+        }
     }
 
     /// Stores a generic serializable value on storage using serde
@@ -77,7 +92,11 @@ impl Storage {
         V: serde::Serialize,
     {
         self.store
-            .set(key.as_ref().into(), serialize(value, &self.format)?.into())
+            .set(
+                self.scope.clone(),
+                key.as_ref().into(),
+                serialize(value, &self.format)?.into(),
+            )
             .await
     }
 
@@ -120,6 +139,7 @@ impl Storage {
     {
         self.store
             .set_expiring(
+                self.scope.clone(),
                 key.as_ref().into(),
                 serialize(value, &self.format)?.into(),
                 expires_in,
@@ -145,7 +165,11 @@ impl Storage {
     /// ```
     pub async fn set_bytes(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.store
-            .set(key.as_ref().into(), value.as_ref().into())
+            .set(
+                self.scope.clone(),
+                key.as_ref().into(),
+                value.as_ref().into(),
+            )
             .await
     }
 
@@ -178,7 +202,12 @@ impl Storage {
         expires_in: Duration,
     ) -> Result<()> {
         self.store
-            .set_expiring(key.as_ref().into(), value.as_ref().into(), expires_in)
+            .set_expiring(
+                self.scope.clone(),
+                key.as_ref().into(),
+                value.as_ref().into(),
+                expires_in,
+            )
             .await
     }
 
@@ -206,7 +235,10 @@ impl Storage {
         K: AsRef<[u8]>,
         V: serde::de::DeserializeOwned,
     {
-        let val = self.store.get(key.as_ref().into()).await?;
+        let val = self
+            .store
+            .get(self.scope.clone(), key.as_ref().into())
+            .await?;
         val.map(|val| deserialize(val.as_ref(), &self.format))
             .transpose()
     }
@@ -237,7 +269,11 @@ impl Storage {
         K: AsRef<[u8]>,
         V: serde::de::DeserializeOwned,
     {
-        if let Some((val, expiry)) = self.store.get_expiring(key.as_ref().into()).await? {
+        if let Some((val, expiry)) = self
+            .store
+            .get_expiring(self.scope.clone(), key.as_ref().into())
+            .await?
+        {
             let val = deserialize(val.as_ref(), &self.format)?;
             Ok(Some((val, expiry)))
         } else {
@@ -258,11 +294,15 @@ impl Storage {
     /// # }
     /// ```
     pub async fn get_bytes(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
-        Ok(self.store.get(key.as_ref().into()).await?.map(|val| {
-            let mut new_value = vec![];
-            new_value.extend_from_slice(val.as_ref());
-            new_value
-        }))
+        Ok(self
+            .store
+            .get(self.scope.clone(), key.as_ref().into())
+            .await?
+            .map(|val| {
+                let mut new_value = vec![];
+                new_value.extend_from_slice(val.as_ref());
+                new_value
+            }))
     }
 
     /// Same as `get_bytes` but it also gets expiry.
@@ -281,7 +321,11 @@ impl Storage {
         &self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
-        if let Some((val, expiry)) = self.store.get_expiring(key.as_ref().into()).await? {
+        if let Some((val, expiry)) = self
+            .store
+            .get_expiring(self.scope.clone(), key.as_ref().into())
+            .await?
+        {
             Ok(Some((val.as_ref().into(), expiry)))
         } else {
             Ok(None)
@@ -301,7 +345,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn get_bytes_ref(&self, key: impl AsRef<[u8]>) -> Result<Option<Arc<[u8]>>> {
-        self.store.get(key.as_ref().into()).await
+        self.store
+            .get(self.scope.clone(), key.as_ref().into())
+            .await
     }
 
     /// Same as `get_bytes_ref` but it also gets expiry.
@@ -320,7 +366,11 @@ impl Storage {
         &self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
-        if let Some((val, expiry)) = self.store.get_expiring(key.as_ref().into()).await? {
+        if let Some((val, expiry)) = self
+            .store
+            .get_expiring(self.scope.clone(), key.as_ref().into())
+            .await?
+        {
             Ok(Some((val, expiry)))
         } else {
             Ok(None)
@@ -340,7 +390,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn delete(&self, key: impl AsRef<[u8]>) -> Result<()> {
-        self.store.delete(key.as_ref().into()).await
+        self.store
+            .delete(self.scope.clone(), key.as_ref().into())
+            .await
     }
 
     /// Checks if storage contains a key.
@@ -356,7 +408,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn contains_key(&self, key: impl AsRef<[u8]>) -> Result<bool> {
-        self.store.contains_key(key.as_ref().into()).await
+        self.store
+            .contains_key(self.scope.clone(), key.as_ref().into())
+            .await
     }
 
     /// Sets expiry on a key, it won't result in error if the key doesn't exist.
@@ -376,7 +430,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn expire(&self, key: impl AsRef<[u8]>, expire_in: Duration) -> Result<()> {
-        self.store.expire(key.as_ref().into(), expire_in).await
+        self.store
+            .expire(self.scope.clone(), key.as_ref().into(), expire_in)
+            .await
     }
 
     /// Gets expiry for the provided key, it will give none if there is no expiry set.
@@ -401,7 +457,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn expiry(&self, key: impl AsRef<[u8]>) -> Result<Option<Duration>> {
-        self.store.expiry(key.as_ref().into()).await
+        self.store
+            .expiry(self.scope.clone(), key.as_ref().into())
+            .await
     }
 
     /// Extends expiry for a key, it won't result in error if the key doesn't exist.
@@ -421,7 +479,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn extend(&self, key: impl AsRef<[u8]>, expire_in: Duration) -> Result<()> {
-        self.store.extend(key.as_ref().into(), expire_in).await
+        self.store
+            .extend(self.scope.clone(), key.as_ref().into(), expire_in)
+            .await
     }
 
     /// Clears expiry from the provided key, making it persistant.
@@ -440,7 +500,9 @@ impl Storage {
     /// # }
     /// ```
     pub async fn persist(&self, key: impl AsRef<[u8]>) -> Result<()> {
-        self.store.persist(key.as_ref().into()).await
+        self.store
+            .persist(self.scope.clone(), key.as_ref().into())
+            .await
     }
 }
 
@@ -518,6 +580,7 @@ impl StorageBuilder {
         };
 
         Storage {
+            scope: Arc::new(GLOBAL_SCOPE),
             store: expiry_store,
             #[cfg(feature = "with-serde")]
             format: self.format,
@@ -538,33 +601,43 @@ mod private {
 
     #[async_trait::async_trait]
     impl Expiry for ExpiryStoreGlue {
-        async fn expire(&self, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
+        async fn expire(
+            &self,
+            scope: Arc<[u8]>,
+            key: Arc<[u8]>,
+            expire_in: Duration,
+        ) -> Result<()> {
             if let Some(expiry) = self.1.clone() {
-                expiry.expire(key, expire_in).await
+                expiry.expire(scope, key, expire_in).await
             } else {
                 Err(StorageError::MethodNotSupported)
             }
         }
 
-        async fn expiry(&self, key: Arc<[u8]>) -> Result<Option<Duration>> {
+        async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
             if let Some(ref expiry) = self.1 {
-                expiry.expiry(key).await
+                expiry.expiry(scope, key).await
             } else {
                 Err(StorageError::MethodNotSupported)
             }
         }
 
-        async fn extend(&self, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
+        async fn extend(
+            &self,
+            scope: Arc<[u8]>,
+            key: Arc<[u8]>,
+            expire_in: Duration,
+        ) -> Result<()> {
             if let Some(ref expiry) = self.1 {
-                expiry.extend(key, expire_in).await
+                expiry.extend(scope, key, expire_in).await
             } else {
                 Err(StorageError::MethodNotSupported)
             }
         }
 
-        async fn persist(&self, key: Arc<[u8]>) -> Result<()> {
+        async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
             if let Some(ref expiry) = self.1 {
-                expiry.persist(key).await
+                expiry.persist(scope, key).await
             } else {
                 Err(StorageError::MethodNotSupported)
             }
@@ -573,24 +646,24 @@ mod private {
 
     #[async_trait::async_trait]
     impl Store for ExpiryStoreGlue {
-        async fn set(&self, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
-            self.0.set(key.clone(), value).await?;
+        async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+            self.0.set(scope, key.clone(), value).await?;
             if let Some(ref expiry) = self.1 {
                 expiry.set_called(key).await;
             };
             Ok(())
         }
 
-        async fn get(&self, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
-            self.0.get(key).await
+        async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+            self.0.get(scope, key).await
         }
 
-        async fn delete(&self, key: Arc<[u8]>) -> Result<()> {
-            self.0.delete(key).await
+        async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+            self.0.delete(scope, key).await
         }
 
-        async fn contains_key(&self, key: Arc<[u8]>) -> Result<bool> {
-            self.0.contains_key(key).await
+        async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+            self.0.contains_key(scope, key).await
         }
     }
 
@@ -598,13 +671,14 @@ mod private {
     impl ExpiryStore for ExpiryStoreGlue {
         async fn set_expiring(
             &self,
+            scope: Arc<[u8]>,
             key: Arc<[u8]>,
             value: Arc<[u8]>,
             expire_in: Duration,
         ) -> Result<()> {
             if let Some(expiry) = self.1.clone() {
-                self.0.set(key.clone(), value).await?;
-                expiry.expire(key, expire_in).await
+                self.0.set(scope.clone(), key.clone(), value).await?;
+                expiry.expire(scope, key, expire_in).await
             } else {
                 Err(StorageError::MethodNotSupported)
             }
@@ -612,12 +686,13 @@ mod private {
 
         async fn get_expiring(
             &self,
+            scope: Arc<[u8]>,
             key: Arc<[u8]>,
         ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
             if let Some(expiry) = self.1.clone() {
-                let val = self.0.get(key.clone()).await?;
+                let val = self.0.get(scope.clone(), key.clone()).await?;
                 if let Some(val) = val {
-                    let expiry = expiry.expiry(key).await?;
+                    let expiry = expiry.expiry(scope, key).await?;
                     Ok(Some((val, expiry)))
                 } else {
                     Ok(None)
@@ -641,16 +716,16 @@ mod test {
 
         #[async_trait::async_trait]
         impl Store for OnlyStore {
-            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
                 Ok(())
             }
-            async fn get(&self, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+            async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
                 Ok(None)
             }
-            async fn contains_key(&self, _: Arc<[u8]>) -> Result<bool> {
+            async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
                 Ok(false)
             }
-            async fn delete(&self, _: Arc<[u8]>) -> Result<()> {
+            async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
                 Ok(())
             }
         }
@@ -683,32 +758,32 @@ mod test {
 
         #[async_trait::async_trait]
         impl Store for SampleStore {
-            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
                 Ok(())
             }
-            async fn get(&self, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+            async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
                 Ok(Some("v".as_bytes().into()))
             }
-            async fn contains_key(&self, _: Arc<[u8]>) -> Result<bool> {
+            async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
                 Ok(false)
             }
-            async fn delete(&self, _: Arc<[u8]>) -> Result<()> {
+            async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
                 Ok(())
             }
         }
 
         #[async_trait::async_trait]
         impl Expiry for SampleStore {
-            async fn expire(&self, _: Arc<[u8]>, _: Duration) -> Result<()> {
+            async fn expire(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
                 Ok(())
             }
-            async fn expiry(&self, _: Arc<[u8]>) -> Result<Option<Duration>> {
+            async fn expiry(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Duration>> {
                 Ok(Some(Duration::from_secs(1)))
             }
-            async fn extend(&self, _: Arc<[u8]>, _: Duration) -> Result<()> {
+            async fn extend(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
                 Ok(())
             }
-            async fn persist(&self, _: Arc<[u8]>) -> Result<()> {
+            async fn persist(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
                 Ok(())
             }
         }

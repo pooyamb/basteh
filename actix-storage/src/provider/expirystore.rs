@@ -13,21 +13,26 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
     /// both the value and the expiry for that key.
     async fn set_expiring(
         &self,
+        scope: Arc<[u8]>,
         key: Arc<[u8]>,
         value: Arc<[u8]>,
         expire_in: Duration,
     ) -> Result<()> {
-        self.set(key.clone(), value).await?;
-        self.expire(key, expire_in).await
+        self.set(scope.clone(), key.clone(), value).await?;
+        self.expire(scope, key, expire_in).await
     }
 
     /// Get the value and expiry for a key, it is possible to return None if the key doesn't exist,
     /// or return None for the expiry if the key is persistent.
-    async fn get_expiring(&self, key: Arc<[u8]>) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
-        let val = self.get(key.clone()).await?;
+    async fn get_expiring(
+        &self,
+        scope: Arc<[u8]>,
+        key: Arc<[u8]>,
+    ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+        let val = self.get(scope.clone(), key.clone()).await?;
         match val {
             Some(val) => {
-                let expiry = self.expiry(key).await?;
+                let expiry = self.expiry(scope, key).await?;
                 Ok(Some((val, expiry)))
             }
             None => Ok(None),

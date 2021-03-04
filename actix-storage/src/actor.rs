@@ -9,6 +9,7 @@ use actix::{
 use crate::dev::{Expiry, ExpiryStore, Store};
 use crate::error::{Result, StorageError};
 
+type Scope = Arc<[u8]>;
 type Key = Arc<[u8]>;
 type Value = Arc<[u8]>;
 
@@ -21,10 +22,10 @@ type Value = Arc<[u8]>;
 #[derive(Debug, Message)]
 #[rtype(StoreResponse)]
 pub enum StoreRequest {
-    Get(Key),
-    Set(Key, Value),
-    Delete(Key),
-    Contains(Key),
+    Get(Scope, Key),
+    Set(Scope, Key, Value),
+    Delete(Scope, Key),
+    Contains(Scope, Key),
 }
 
 /// Actix message reply for [`Store`](../trait.Store.html) requests
@@ -53,9 +54,9 @@ where
     T: Actor + Handler<StoreRequest> + Sync + Send,
     T::Context: ToEnvelope<T, StoreRequest>,
 {
-    async fn set(&self, key: Key, value: Value) -> Result<()> {
+    async fn set(&self, scope: Scope, key: Key, value: Value) -> Result<()> {
         match self
-            .send(StoreRequest::Set(key, value))
+            .send(StoreRequest::Set(scope, key, value))
             .await
             .map_err(StorageError::custom)?
         {
@@ -64,9 +65,9 @@ where
         }
     }
 
-    async fn delete(&self, key: Key) -> Result<()> {
+    async fn delete(&self, scope: Scope, key: Key) -> Result<()> {
         match self
-            .send(StoreRequest::Delete(key.to_owned()))
+            .send(StoreRequest::Delete(scope, key))
             .await
             .map_err(StorageError::custom)?
         {
@@ -75,9 +76,9 @@ where
         }
     }
 
-    async fn contains_key(&self, key: Key) -> Result<bool> {
+    async fn contains_key(&self, scope: Scope, key: Key) -> Result<bool> {
         match self
-            .send(StoreRequest::Contains(key.to_owned()))
+            .send(StoreRequest::Contains(scope, key))
             .await
             .map_err(StorageError::custom)?
         {
@@ -86,9 +87,9 @@ where
         }
     }
 
-    async fn get(&self, key: Key) -> Result<Option<Value>> {
+    async fn get(&self, scope: Scope, key: Key) -> Result<Option<Value>> {
         match self
-            .send(StoreRequest::Get(key.to_owned()))
+            .send(StoreRequest::Get(scope, key))
             .await
             .map_err(StorageError::custom)?
         {
@@ -107,10 +108,10 @@ where
 #[derive(Debug, Message)]
 #[rtype(ExpiryResponse)]
 pub enum ExpiryRequest {
-    Set(Key, Duration),
-    Persist(Key),
-    Get(Key),
-    Extend(Key, Duration),
+    Set(Scope, Key, Duration),
+    Persist(Scope, Key),
+    Get(Scope, Key),
+    Extend(Scope, Key, Duration),
 }
 
 /// Actix message reply for [`Expiry`](../trait.Expiry.html) requests
@@ -139,9 +140,9 @@ where
     T: Actor + Handler<ExpiryRequest> + Sync + Send,
     T::Context: ToEnvelope<T, ExpiryRequest>,
 {
-    async fn expire(&self, key: Key, expire_in: Duration) -> Result<()> {
+    async fn expire(&self, scope: Scope, key: Key, expire_in: Duration) -> Result<()> {
         match self
-            .send(ExpiryRequest::Set(key, expire_in))
+            .send(ExpiryRequest::Set(scope, key, expire_in))
             .await
             .map_err(StorageError::custom)?
         {
@@ -150,9 +151,9 @@ where
         }
     }
 
-    async fn persist(&self, key: Key) -> Result<()> {
+    async fn persist(&self, scope: Scope, key: Key) -> Result<()> {
         match self
-            .send(ExpiryRequest::Persist(key))
+            .send(ExpiryRequest::Persist(scope, key))
             .await
             .map_err(StorageError::custom)?
         {
@@ -161,9 +162,9 @@ where
         }
     }
 
-    async fn expiry(&self, key: Key) -> Result<Option<Duration>> {
+    async fn expiry(&self, scope: Scope, key: Key) -> Result<Option<Duration>> {
         match self
-            .send(ExpiryRequest::Get(key))
+            .send(ExpiryRequest::Get(scope, key))
             .await
             .map_err(StorageError::custom)?
         {
@@ -172,9 +173,9 @@ where
         }
     }
 
-    async fn extend(&self, key: Key, expire_in: Duration) -> Result<()> {
+    async fn extend(&self, scope: Scope, key: Key, expire_in: Duration) -> Result<()> {
         match self
-            .send(ExpiryRequest::Extend(key, expire_in))
+            .send(ExpiryRequest::Extend(scope, key, expire_in))
             .await
             .map_err(StorageError::custom)?
         {
@@ -228,7 +229,13 @@ where
         + ToEnvelope<T, ExpiryRequest>
         + ToEnvelope<T, StoreRequest>,
 {
-    async fn set_expiring(&self, key: Key, value: Value, expire_in: Duration) -> Result<()> {
+    async fn set_expiring(
+        &self,
+        scope: Scope,
+        key: Key,
+        value: Value,
+        expire_in: Duration,
+    ) -> Result<()> {
         match self
             .send(ExpiryStoreRequest::SetExpiring(key, value, expire_in))
             .await
@@ -239,7 +246,11 @@ where
         }
     }
 
-    async fn get_expiring(&self, key: Key) -> Result<Option<(Value, Option<Duration>)>> {
+    async fn get_expiring(
+        &self,
+        scope: Scope,
+        key: Key,
+    ) -> Result<Option<(Value, Option<Duration>)>> {
         match self
             .send(ExpiryStoreRequest::GetExpiring(key))
             .await
@@ -270,10 +281,10 @@ mod tests {
         type Result = StoreResponse;
         fn handle(&mut self, msg: StoreRequest, _: &mut Self::Context) -> Self::Result {
             match msg {
-                StoreRequest::Get(_) => StoreResponse::Get(Ok(None)),
-                StoreRequest::Set(_, _) => StoreResponse::Set(Ok(())),
-                StoreRequest::Delete(_) => StoreResponse::Get(Ok(None)),
-                StoreRequest::Contains(_) => StoreResponse::Contains(Ok(true)),
+                StoreRequest::Get(_, _) => StoreResponse::Get(Ok(None)),
+                StoreRequest::Set(_, _, _) => StoreResponse::Set(Ok(())),
+                StoreRequest::Delete(_, _) => StoreResponse::Get(Ok(None)),
+                StoreRequest::Contains(_, _) => StoreResponse::Contains(Ok(true)),
             }
         }
     }
@@ -282,10 +293,10 @@ mod tests {
         type Result = ExpiryResponse;
         fn handle(&mut self, msg: ExpiryRequest, _: &mut Self::Context) -> Self::Result {
             match msg {
-                ExpiryRequest::Get(_) => ExpiryResponse::Get(Ok(None)),
-                ExpiryRequest::Set(_, _) => ExpiryResponse::Set(Ok(())),
-                ExpiryRequest::Persist(_) => ExpiryResponse::Persist(Ok(())),
-                ExpiryRequest::Extend(_, _) => ExpiryResponse::Extend(Ok(())),
+                ExpiryRequest::Get(_, _) => ExpiryResponse::Get(Ok(None)),
+                ExpiryRequest::Set(_, _, _) => ExpiryResponse::Set(Ok(())),
+                ExpiryRequest::Persist(_, _) => ExpiryResponse::Persist(Ok(())),
+                ExpiryRequest::Extend(_, _, _) => ExpiryResponse::Extend(Ok(())),
             }
         }
     }
@@ -306,19 +317,26 @@ mod tests {
     #[should_panic(expected = "explicit panic")]
     async fn test_actor() {
         let actor = TestActor::start_default();
+        let scope: Arc<[u8]> = "scope".as_bytes().into();
         let key: Arc<[u8]> = "key".as_bytes().into();
         let val: Arc<[u8]> = "val".as_bytes().into();
         let dur = Duration::from_secs(1);
-        assert!(actor.set(key.clone(), val.clone()).await.is_ok());
-        assert!(actor.get(key.clone()).await.is_ok());
-        assert!(actor.contains_key(key.clone()).await.is_ok());
-        assert!(actor.expire(key.clone(), dur).await.is_ok());
-        assert!(actor.expiry(key.clone()).await.is_ok());
-        assert!(actor.persist(key.clone()).await.is_ok());
-        assert!(actor.extend(key.clone(), dur).await.is_ok());
-        assert!(actor.set_expiring(key.clone(), val, dur).await.is_ok());
-        assert!(actor.get_expiring(key.clone()).await.is_ok());
+        assert!(actor
+            .set(scope.clone(), key.clone(), val.clone())
+            .await
+            .is_ok());
+        assert!(actor.get(scope.clone(), key.clone()).await.is_ok());
+        assert!(actor.contains_key(scope.clone(), key.clone()).await.is_ok());
+        assert!(actor.expire(scope.clone(), key.clone(), dur).await.is_ok());
+        assert!(actor.expiry(scope.clone(), key.clone()).await.is_ok());
+        assert!(actor.persist(scope.clone(), key.clone()).await.is_ok());
+        assert!(actor.extend(scope.clone(), key.clone(), dur).await.is_ok());
+        assert!(actor
+            .set_expiring(scope.clone(), key.clone(), val, dur)
+            .await
+            .is_ok());
+        assert!(actor.get_expiring(scope.clone(), key.clone()).await.is_ok());
         // should panic here
-        actor.delete(key).await.unwrap();
+        actor.delete(scope, key).await.unwrap();
     }
 }

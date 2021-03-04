@@ -10,7 +10,7 @@ use crate::error::{Result, StorageError};
 /// used.
 ///
 /// requires "with-serde" feature
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Format {
     #[cfg(feature = "serde-json")]
     Json,
