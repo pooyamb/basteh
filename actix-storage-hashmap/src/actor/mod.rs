@@ -13,6 +13,21 @@ use actix_storage::dev::actor::{
 mod delayqueue;
 use delayqueue::{delayqueue, DelayQueueEmergency, DelayQueueReceiver, DelayQueueSender, Expired};
 
+type ScopeMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
+type InternalMap = HashMap<Arc<[u8]>, ScopeMap>;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+struct ExpiryKey {
+    pub(crate) scope: Arc<[u8]>,
+    pub(crate) key: Arc<[u8]>,
+}
+
+impl ExpiryKey {
+    pub fn new(scope: Arc<[u8]>, key: Arc<[u8]>) -> Self {
+        Self { scope, key }
+    }
+}
+
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on async
 /// actix actors and HashMap
 ///
@@ -43,12 +58,12 @@ use delayqueue::{delayqueue, DelayQueueEmergency, DelayQueueReceiver, DelayQueue
 /// requires ["actor"] feature
 #[derive(Debug)]
 pub struct HashMapActor {
-    map: HashMap<Arc<[u8]>, Arc<[u8]>>,
-    exp: DelayQueueSender<Arc<[u8]>>,
-    emergency_channel: DelayQueueEmergency<Arc<[u8]>>,
+    map: InternalMap,
+    exp: DelayQueueSender<ExpiryKey>,
+    emergency_channel: DelayQueueEmergency<ExpiryKey>,
 
     #[doc(hidden)]
-    exp_receiver: Option<DelayQueueReceiver<Arc<[u8]>>>,
+    exp_receiver: Option<DelayQueueReceiver<ExpiryKey>>,
 }
 
 const DEFAULT_INPUT_CHANNEL_SIZE: usize = 2;
@@ -64,8 +79,7 @@ impl HashMapActor {
     /// Makes a new HashMapActor with specified HashMap capacity without starting it
     #[must_use = "Actor should be started to work by calling `start`"]
     pub fn with_capacity(capacity: usize) -> Self {
-        let (tx, rx, etx) =
-            delayqueue::<Arc<[u8]>>(DEFAULT_INPUT_CHANNEL_SIZE, DEFAULT_OUTPUT_CHANNEL_SIZE);
+        let (tx, rx, etx) = delayqueue(DEFAULT_INPUT_CHANNEL_SIZE, DEFAULT_OUTPUT_CHANNEL_SIZE);
         Self {
             map: HashMap::with_capacity(capacity),
             exp: tx,
@@ -85,7 +99,7 @@ impl HashMapActor {
         input_buffer: usize,
         output_buffer: usize,
     ) -> Self {
-        let (tx, rx, etx) = delayqueue::<Arc<[u8]>>(input_buffer, output_buffer);
+        let (tx, rx, etx) = delayqueue(input_buffer, output_buffer);
         Self {
             map: HashMap::with_capacity(capacity),
             exp: tx,
@@ -107,8 +121,7 @@ impl HashMapActor {
 
 impl Default for HashMapActor {
     fn default() -> Self {
-        let (tx, rx, etx) =
-            delayqueue::<Arc<[u8]>>(DEFAULT_INPUT_CHANNEL_SIZE, DEFAULT_OUTPUT_CHANNEL_SIZE);
+        let (tx, rx, etx) = delayqueue(DEFAULT_INPUT_CHANNEL_SIZE, DEFAULT_OUTPUT_CHANNEL_SIZE);
         Self {
             map: HashMap::new(),
             exp: tx,
@@ -148,9 +161,12 @@ impl Actor for HashMapActor {
     }
 }
 
-impl StreamHandler<Expired<Arc<[u8]>>> for HashMapActor {
-    fn handle(&mut self, item: Expired<Arc<[u8]>>, _: &mut Self::Context) {
-        self.map.remove(&item.into_inner());
+impl StreamHandler<Expired<ExpiryKey>> for HashMapActor {
+    fn handle(&mut self, item: Expired<ExpiryKey>, _: &mut Self::Context) {
+        let item = item.into_inner();
+        self.map
+            .get_mut(&item.scope)
+            .and_then(|scope_map| scope_map.remove(&item.key));
     }
 }
 
@@ -159,12 +175,18 @@ impl Handler<StoreRequest> for HashMapActor {
 
     fn handle(&mut self, msg: StoreRequest, ctx: &mut Self::Context) -> Self::Result {
         match msg {
-            StoreRequest::Set(key, value) => {
-                if self.map.insert(key.clone(), value).is_some() {
+            StoreRequest::Set(scope, key, value) => {
+                if self
+                    .map
+                    .entry(scope.clone())
+                    .or_default()
+                    .insert(key.clone(), value)
+                    .is_some()
+                {
                     // Remove the key from expiry if it already exists
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.remove(key).await }
+                        async move { exp.remove(ExpiryKey::new(scope, key)).await }
                             .into_actor(self)
                             .map(move |_, _, _| StoreResponse::Set(Ok(()))),
                     )
@@ -172,25 +194,38 @@ impl Handler<StoreRequest> for HashMapActor {
                     Box::pin(async { StoreResponse::Set(Ok(())) }.into_actor(self))
                 }
             }
-            StoreRequest::Get(key) => {
-                let val = self.map.get(&key).cloned();
+            StoreRequest::Get(scope, key) => {
+                let val = self
+                    .map
+                    .get(&scope)
+                    .and_then(|scope_map| scope_map.get(&key))
+                    .cloned();
                 Box::pin(async move { StoreResponse::Get(Ok(val)) }.into_actor(self))
             }
-            StoreRequest::Delete(key) => {
-                if self.map.remove(&key).is_some() {
+            StoreRequest::Delete(scope, key) => {
+                if self
+                    .map
+                    .get_mut(&scope)
+                    .and_then(|scope_map| scope_map.remove(&key))
+                    .is_some()
+                {
                     // Remove key from expiry if the item actually existed and was removed
                     let mut exp = self.exp.clone();
                     ctx.spawn(
                         async move {
-                            exp.remove(key).await.ok().unwrap();
+                            exp.remove(ExpiryKey::new(scope, key)).await.ok().unwrap();
                         }
                         .into_actor(self),
                     );
                 }
                 Box::pin(async { StoreResponse::Delete(Ok(())) }.into_actor(self))
             }
-            StoreRequest::Contains(key) => {
-                let con = self.map.contains_key(&key);
+            StoreRequest::Contains(scope, key) => {
+                let con = self
+                    .map
+                    .get(&scope)
+                    .map(|scope_map| scope_map.contains_key(&key))
+                    .unwrap_or(false);
                 Box::pin(async move { StoreResponse::Contains(Ok(con)) }.into_actor(self))
             }
         }
@@ -202,23 +237,37 @@ impl Handler<ExpiryRequest> for HashMapActor {
 
     fn handle(&mut self, msg: ExpiryRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            ExpiryRequest::Set(key, expires_in) => {
-                if self.map.contains_key(&key) {
+            ExpiryRequest::Set(scope, key, expires_in) => {
+                if self
+                    .map
+                    .get(&scope)
+                    .map(|scope_map| scope_map.contains_key(&key))
+                    .unwrap_or(false)
+                {
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.insert_or_update(key, expires_in).await }
-                            .into_actor(self)
-                            .map(move |_, _, _| ExpiryResponse::Set(Ok(()))),
+                        async move {
+                            exp.insert_or_update(ExpiryKey::new(scope, key), expires_in)
+                                .await
+                        }
+                        .into_actor(self)
+                        .map(move |_, _, _| ExpiryResponse::Set(Ok(()))),
                     )
                 } else {
+                    // The key does not exist, we return Ok here as the non-existent key may be expired before
                     Box::pin(async { ExpiryResponse::Set(Ok(())) }.into_actor(self))
                 }
             }
-            ExpiryRequest::Persist(key) => {
-                if self.map.contains_key(&key) {
+            ExpiryRequest::Persist(scope, key) => {
+                if self
+                    .map
+                    .get(&scope)
+                    .map(|scope_map| scope_map.contains_key(&key))
+                    .unwrap_or(false)
+                {
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.remove(key).await }
+                        async move { exp.remove(ExpiryKey::new(scope, key)).await }
                             .into_actor(self)
                             .map(move |_, _, _| ExpiryResponse::Persist(Ok(()))),
                     )
@@ -226,18 +275,18 @@ impl Handler<ExpiryRequest> for HashMapActor {
                     Box::pin(async { ExpiryResponse::Persist(Ok(())) }.into_actor(self))
                 }
             }
-            ExpiryRequest::Get(key) => {
+            ExpiryRequest::Get(scope, key) => {
                 let mut exp = self.exp.clone();
                 Box::pin(
-                    async move { exp.get(key).await.ok().flatten() }
+                    async move { exp.get(ExpiryKey::new(scope, key)).await.ok().flatten() }
                         .into_actor(self)
                         .map(|val, _, _| ExpiryResponse::Get(Ok(val))),
                 )
             }
-            ExpiryRequest::Extend(key, duration) => {
+            ExpiryRequest::Extend(scope, key, duration) => {
                 let mut exp = self.exp.clone();
                 Box::pin(
-                    async move { exp.extend(key, duration).await }
+                    async move { exp.extend(ExpiryKey::new(scope, key), duration).await }
                         .into_actor(self)
                         .map(|_, _, _| ExpiryResponse::Extend(Ok(()))),
                 )
@@ -251,21 +300,31 @@ impl Handler<ExpiryStoreRequest> for HashMapActor {
 
     fn handle(&mut self, msg: ExpiryStoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            ExpiryStoreRequest::SetExpiring(key, value, expires_in) => {
-                self.map.insert(key.clone(), value);
+            ExpiryStoreRequest::SetExpiring(scope, key, value, expires_in) => {
+                self.map
+                    .entry(scope.clone())
+                    .or_default()
+                    .insert(key.clone(), value);
                 let mut exp = self.exp.clone();
                 Box::pin(
-                    async move { exp.insert_or_update(key, expires_in).await }
-                        .into_actor(self)
-                        .map(move |_, _, _| ExpiryStoreResponse::SetExpiring(Ok(()))),
+                    async move {
+                        exp.insert_or_update(ExpiryKey::new(scope, key), expires_in)
+                            .await
+                    }
+                    .into_actor(self)
+                    .map(move |_, _, _| ExpiryStoreResponse::SetExpiring(Ok(()))),
                 )
             }
-            ExpiryStoreRequest::GetExpiring(key) => {
-                let val = self.map.get(&key).cloned();
+            ExpiryStoreRequest::GetExpiring(scope, key) => {
+                let val = self
+                    .map
+                    .get(&scope)
+                    .and_then(|scope_map| scope_map.get(&key))
+                    .cloned();
                 if let Some(val) = val {
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.get(key).await.ok().flatten() }
+                        async move { exp.get(ExpiryKey::new(scope, key)).await.ok().flatten() }
                             .into_actor(self)
                             .map(|expiry, _, _| {
                                 ExpiryStoreResponse::GetExpiring(Ok(Some((val, expiry))))

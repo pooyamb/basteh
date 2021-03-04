@@ -6,9 +6,10 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[error("A proccess obtaining the lock has failed while keeping it.")]
-pub struct LockStorageError;
+pub struct PoisionLockStorageError;
 
-type InternalMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
+type ScopeMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
+type InternalMap = HashMap<Arc<[u8]>, ScopeMap>;
 
 /// A simple implementation of [`Store`](actix_storage::dev::Store) based on RwLock wrapped HashMap
 ///
@@ -59,37 +60,44 @@ impl HashMapStore {
 
 #[async_trait::async_trait]
 impl Store for HashMapStore {
-    async fn set(&self, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
         match self.map.write() {
             Ok(mut h) => {
-                h.insert(key, value);
+                h.entry(scope).or_default().insert(key, value);
                 Ok(())
             }
-            Err(_) => Err(StorageError::custom(LockStorageError)),
+            Err(_) => Err(StorageError::custom(PoisionLockStorageError)),
         }
     }
 
-    async fn get(&self, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
         match self.map.read() {
-            Ok(h) => Ok(h.get(key.as_ref()).cloned()),
-            Err(_) => Err(StorageError::custom(LockStorageError)),
+            Ok(h) => Ok(h
+                .get(&scope)
+                .and_then(|scope_map| scope_map.get(&key))
+                .cloned()),
+            Err(_) => Err(StorageError::custom(PoisionLockStorageError)),
         }
     }
 
-    async fn delete(&self, key: Arc<[u8]>) -> Result<()> {
+    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
         match self.map.write() {
             Ok(mut h) => {
-                h.remove(key.as_ref());
+                h.get_mut(&scope)
+                    .and_then(|scope_map| scope_map.remove(&key));
                 Ok(())
             }
-            Err(_) => Err(StorageError::custom(LockStorageError)),
+            Err(_) => Err(StorageError::custom(PoisionLockStorageError)),
         }
     }
 
-    async fn contains_key(&self, key: Arc<[u8]>) -> Result<bool> {
+    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
         match self.map.read() {
-            Ok(h) => Ok(h.contains_key(key.as_ref())),
-            Err(_) => Err(StorageError::custom(LockStorageError)),
+            Ok(h) => Ok(h
+                .get(&scope)
+                .map(|scope_map| scope_map.contains_key(&key))
+                .unwrap_or(false)),
+            Err(_) => Err(StorageError::custom(PoisionLockStorageError)),
         }
     }
 }
