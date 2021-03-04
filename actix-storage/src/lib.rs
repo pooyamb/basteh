@@ -10,7 +10,7 @@ mod format;
 pub use crate::format::Format;
 
 pub use error::{Result, StorageError};
-pub use storage::Storage;
+pub use storage::{Storage, GLOBAL_SCOPE};
 
 /// Set of traits and structs used for storage backend development
 pub mod dev {

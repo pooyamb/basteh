@@ -11,7 +11,7 @@ use crate::error::Result;
 #[cfg(feature = "with-serde")]
 use crate::format::{deserialize, serialize, Format};
 
-const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
+pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
 
 /// Takes the underlying backend and provides common methods for it
 ///
