@@ -5,10 +5,13 @@ use crate::{dev::*, *};
 pub async fn test_store<S: 'static + Store>(store: S) {
     let store = Storage::build().store(store).finish();
     assert!(store.set_bytes("key1", "val").await.is_ok());
-    assert!(store.get_bytes("key1").await.unwrap() == Some("val".as_bytes().into()));
+    assert_eq!(
+        store.get_bytes("key1").await.unwrap(),
+        Some("val".as_bytes().into())
+    );
     assert!(store.contains_key("key1").await.unwrap());
     assert!(store.delete("key1").await.is_ok());
-    assert!(store.get_bytes("key1").await.unwrap() == None);
+    assert_eq!(store.get_bytes("key1").await.unwrap(), None);
     assert!(!store.contains_key("key1").await.unwrap());
 }
 
@@ -30,7 +33,10 @@ pub async fn test_expiry<S: 'static + Store, E: 'static + Expiry>(
     // Testing set and get before expiry
     assert!(store.set_bytes("key2", "val").await.is_ok());
     assert!(store.expire("key2", delay).await.is_ok());
-    assert!(store.get_bytes("key2").await.unwrap() == Some("val".as_bytes().into()));
+    assert_eq!(
+        store.get_bytes("key2").await.unwrap(),
+        Some("val".as_bytes().into())
+    );
 
     // The exact number of seconds returned depends on the implementation
     let exp = store.expiry("key2").await.unwrap().unwrap();
@@ -78,19 +84,28 @@ pub async fn test_expiry<S: 'static + Store, E: 'static + Expiry>(
     actix::clock::delay_for(Duration::from_secs((delay_secs * 2) + 1)).await;
 
     // Check if extended item has been expired
-    assert!(store.get_bytes("key2").await.unwrap() == None);
+    assert_eq!(store.get_bytes("key2").await.unwrap(), None);
 
     // Check if persistent key is still there
-    assert!(store.get_bytes("key_persist").await.unwrap() == Some("val".as_bytes().into()));
+    assert_eq!(
+        store.get_bytes("key_persist").await.unwrap(),
+        Some("val".as_bytes().into())
+    );
 
     // Check if calling expire twice did the overwrite
-    assert!(store.get_bytes("key_2*expire").await.unwrap() == Some("val".as_bytes().into()));
+    assert_eq!(
+        store.get_bytes("key_2*expire").await.unwrap(),
+        Some("val".as_bytes().into())
+    );
 
     // Check if overwriten expiry still works
-    assert!(store.get_bytes("key_2*expire_2sec").await.unwrap() == None);
+    assert_eq!(store.get_bytes("key_2*expire_2sec").await.unwrap(), None);
 
     // Check if calling set twice cleaerd the expire
-    assert!(store.get_bytes("key_2*set").await.unwrap() == Some("val".as_bytes().into()));
+    assert_eq!(
+        store.get_bytes("key_2*set").await.unwrap(),
+        Some("val".as_bytes().into())
+    );
 }
 
 // delay_secs is the duration of time we set for expiry and we wait to see
@@ -103,7 +118,7 @@ pub async fn test_expiry_store<S: 'static + ExpiryStore>(store: S, delay_secs: u
     // Test set and get expiring
     assert!(store.set_expiring_bytes("key3", "val", delay).await.is_ok());
     let (v, e) = store.get_expiring_bytes("key3").await.unwrap().unwrap();
-    assert!(v == "val".as_bytes());
+    assert_eq!(v, "val".as_bytes());
     assert!(e.unwrap().as_secs() > 0);
     assert!(e.unwrap().as_secs() <= delay_secs);
 
@@ -124,7 +139,7 @@ pub async fn test_expiry_store<S: 'static + ExpiryStore>(store: S, delay_secs: u
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
-    assert!(store.get_expiring_bytes("key3").await.unwrap() == None);
+    assert_eq!(store.get_expiring_bytes("key3").await.unwrap(), None);
 
     // Check if the second call to set overwrites expiry
     assert!(store.get_bytes("key3_2set").await.unwrap().is_some());
@@ -164,7 +179,7 @@ pub async fn test_format<S: 'static + Store>(store: S, format: Format) {
         .finish();
     use serde::{Deserialize, Serialize};
 
-    #[derive(Serialize, Deserialize, Eq, PartialEq)]
+    #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
     struct Human {
         name: String,
         height: u32,
@@ -184,7 +199,7 @@ pub async fn test_format<S: 'static + Store>(store: S, format: Format) {
     storage.set(key.clone(), &value).await.unwrap();
     let v: Option<Human> = storage.get(key).await.unwrap();
     assert!(v.is_some());
-    assert!(v.unwrap() == value);
+    assert_eq!(v.unwrap(), value);
 }
 
 #[cfg(all(
