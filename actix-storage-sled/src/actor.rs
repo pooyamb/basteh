@@ -123,7 +123,7 @@ impl ExpiryFlags {
 #[derive(Clone)]
 pub struct SledActor {
     db: sled::Db,
-    queue: DelayQueue<Delay<(Arc<[u8]>, u64)>>,
+    queue: DelayQueue<Delay<((Arc<[u8]>, Arc<[u8]>), u64)>>,
     perform_deletion: bool,
     scan_db_on_start: bool,
 
@@ -188,24 +188,31 @@ impl SledActor {
     }
 
     fn scan_expired_items(&mut self) {
-        let mut deleted_keys = vec![];
-        for kv in self.db.iter() {
-            if let Ok((key, value)) = kv {
-                let mut bytes = value.clone();
-                if let Some((_, exp)) = decode_mut(&mut bytes) {
-                    if exp.expired() {
-                        deleted_keys.push(key);
-                    } else if let Some(dur) = exp.expires_in() {
-                        self.queue.push(Delay::for_duration(
-                            (key.to_vec().into(), exp.nonce.get()),
-                            dur,
-                        ));
+        for tree_name in self.db.tree_names() {
+            if let Ok(tree) = self.db.open_tree(&tree_name) {
+                let mut deleted_keys = vec![];
+                for kv in tree.iter() {
+                    if let Ok((key, value)) = kv {
+                        let mut bytes = value.clone();
+                        if let Some((_, exp)) = decode_mut(&mut bytes) {
+                            if exp.expired() {
+                                deleted_keys.push(key);
+                            } else if let Some(dur) = exp.expires_in() {
+                                self.queue.push(Delay::for_duration(
+                                    (
+                                        (tree_name.to_vec().into(), key.to_vec().into()),
+                                        exp.nonce.get(),
+                                    ),
+                                    dur,
+                                ));
+                            }
+                        }
                     }
                 }
+                for key in deleted_keys {
+                    tree.remove(&key).unwrap();
+                }
             }
-        }
-        for key in deleted_keys {
-            self.db.remove(&key).unwrap();
         }
     }
 }
@@ -226,11 +233,13 @@ impl Actor for SledActor {
         if self.perform_deletion {
             std::thread::spawn(move || loop {
                 if let Some(item) = queue.try_pop_for(Duration::from_secs(1)) {
-                    let val = map.get(&item.value.0).ok().flatten();
-                    if let Some(mut bytes) = val {
-                        if let Some((_, exp)) = decode_mut(&mut bytes) {
-                            if exp.nonce.get() == item.value.1 && exp.persist.get() == 0 {
-                                map.remove(&item.value.0).ok();
+                    if let Ok(tree) = map.open_tree(item.value.0 .0) {
+                        let val = tree.get(&item.value.0 .1).ok().flatten();
+                        if let Some(mut bytes) = val {
+                            if let Some((_, exp)) = decode_mut(&mut bytes) {
+                                if exp.nonce.get() == item.value.1 && exp.persist.get() == 0 {
+                                    tree.remove(&item.value.0 .1).ok();
+                                }
                             }
                         }
                     }
@@ -242,8 +251,15 @@ impl Actor for SledActor {
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {
+        // Should have better error handling here
         self.stopped
-            .compare_and_swap(false, true, std::sync::atomic::Ordering::Acquire);
+            .compare_exchange(
+                false,
+                true,
+                std::sync::atomic::Ordering::Acquire,
+                std::sync::atomic::Ordering::Acquire,
+            )
+            .ok();
     }
 }
 
@@ -252,50 +268,62 @@ impl Handler<StoreRequest> for SledActor {
 
     fn handle(&mut self, msg: StoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            StoreRequest::Set(key, value) => {
+            StoreRequest::Set(scope, key, value) => {
                 let res = self
                     .db
-                    .remove(key.as_ref())
-                    .and_then(|bytes| {
-                        let nonce = if let Some(bytes) = bytes {
-                            decode(&bytes)
-                                .map(|(_, exp)| exp.next_nonce())
-                                .unwrap_or_default()
-                        } else {
-                            0
-                        };
+                    .open_tree(scope)
+                    .and_then(|tree| {
+                        tree.remove(&key).and_then(|bytes| {
+                            let nonce = if let Some(bytes) = bytes {
+                                decode(&bytes)
+                                    .map(|(_, exp)| exp.next_nonce())
+                                    .unwrap_or_default()
+                            } else {
+                                0
+                            };
 
-                        let exp = ExpiryFlags::new_persist(nonce);
-                        let val = encode(value.as_bytes(), exp);
+                            let exp = ExpiryFlags::new_persist(nonce);
+                            let val = encode(value.as_bytes(), exp);
 
-                        self.db.insert(key.as_ref(), val).map(|_| ())
+                            tree.insert(&key, val).map(|_| ())
+                        })
                     })
                     .map_err(StorageError::custom);
                 StoreResponse::Set(res)
             }
-            StoreRequest::Get(key) => {
-                let value = self.db.get(&key).map_err(StorageError::custom).map(|val| {
-                    val.and_then(|bytes| {
-                        let (val, exp) = decode(&bytes)?;
-                        if !exp.expired() {
-                            Some(val.into())
-                        } else {
-                            None
-                        }
+            StoreRequest::Get(scope, key) => {
+                let value = self
+                    .db
+                    .open_tree(scope)
+                    .and_then(|tree| {
+                        tree.get(&key).map(|val| {
+                            val.and_then(|bytes| {
+                                let (val, exp) = decode(&bytes)?;
+                                if !exp.expired() {
+                                    Some(val.into())
+                                } else {
+                                    None
+                                }
+                            })
+                        })
                     })
-                });
+                    .map_err(StorageError::custom);
                 StoreResponse::Get(value)
             }
-            StoreRequest::Delete(key) => {
+            StoreRequest::Delete(scope, key) => {
                 let res = self
                     .db
-                    .remove(&key)
-                    .map(|_| ())
+                    .open_tree(scope)
+                    .and_then(|tree| tree.remove(&key).map(|_| ()))
                     .map_err(StorageError::custom);
                 StoreResponse::Delete(res)
             }
-            StoreRequest::Contains(key) => {
-                let res = self.db.contains_key(&key).map_err(StorageError::custom);
+            StoreRequest::Contains(scope, key) => {
+                let res = self
+                    .db
+                    .open_tree(scope)
+                    .and_then(|tree| tree.contains_key(&key))
+                    .map_err(StorageError::custom);
                 StoreResponse::Contains(res)
             }
         }
@@ -307,23 +335,25 @@ impl Handler<ExpiryRequest> for SledActor {
 
     fn handle(&mut self, msg: ExpiryRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            ExpiryRequest::Set(key, expires_in) => {
+            ExpiryRequest::Set(scope, key, expires_in) => {
                 let mut nonce = 0;
                 let mut total_duration = None;
-                let val = self.db.update_and_fetch(&key, |existing| {
-                    let mut bytes = sled::IVec::from(existing?);
+                let val = self.db.open_tree(&scope).and_then(|tree| {
+                    tree.update_and_fetch(&key, |existing| {
+                        let mut bytes = sled::IVec::from(existing?);
 
-                    // If we can't decode the bytes, leave them as they are
-                    if let Some((_, exp)) = decode_mut(&mut bytes) {
-                        exp.increase_nonce();
-                        exp.expire_in(expires_in);
-                        exp.persist.set(0);
+                        // If we can't decode the bytes, leave them as they are
+                        if let Some((_, exp)) = decode_mut(&mut bytes) {
+                            exp.increase_nonce();
+                            exp.expire_in(expires_in);
+                            exp.persist.set(0);
 
-                        // Sending values to outer scope
-                        nonce = exp.nonce.get();
-                        total_duration = exp.expires_in();
-                    }
-                    Some(bytes)
+                            // Sending values to outer scope
+                            nonce = exp.nonce.get();
+                            total_duration = exp.expires_in();
+                        }
+                        Some(bytes)
+                    })
                 });
                 // We can't add item to queue in update_and_fetch as it may run multiple times
                 // before taking into effect.
@@ -332,19 +362,21 @@ impl Handler<ExpiryRequest> for SledActor {
                     Ok(_) => {
                         if let Some(total_duration) = total_duration {
                             self.queue
-                                .push(Delay::for_duration((key, nonce), total_duration));
+                                .push(Delay::for_duration(((scope, key), nonce), total_duration));
                         }
                         ExpiryResponse::Set(Ok(()))
                     }
                 }
             }
-            ExpiryRequest::Persist(key) => {
-                let val = self.db.update_and_fetch(&key, |existing| {
-                    let mut bytes = sled::IVec::from(existing?);
-                    if let Some((_, exp)) = decode_mut(&mut bytes) {
-                        exp.persist.set(1);
-                    }
-                    Some(bytes)
+            ExpiryRequest::Persist(scope, key) => {
+                let val = self.db.open_tree(scope).and_then(|tree| {
+                    tree.update_and_fetch(&key, |existing| {
+                        let mut bytes = sled::IVec::from(existing?);
+                        if let Some((_, exp)) = decode_mut(&mut bytes) {
+                            exp.persist.set(1);
+                        }
+                        Some(bytes)
+                    })
                 });
                 if let Err(err) = val {
                     ExpiryResponse::Persist(Err(StorageError::custom(err)))
@@ -352,47 +384,51 @@ impl Handler<ExpiryRequest> for SledActor {
                     ExpiryResponse::Persist(Ok(()))
                 }
             }
-            ExpiryRequest::Get(key) => {
+            ExpiryRequest::Get(scope, key) => {
                 let item = self
                     .db
-                    .get(&key)
-                    .map(|val| {
-                        val.and_then(|bytes| {
-                            let (_, exp) = decode(&bytes)?;
-                            exp.expires_in()
+                    .open_tree(scope)
+                    .and_then(|tree| {
+                        tree.get(&key).map(|val| {
+                            val.and_then(|bytes| {
+                                let (_, exp) = decode(&bytes)?;
+                                exp.expires_in()
+                            })
                         })
                     })
                     .map_err(StorageError::custom);
                 ExpiryResponse::Get(item)
             }
-            ExpiryRequest::Extend(key, duration) => {
+            ExpiryRequest::Extend(scope, key, duration) => {
                 let mut nonce = 0;
                 let mut total_duration = None;
-                let val = self.db.update_and_fetch(&key, |existing| {
-                    let mut bytes = sled::IVec::from(existing?);
+                let val = self.db.open_tree(&scope).and_then(|tree| {
+                    tree.update_and_fetch(&key, |existing| {
+                        let mut bytes = sled::IVec::from(existing?);
 
-                    // If we can't decode the bytes, leave them as they are
-                    if let Some((_, exp)) = decode_mut(&mut bytes) {
-                        exp.increase_nonce();
-                        if let Some(expiry) = exp.expires_in() {
-                            exp.expire_in(expiry + duration);
-                        } else {
-                            exp.expire_in(duration);
+                        // If we can't decode the bytes, leave them as they are
+                        if let Some((_, exp)) = decode_mut(&mut bytes) {
+                            exp.increase_nonce();
+                            if let Some(expiry) = exp.expires_in() {
+                                exp.expire_in(expiry + duration);
+                            } else {
+                                exp.expire_in(duration);
+                            }
+                            exp.persist.set(0);
+
+                            // Sending values to outer scope to prevent decoding again
+                            nonce = exp.nonce.get();
+                            total_duration = exp.expires_in();
                         }
-                        exp.persist.set(0);
-
-                        // Sending values to outer scope to prevent decoding again
-                        nonce = exp.nonce.get();
-                        total_duration = exp.expires_in();
-                    }
-                    Some(bytes)
+                        Some(bytes)
+                    })
                 });
                 match val {
                     Err(err) => ExpiryResponse::Extend(Err(StorageError::custom(err))),
                     Ok(_) => {
                         if let Some(total_duration) = total_duration {
                             self.queue
-                                .push(Delay::for_duration((key, nonce), total_duration));
+                                .push(Delay::for_duration(((scope, key), nonce), total_duration));
                         }
                         ExpiryResponse::Extend(Ok(()))
                     }
@@ -407,38 +443,45 @@ impl Handler<ExpiryStoreRequest> for SledActor {
 
     fn handle(&mut self, msg: ExpiryStoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            ExpiryStoreRequest::SetExpiring(key, value, exp) => {
+            ExpiryStoreRequest::SetExpiring(scope, key, value, exp) => {
                 let res = self
                     .db
-                    .remove(key.as_ref())
-                    .and_then(|bytes| {
-                        let nonce = if let Some(bytes) = bytes {
-                            decode(&bytes)
-                                .map(|(_, exp)| exp.next_nonce())
-                                .unwrap_or_default()
-                        } else {
-                            0
-                        };
+                    .open_tree(scope)
+                    .and_then(|tree| {
+                        tree.remove(key.as_ref()).and_then(|bytes| {
+                            let nonce = if let Some(bytes) = bytes {
+                                decode(&bytes)
+                                    .map(|(_, exp)| exp.next_nonce())
+                                    .unwrap_or_default()
+                            } else {
+                                0
+                            };
 
-                        let exp = ExpiryFlags::new_expiring(nonce, exp);
-                        let val = encode(value.as_bytes(), exp);
+                            let exp = ExpiryFlags::new_expiring(nonce, exp);
+                            let val = encode(value.as_bytes(), exp);
 
-                        self.db.insert(key.as_ref(), val).map(|_| ())
+                            tree.insert(key.as_ref(), val).map(|_| ())
+                        })
                     })
                     .map_err(StorageError::custom);
                 ExpiryStoreResponse::SetExpiring(res)
             }
-            ExpiryStoreRequest::GetExpiring(key) => {
-                let value = self.db.get(&key).map_err(StorageError::custom).map(|val| {
-                    val.and_then(|bytes| {
-                        let (val, exp) = decode(&bytes)?;
-                        if !exp.expired() {
-                            Some((val.into(), exp.expires_in()))
-                        } else {
-                            None
-                        }
-                    })
-                });
+            ExpiryStoreRequest::GetExpiring(scope, key) => {
+                let value = self
+                    .db
+                    .open_tree(scope)
+                    .and_then(|tree| tree.get(&key))
+                    .map_err(StorageError::custom)
+                    .map(|val| {
+                        val.and_then(|bytes| {
+                            let (val, exp) = decode(&bytes)?;
+                            if !exp.expired() {
+                                Some((val.into(), exp.expires_in()))
+                            } else {
+                                None
+                            }
+                        })
+                    });
                 ExpiryStoreResponse::GetExpiring(value)
             }
         }
@@ -507,6 +550,7 @@ mod test {
 
     #[actix_rt::test]
     async fn test_sled_perform_deletion() {
+        let scope: Arc<[u8]> = "prefix".as_bytes().into();
         let key: Arc<[u8]> = "key".as_bytes().into();
         let value = "val".as_bytes().into();
         let db = open_database().await;
@@ -515,16 +559,20 @@ mod test {
             .perform_deletion(true)
             .start(1);
         store
-            .send(StoreRequest::Set(key.clone(), value))
+            .send(StoreRequest::Set(scope.clone(), key.clone(), value))
             .await
             .unwrap();
         store
-            .send(ExpiryRequest::Set(key.clone(), dur))
+            .send(ExpiryRequest::Set(scope.clone(), key.clone(), dur))
             .await
             .unwrap();
-        assert!(db.contains_key(key.clone()).unwrap());
+        assert!(db
+            .open_tree(&scope)
+            .unwrap()
+            .contains_key(key.clone())
+            .unwrap());
         actix::clock::delay_for(dur).await;
-        assert!(!db.contains_key(key).unwrap());
+        assert!(!db.open_tree(&scope).unwrap().contains_key(key).unwrap());
     }
 
     #[actix_rt::test]
