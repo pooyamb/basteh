@@ -1,6 +1,9 @@
 use std::convert::AsRef;
+use std::future::{ready, Ready};
 use std::sync::Arc;
 use std::time::Duration;
+
+use actix_web::{dev::Payload, error::ErrorInternalServerError, FromRequest, HttpRequest};
 
 use crate::dev::{Expiry, ExpiryStore, Store};
 use crate::error::Result;
@@ -584,6 +587,30 @@ impl StorageBuilder {
             store: expiry_store,
             #[cfg(feature = "with-serde")]
             format: self.format,
+        }
+    }
+}
+
+/// It is pretty much copied as-is from actix-web Data
+impl FromRequest for Storage {
+    type Config = ();
+    type Error = actix_web::Error;
+    type Future = Ready<std::result::Result<Self, actix_web::Error>>;
+
+    #[inline]
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        if let Some(st) = req.app_data::<Storage>() {
+            ready(Ok(st.clone()))
+        } else {
+            log::debug!(
+                "Failed to construct Storage(actix-storage). \
+                 Request path: {:?}",
+                req.path(),
+            );
+            ready(Err(ErrorInternalServerError(
+                "Storage is not configured, please refer to actix-storage documentation\
+                for more information.",
+            )))
         }
     }
 }
