@@ -194,8 +194,8 @@ where
 #[derive(Debug, Message)]
 #[rtype(ExpiryStoreResponse)]
 pub enum ExpiryStoreRequest {
-    SetExpiring(Key, Value, Duration),
-    GetExpiring(Key),
+    SetExpiring(Scope, Key, Value, Duration),
+    GetExpiring(Scope, Key),
 }
 
 /// Actix message reply for [`ExpiryStore`](../trait.ExpiryStore.html) requests
@@ -237,7 +237,9 @@ where
         expire_in: Duration,
     ) -> Result<()> {
         match self
-            .send(ExpiryStoreRequest::SetExpiring(key, value, expire_in))
+            .send(ExpiryStoreRequest::SetExpiring(
+                scope, key, value, expire_in,
+            ))
             .await
             .map_err(StorageError::custom)?
         {
@@ -252,7 +254,7 @@ where
         key: Key,
     ) -> Result<Option<(Value, Option<Duration>)>> {
         match self
-            .send(ExpiryStoreRequest::GetExpiring(key))
+            .send(ExpiryStoreRequest::GetExpiring(scope, key))
             .await
             .map_err(StorageError::custom)?
         {
@@ -305,10 +307,10 @@ mod tests {
         type Result = ExpiryStoreResponse;
         fn handle(&mut self, msg: ExpiryStoreRequest, _: &mut Self::Context) -> Self::Result {
             match msg {
-                ExpiryStoreRequest::SetExpiring(_, _, _) => {
+                ExpiryStoreRequest::SetExpiring(_, _, _, _) => {
                     ExpiryStoreResponse::SetExpiring(Ok(()))
                 }
-                ExpiryStoreRequest::GetExpiring(_) => ExpiryStoreResponse::GetExpiring(Ok(None)),
+                ExpiryStoreRequest::GetExpiring(_, _) => ExpiryStoreResponse::GetExpiring(Ok(None)),
             }
         }
     }
