@@ -1,6 +1,6 @@
 [package]
 name = "actix-storage-dashmap"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 description = "An implementation of actix-storage based on dashmap"
 edition = "2018"

@@ -9,6 +9,7 @@ use actix_storage::dev::actor::{
 use dashmap::DashMap;
 use delay_queue::{Delay, DelayQueue};
 
+/// The value representation that is stored in DashMap. Includes metadata for expiration logic.
 struct Value {
     bytes: Arc<[u8]>,
     timeout: Option<Instant>,
@@ -16,6 +17,66 @@ struct Value {
     ref_count: u32,
     nonce: u32,
 }
+
+impl Value {
+    pub fn new(bytes: Arc<[u8]>, nonce: u32) -> Self {
+        Value {
+            bytes,
+            timeout: None,
+            persist: true,
+            ref_count: 0,
+            nonce,
+        }
+    }
+
+    pub fn new_expiring(bytes: Arc<[u8]>, nonce: u32, expires_in: Duration) -> Self {
+        Value {
+            bytes,
+            timeout: Some(Instant::now() + expires_in),
+            persist: false,
+            ref_count: 1,
+            nonce,
+        }
+    }
+
+    pub fn expires_in(&self) -> Option<Duration> {
+        if self.persist == true {
+            None
+        } else {
+            self.timeout
+                .and_then(|timeout| timeout.checked_duration_since(Instant::now()))
+        }
+    }
+
+    pub fn set_expires_in(&mut self, expires_in: Duration) -> Instant {
+        let timeout = Instant::now() + expires_in;
+        self.persist = false;
+        self.timeout = Some(timeout);
+        self.ref_count += 1;
+        timeout
+    }
+
+    pub fn extend_expires_in(&mut self, expires_in: Duration) -> Instant {
+        if let Some(timeout) = self.timeout {
+            let new_timeout = timeout + expires_in;
+            self.persist = false;
+            self.timeout = Some(new_timeout);
+            self.ref_count += 1;
+            timeout
+        } else {
+            self.set_expires_in(expires_in)
+        }
+    }
+
+    pub fn persist(&mut self) {
+        self.persist = true;
+    }
+}
+
+type ScopeMap = DashMap<Arc<[u8]>, Value>;
+type InternalMap = DashMap<Arc<[u8]>, ScopeMap>;
+/// (Scope, Key, Nonce)
+type ExpiringKey = (Arc<[u8]>, Arc<[u8]>, u32);
 
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
 /// actix actors and HashMap
@@ -47,8 +108,8 @@ struct Value {
 /// requires ["actor"] feature
 #[derive(Clone, Default)]
 pub struct DashMapActor {
-    map: Arc<DashMap<Arc<[u8]>, Value>>,
-    queue: DelayQueue<Delay<(Arc<[u8]>, u32)>>,
+    map: Arc<InternalMap>,
+    queue: DelayQueue<Delay<ExpiringKey>>,
 
     #[doc(hidden)]
     stopped: Arc<AtomicBool>,
@@ -96,19 +157,25 @@ impl Actor for DashMapActor {
         std::thread::spawn(move || loop {
             if let Some(item) = queue.try_pop_for(Duration::from_secs(1)) {
                 let mut should_delete = false;
-                if let Some(mut value) = map.get_mut(&item.value.0) {
-                    if value.nonce != item.value.1 {
-                        continue;
-                    }
+                let scope = &item.value.0;
+                let key = &item.value.1;
+                let nonce = item.value.2;
+                if let Some(scope_map) = map.get_mut(scope) {
+                    if let Some(mut value) = scope_map.get_mut(key) {
+                        if value.nonce != nonce {
+                            continue;
+                        }
 
-                    value.ref_count -= 1;
+                        value.ref_count -= 1;
 
-                    if value.ref_count == 0 && !value.persist {
-                        should_delete = true;
+                        if value.ref_count == 0 && !value.persist {
+                            should_delete = true;
+                        }
                     }
-                }
+                };
                 if should_delete {
-                    map.remove(&item.value.0);
+                    map.get_mut(scope)
+                        .and_then(|scope_map| scope_map.remove(key));
                 }
             } else if stopped.load(std::sync::atomic::Ordering::Relaxed) {
                 break;
@@ -122,36 +189,40 @@ impl Handler<StoreRequest> for DashMapActor {
 
     fn handle(&mut self, msg: StoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            StoreRequest::Set(key, value) => {
-                if let Some((_, val)) = self.map.remove(&key) {
-                    let value = Value {
-                        bytes: value,
-                        timeout: None,
-                        persist: true,
-                        ref_count: 0,
-                        nonce: val.nonce + 1,
-                    };
-                    self.map.insert(key, value);
-                } else {
-                    let value = Value {
-                        bytes: value,
-                        timeout: None,
-                        persist: true,
-                        ref_count: 0,
-                        nonce: 0,
-                    };
-                    self.map.insert(key, value);
-                }
+            StoreRequest::Set(scope, key, value) => {
+                self.map
+                    .entry(scope)
+                    .or_default()
+                    .entry(key)
+                    .and_modify(|val| {
+                        val.nonce += 1;
+                        val.bytes = value.clone();
+                    })
+                    .or_insert_with(|| Value::new(value, 0));
                 StoreResponse::Set(Ok(()))
             }
-            StoreRequest::Get(key) => {
-                StoreResponse::Get(Ok(self.map.get(&key).map(|v| v.bytes.clone())))
+            StoreRequest::Get(scope, key) => {
+                let value = if let Some(scope_map) = self.map.get(&scope) {
+                    scope_map.get(&key).map(|val| val.bytes.clone())
+                } else {
+                    None
+                };
+                StoreResponse::Get(Ok(value))
             }
-            StoreRequest::Delete(key) => {
-                self.map.remove(&key);
+            StoreRequest::Delete(scope, key) => {
+                self.map
+                    .get_mut(&scope)
+                    .and_then(|scope_map| scope_map.remove(&key));
                 StoreResponse::Delete(Ok(()))
             }
-            StoreRequest::Contains(key) => StoreResponse::Contains(Ok(self.map.contains_key(&key))),
+            StoreRequest::Contains(scope, key) => {
+                let contains = self
+                    .map
+                    .get(&scope)
+                    .map(|scope_map| scope_map.contains_key(&key))
+                    .unwrap_or(false);
+                StoreResponse::Contains(Ok(contains))
+            }
         }
     }
 }
@@ -161,39 +232,38 @@ impl Handler<ExpiryRequest> for DashMapActor {
 
     fn handle(&mut self, msg: ExpiryRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            ExpiryRequest::Set(key, expires_in) => {
-                if let Some(mut val) = self.map.get_mut(key.as_ref()) {
-                    val.persist = false;
-                    val.timeout = Some(Instant::now() + expires_in);
-                    val.ref_count += 1;
-                    self.queue
-                        .push(Delay::for_duration((key, val.nonce), expires_in));
+            ExpiryRequest::Set(scope, key, expires_in) => {
+                if let Some(scope_map) = self.map.get_mut(&scope) {
+                    if let Some(mut val) = scope_map.get_mut(&key) {
+                        let timeout = val.set_expires_in(expires_in);
+                        self.queue
+                            .push(Delay::until_instant((scope, key, val.nonce), timeout));
+                    }
                 }
                 ExpiryResponse::Set(Ok(()))
             }
-            ExpiryRequest::Persist(key) => {
-                if let Some(mut val) = self.map.get_mut(key.as_ref()) {
-                    val.persist = true;
+            ExpiryRequest::Persist(scope, key) => {
+                if let Some(scope_map) = self.map.get_mut(&scope) {
+                    if let Some(mut val) = scope_map.get_mut(&key) {
+                        val.persist();
+                    }
                 }
                 ExpiryResponse::Persist(Ok(()))
             }
-            ExpiryRequest::Get(key) => {
-                let item = self
-                    .map
-                    .get(&key)
-                    .map(|val| val.timeout.map(|timeout| timeout - Instant::now()))
-                    .flatten();
+            ExpiryRequest::Get(scope, key) => {
+                let item = if let Some(scope_map) = self.map.get(&scope) {
+                    scope_map.get(&key).and_then(|val| val.expires_in())
+                } else {
+                    None
+                };
                 ExpiryResponse::Get(Ok(item))
             }
-            ExpiryRequest::Extend(key, duration) => {
-                if let Some(mut val) = self.map.get_mut(key.as_ref()) {
-                    if let Some(ref timeout) = val.timeout {
-                        let new_timeout = *timeout + duration;
+            ExpiryRequest::Extend(scope, key, duration) => {
+                if let Some(scope_map) = self.map.get_mut(&scope) {
+                    if let Some(mut val) = scope_map.get_mut(&key) {
+                        let new_timeout = val.extend_expires_in(duration);
                         self.queue
-                            .push(Delay::until_instant((key, val.nonce), new_timeout));
-                        val.persist = false;
-                        val.ref_count += 1;
-                        val.timeout = Some(new_timeout);
+                            .push(Delay::until_instant((scope, key, val.nonce), new_timeout));
                     }
                 }
                 ExpiryResponse::Extend(Ok(()))
@@ -207,41 +277,30 @@ impl Handler<ExpiryStoreRequest> for DashMapActor {
 
     fn handle(&mut self, msg: ExpiryStoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
-            ExpiryStoreRequest::SetExpiring(key, value, expires_in) => {
-                let val = if let Some((_, val)) = self.map.remove(&key) {
-                    Value {
-                        bytes: value,
-                        timeout: Some(Instant::now() + expires_in),
-                        persist: false,
-                        ref_count: 1,
-                        nonce: val.nonce + 1,
-                    }
-                } else {
-                    Value {
-                        bytes: value,
-                        timeout: Some(Instant::now() + expires_in),
-                        persist: false,
-                        ref_count: 1,
-                        nonce: 0,
-                    }
-                };
+            ExpiryStoreRequest::SetExpiring(scope, key, value, expires_in) => {
+                let scope_map = self.map.entry(scope.clone()).or_default();
+                let val = scope_map
+                    .entry(key.clone())
+                    .and_modify(|val| {
+                        val.nonce += 1;
+                        val.bytes = value.clone();
+                        val.set_expires_in(expires_in);
+                    })
+                    .or_insert_with(|| Value::new_expiring(value, 0, expires_in));
                 self.queue
-                    .push(Delay::for_duration((key.clone(), val.nonce), expires_in));
-                self.map.insert(key, val);
+                    .push(Delay::for_duration((scope, key, val.nonce), expires_in));
                 ExpiryStoreResponse::SetExpiring(Ok(()))
             }
-            ExpiryStoreRequest::GetExpiring(key) => {
-                let item = self.map.get(&key);
-                if let Some(value) = item {
-                    ExpiryStoreResponse::GetExpiring(Ok(Some((
-                        value.bytes.clone(),
-                        value
-                            .timeout
-                            .and_then(|timeout| timeout.checked_duration_since(Instant::now())),
-                    ))))
+            ExpiryStoreRequest::GetExpiring(scope, key) => {
+                let values = if let Some(scope_map) = self.map.get(&scope) {
+                    scope_map
+                        .get(&key)
+                        .map(|val| (val.bytes.clone(), val.expires_in()))
                 } else {
-                    ExpiryStoreResponse::GetExpiring(Ok(None))
-                }
+                    None
+                };
+
+                ExpiryStoreResponse::GetExpiring(Ok(values))
             }
         }
     }

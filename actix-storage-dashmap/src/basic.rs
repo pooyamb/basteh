@@ -3,6 +3,9 @@ use std::sync::Arc;
 use actix_storage::{dev::Store, Result};
 use dashmap::DashMap;
 
+type ScopeMap = DashMap<Arc<[u8]>, Arc<[u8]>>;
+type InternalMap = DashMap<Arc<[u8]>, ScopeMap>;
+
 /// A simple implementation of [`Store`](actix_storage::dev::Store) based on DashMap
 ///
 /// This provider doesn't support key expiration thus Storage will return errors when trying to use methods
@@ -26,7 +29,7 @@ use dashmap::DashMap;
 /// ```
 #[derive(Debug, Default)]
 pub struct DashMapStore {
-    map: DashMap<Arc<[u8]>, Arc<[u8]>>,
+    map: InternalMap,
 }
 
 impl DashMapStore {
@@ -43,33 +46,40 @@ impl DashMapStore {
     }
 
     /// Make a new store from a hashmap
-    pub fn from_dashmap(map: DashMap<Arc<[u8]>, Arc<[u8]>>) -> Self {
+    pub fn from_dashmap(map: InternalMap) -> Self {
         Self { map }
     }
 }
 
 #[async_trait::async_trait]
 impl Store for DashMapStore {
-    async fn set(&self, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
-        self.map.insert(key, value);
+    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+        self.map.entry(scope).or_default().insert(key, value);
         Ok(())
     }
 
-    async fn get(&self, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
-        let val = match self.map.get(key.as_ref()) {
-            Some(val) => Some(val.value().clone()),
-            None => None,
+    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+        let value = if let Some(scope_map) = self.map.get(&scope) {
+            scope_map.get(&key).map(|v| v.clone())
+        } else {
+            None
         };
-        Ok(val)
+        Ok(value)
     }
 
-    async fn delete(&self, key: Arc<[u8]>) -> Result<()> {
-        self.map.remove(key.as_ref());
+    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+        self.map
+            .get_mut(&scope)
+            .and_then(|scope_map| scope_map.remove(&key));
         Ok(())
     }
 
-    async fn contains_key(&self, key: Arc<[u8]>) -> Result<bool> {
-        Ok(self.map.contains_key(key.as_ref()))
+    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+        Ok(self
+            .map
+            .get(&scope)
+            .map(|scope_map| scope_map.contains_key(&key))
+            .unwrap_or(false))
     }
 }
 
