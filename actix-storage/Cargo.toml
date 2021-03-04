@@ -23,7 +23,7 @@ serde_cbor = { version = "0.11", optional = true }
 serde_yaml = { version = "0.8", optional = true }
 bincode = { version = "1.3", optional = true }
 ron = { version = "0.6", optional = true }
-quick-xml = { version = "0.20", features = ["serialize"], optional = true }
+quick-xml = { version = "0.22", features = ["serialize"], optional = true }
 
 [dev-dependencies]
 actix-rt = "1.1"
