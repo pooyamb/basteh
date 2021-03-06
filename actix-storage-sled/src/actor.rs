@@ -134,7 +134,7 @@ pub struct SledActor {
 /// Takes an IVec and returns value bytes with its expiry flags as mutable
 #[allow(clippy::type_complexity)]
 #[inline]
-pub fn decode_mut(bytes: &mut sled::IVec) -> Option<(&mut [u8], &mut ExpiryFlags)> {
+pub fn decode_mut(bytes: &mut [u8]) -> Option<(&mut [u8], &mut ExpiryFlags)> {
     let (val, exp): (&mut [u8], LayoutVerified<&mut [u8], ExpiryFlags>) =
         LayoutVerified::new_unaligned_from_suffix(bytes.as_mut())?;
     Some((val, exp.into_mut()))
@@ -143,7 +143,7 @@ pub fn decode_mut(bytes: &mut sled::IVec) -> Option<(&mut [u8], &mut ExpiryFlags
 /// Takes an IVec and returns value bytes with its expiry flags
 #[allow(clippy::type_complexity)]
 #[inline]
-pub fn decode(bytes: &sled::IVec) -> Option<(&[u8], &ExpiryFlags)> {
+pub fn decode(bytes: &[u8]) -> Option<(&[u8], &ExpiryFlags)> {
     let (val, exp): (&[u8], LayoutVerified<&[u8], ExpiryFlags>) =
         LayoutVerified::new_unaligned_from_suffix(bytes.as_ref())?;
     Some((val, exp.into_ref()))
@@ -273,7 +273,7 @@ impl Handler<StoreRequest> for SledActor {
                     .db
                     .open_tree(scope)
                     .and_then(|tree| {
-                        tree.remove(&key).and_then(|bytes| {
+                        tree.update_and_fetch(&key, |bytes| {
                             let nonce = if let Some(bytes) = bytes {
                                 decode(&bytes)
                                     .map(|(_, exp)| exp.next_nonce())
@@ -285,9 +285,10 @@ impl Handler<StoreRequest> for SledActor {
                             let exp = ExpiryFlags::new_persist(nonce);
                             let val = encode(value.as_bytes(), exp);
 
-                            tree.insert(&key, val).map(|_| ())
+                            Some(val)
                         })
                     })
+                    .map(|_| ())
                     .map_err(StorageError::custom);
                 StoreResponse::Set(res)
             }
@@ -448,7 +449,7 @@ impl Handler<ExpiryStoreRequest> for SledActor {
                     .db
                     .open_tree(scope)
                     .and_then(|tree| {
-                        tree.remove(key.as_ref()).and_then(|bytes| {
+                        tree.update_and_fetch(key.as_ref(), |bytes| {
                             let nonce = if let Some(bytes) = bytes {
                                 decode(&bytes)
                                     .map(|(_, exp)| exp.next_nonce())
@@ -460,9 +461,10 @@ impl Handler<ExpiryStoreRequest> for SledActor {
                             let exp = ExpiryFlags::new_expiring(nonce, exp);
                             let val = encode(value.as_bytes(), exp);
 
-                            tree.insert(key.as_ref(), val).map(|_| ())
+                            Some(val)
                         })
                     })
+                    .map(|_| ())
                     .map_err(StorageError::custom);
                 ExpiryStoreResponse::SetExpiring(res)
             }
