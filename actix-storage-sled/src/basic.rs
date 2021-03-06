@@ -52,7 +52,7 @@ impl SledStore {
 impl Store for SledStore {
     async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> StorageResult<()> {
         let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        match tree.insert(key.as_ref(), value.as_ref()) {
+        match tree.insert(key, value.as_ref()) {
             Ok(_) => Ok(()),
             Err(err) => Err(StorageError::custom(err)),
         }
@@ -61,14 +61,14 @@ impl Store for SledStore {
     async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<Option<Arc<[u8]>>> {
         let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
         Ok(tree
-            .get(key.as_ref())
+            .get(key)
             .map_err(StorageError::custom)?
             .map(|val| val.as_ref().into()))
     }
 
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<()> {
         let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        match tree.remove(key.as_ref()) {
+        match tree.remove(key) {
             Ok(_) => Ok(()),
             Err(err) => Err(StorageError::custom(err)),
         }
@@ -76,7 +76,7 @@ impl Store for SledStore {
 
     async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<bool> {
         let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        match tree.contains_key(key.as_ref()) {
+        match tree.contains_key(key) {
             Ok(res) => Ok(res),
             Err(err) => Err(StorageError::custom(err)),
         }
