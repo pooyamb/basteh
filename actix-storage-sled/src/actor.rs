@@ -283,7 +283,7 @@ impl Handler<StoreRequest> for SledActor {
                             };
 
                             let exp = ExpiryFlags::new_persist(nonce);
-                            let val = encode(value.as_bytes(), exp);
+                            let val = encode(&value, exp);
 
                             Some(val)
                         })
@@ -459,7 +459,7 @@ impl Handler<ExpiryStoreRequest> for SledActor {
                             };
 
                             let exp = ExpiryFlags::new_expiring(nonce, exp);
-                            let val = encode(value.as_bytes(), exp);
+                            let val = encode(&value, exp);
 
                             Some(val)
                         })
