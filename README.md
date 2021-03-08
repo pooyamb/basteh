@@ -26,8 +26,15 @@ Actix-storage is meant to be used alongside one the implementor crates, ex:
 ```toml
 # Cargo.toml
 [dependencies]
-actix-storage = "0.1"
-actix-storage-hashmap = "0.1"
+actix-storage = "0.2.0-alpha"
+actix-storage-hashmap = "0.2.0-alpha"
+```
+
+Or you want to use the serde based methods for typed information:
+
+```toml
+[dependencies]
+actix-storage = {version = "0.2.0-alpha", features=["serde-json"]}
 ```
 
 ## Usage
@@ -76,7 +83,7 @@ async fn index(storage: Storage) -> Result<String, Error>{
    storage.set_bytes("key", "value").await;
    let val = storage.get_bytes("key").await?.unwrap_or_default();
 
-   // Ot if you defined a serde format
+   // Or if you defined a serde format
    let number: i32 = 5
    storage.set("number", number);
    let x: i32 = storage.get("number");

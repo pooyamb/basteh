@@ -26,8 +26,8 @@ Actix-storage is meant to be used alongside one the implementor crates, ex:
 ```toml
 # Cargo.toml
 [dependencies]
-actix-storage = "0.1"
-actix-storage-hashmap = "0.1"
+actix-storage = "0.2.0-alpha"
+actix-storage-hashmap = "0.2.0-alpha"
 ```
 
 ## Implementations
