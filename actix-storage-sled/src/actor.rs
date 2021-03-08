@@ -22,7 +22,10 @@ fn get_current_timestamp() -> u64 {
         .as_secs()
 }
 
-/// Represents expiry data and is stored as suffix to the value
+/// Represents expiry data and is stored as suffix to the value.
+///
+/// Nonce is used to ignore expiration requests after the value has changed as we don't have direct access to delay-queue
+/// for removing notifications from it.
 #[derive(Debug, Default, FromBytes, AsBytes, Unaligned)]
 #[repr(C)]
 pub struct ExpiryFlags {
@@ -32,7 +35,8 @@ pub struct ExpiryFlags {
 }
 
 impl ExpiryFlags {
-    fn new_persist(nonce: u64) -> Self {
+    /// Make a new flags struct with persist flag set to true. Provide 0 for nonce if it's a new key.
+    pub fn new_persist(nonce: u64) -> Self {
         Self {
             nonce: U64::new(nonce),
             expires_at: U64::new(0),
@@ -40,7 +44,8 @@ impl ExpiryFlags {
         }
     }
 
-    fn new_expiring(nonce: u64, expires_in: Duration) -> Self {
+    /// Make a new flags struct with persist flag set to false. Provide 0 for nonce if it's a new key.
+    pub fn new_expiring(nonce: u64, expires_in: Duration) -> Self {
         let expires_at = get_current_timestamp() + expires_in.as_secs();
         Self {
             nonce: U64::new(nonce),
@@ -49,11 +54,13 @@ impl ExpiryFlags {
         }
     }
 
-    fn increase_nonce(&mut self) {
+    /// Increase the nonce in place
+    pub fn increase_nonce(&mut self) {
         self.nonce = U64::new(self.next_nonce());
     }
 
-    fn next_nonce(&self) -> u64 {
+    /// Get the next nonce without mutating the current value
+    pub fn next_nonce(&self) -> u64 {
         if self.nonce == U64::MAX_VALUE {
             0
         } else {
@@ -61,13 +68,14 @@ impl ExpiryFlags {
         }
     }
 
-    fn expire_in(&mut self, duration: Duration) {
+    /// Change the expiration time
+    pub fn expire_in(&mut self, duration: Duration) {
         self.expires_at
             .set(get_current_timestamp() + duration.as_secs())
     }
 
-    // Returns None if it is persistant
-    fn expires_in(&self) -> Option<Duration> {
+    /// Get the expiration time, returns None if persist flag is true.
+    pub fn expires_in(&self) -> Option<Duration> {
         if self.persist.get() == 1 {
             return None;
         }
@@ -80,7 +88,8 @@ impl ExpiryFlags {
         }
     }
 
-    fn expired(&self) -> bool {
+    /// Check if the key is expired
+    pub fn expired(&self) -> bool {
         let expires_at = self.expires_at.get();
         self.persist.get() == 0 && expires_at <= get_current_timestamp()
     }
@@ -96,6 +105,49 @@ impl DelayedIem {
     fn new(scope: Arc<[u8]>, key: Arc<[u8]>, nonce: u64) -> Self {
         Self { scope, key, nonce }
     }
+}
+
+/// Takes an IVec and returns value bytes with its expiry flags as mutable
+#[allow(clippy::type_complexity)]
+#[inline]
+pub fn decode_mut(bytes: &mut [u8]) -> Option<(&mut [u8], &mut ExpiryFlags)> {
+    let (val, exp): (&mut [u8], LayoutVerified<&mut [u8], ExpiryFlags>) =
+        LayoutVerified::new_unaligned_from_suffix(bytes.as_mut())?;
+    Some((val, exp.into_mut()))
+}
+
+/// Takes an IVec and returns value bytes with its expiry flags
+#[allow(clippy::type_complexity)]
+#[inline]
+pub fn decode(bytes: &[u8]) -> Option<(&[u8], &ExpiryFlags)> {
+    let (val, exp): (&[u8], LayoutVerified<&[u8], ExpiryFlags>) =
+        LayoutVerified::new_unaligned_from_suffix(bytes.as_ref())?;
+    Some((val, exp.into_ref()))
+}
+
+/// Takes a value as bytes and an ExpiryFlags and turns them into bytes
+#[allow(clippy::type_complexity)]
+#[inline]
+pub fn encode(value: &[u8], exp: ExpiryFlags) -> Vec<u8> {
+    let mut buff = vec![];
+    buff.extend_from_slice(value);
+    buff.extend_from_slice(exp.as_bytes());
+    buff
+}
+
+/// Used in expiration thread to remove delayed items from map
+fn remove_expired_item(db: &sled::Db, item: DelayedIem) -> Result<(), sled::Error> {
+    let tree = db.open_tree(item.scope)?;
+    let val = tree.get(&item.key)?;
+    if let Some(mut bytes) = val {
+        if let Some((_, exp)) = decode_mut(&mut bytes) {
+            if exp.nonce.get() == item.nonce && exp.persist.get() == 0 {
+                tree.remove(&item.key)?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
@@ -141,49 +193,6 @@ pub struct SledActor {
 
     #[doc(hidden)]
     stopped: Arc<AtomicBool>,
-}
-
-/// Takes an IVec and returns value bytes with its expiry flags as mutable
-#[allow(clippy::type_complexity)]
-#[inline]
-pub fn decode_mut(bytes: &mut [u8]) -> Option<(&mut [u8], &mut ExpiryFlags)> {
-    let (val, exp): (&mut [u8], LayoutVerified<&mut [u8], ExpiryFlags>) =
-        LayoutVerified::new_unaligned_from_suffix(bytes.as_mut())?;
-    Some((val, exp.into_mut()))
-}
-
-/// Takes an IVec and returns value bytes with its expiry flags
-#[allow(clippy::type_complexity)]
-#[inline]
-pub fn decode(bytes: &[u8]) -> Option<(&[u8], &ExpiryFlags)> {
-    let (val, exp): (&[u8], LayoutVerified<&[u8], ExpiryFlags>) =
-        LayoutVerified::new_unaligned_from_suffix(bytes.as_ref())?;
-    Some((val, exp.into_ref()))
-}
-
-/// Takes a value as bytes and an ExpiryFlags and turns them into bytes
-#[allow(clippy::type_complexity)]
-#[inline]
-pub fn encode(value: &[u8], exp: ExpiryFlags) -> Vec<u8> {
-    let mut buff = vec![];
-    buff.extend_from_slice(value);
-    buff.extend_from_slice(exp.as_bytes());
-    buff
-}
-
-/// Used in expiration thread to remove delayed items from map
-fn remove_expired_item(db: &sled::Db, item: DelayedIem) -> Result<(), sled::Error> {
-    let tree = db.open_tree(item.scope)?;
-    let val = tree.get(&item.key)?;
-    if let Some(mut bytes) = val {
-        if let Some((_, exp)) = decode_mut(&mut bytes) {
-            if exp.nonce.get() == item.nonce && exp.persist.get() == 0 {
-                tree.remove(&item.key)?;
-            }
-        }
-    }
-
-    Ok(())
 }
 
 impl SledActor {

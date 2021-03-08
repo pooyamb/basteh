@@ -56,7 +56,7 @@ impl RedisBackend {
 
     /// Connect using the default redis port on local machine
     pub async fn connect_default() -> RedisResult<Self> {
-        Self::connect("redis://127.0.0.1/".parse().unwrap()).await
+        Self::connect("redis://127.0.0.1/".parse()?).await
     }
 }
 

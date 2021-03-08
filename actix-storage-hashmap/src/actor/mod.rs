@@ -66,8 +66,8 @@ pub struct HashMapActor {
     exp_receiver: Option<DelayQueueReceiver<ExpiryKey>>,
 }
 
-const DEFAULT_INPUT_CHANNEL_SIZE: usize = 2;
-const DEFAULT_OUTPUT_CHANNEL_SIZE: usize = 4;
+const DEFAULT_INPUT_CHANNEL_SIZE: usize = 16;
+const DEFAULT_OUTPUT_CHANNEL_SIZE: usize = 16;
 
 impl HashMapActor {
     /// Makes a new HashMapActor without starting it
@@ -82,6 +82,22 @@ impl HashMapActor {
         let (tx, rx, etx) = delayqueue(DEFAULT_INPUT_CHANNEL_SIZE, DEFAULT_OUTPUT_CHANNEL_SIZE);
         Self {
             map: HashMap::with_capacity(capacity),
+            exp: tx,
+            exp_receiver: Some(rx),
+            emergency_channel: etx,
+        }
+    }
+
+    /// Makes a new HashMapActor with specified channel capacity without starting it
+    ///
+    /// Buffer sizes are used for internal expiry channel provider, input is for the channel
+    /// providing commands expire/extend/expiry/persist and output is the other channel that
+    /// sends back expired items.
+    #[must_use = "Actor should be started to work by calling `start`"]
+    pub fn with_channel_size(input_buffer: usize, output_buffer: usize) -> Self {
+        let (tx, rx, etx) = delayqueue(input_buffer, output_buffer);
+        Self {
+            map: HashMap::new(),
             exp: tx,
             exp_receiver: Some(rx),
             emergency_channel: etx,
