@@ -28,7 +28,7 @@ pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
 /// use actix_storage::Storage;
 /// use actix_web::*;
 ///
-/// async fn index(storage: web::Data<Storage>) -> Result<String, Error>{
+/// async fn index(storage: Storage) -> Result<String, Error>{
 ///     storage.set_bytes("key", "value").await;
 ///     let val = storage.get_bytes("key").await?.unwrap_or_default();
 ///     Ok(std::str::from_utf8(&val)
@@ -63,7 +63,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index<'a>(storage: web::Data<Storage>) -> &'a str {
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// let cache = storage.scope("cache");
     /// cache.set("age", &60_u8).await;
     /// #     "set"
@@ -88,7 +88,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index<'a>(storage: web::Data<Storage>) -> &'a str {
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set("age", &60_u8).await;
     /// #     "set"
     /// # }
@@ -129,7 +129,7 @@ impl Storage {
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index<'a>(storage: web::Data<Storage>) -> &'a str {
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set_expiring("age", &60_u8, Duration::from_secs(10)).await;
     /// #     "set"
     /// # }
@@ -173,7 +173,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index<'a>(storage: web::Data<Storage>) -> &'a str {
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set_bytes("age", vec![10]).await;
     /// storage.set_bytes("name", "Violet".as_bytes()).await;
     /// #     "set"
@@ -202,7 +202,7 @@ impl Storage {
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index<'a>(storage: web::Data<Storage>) -> &'a str {
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set_expiring_bytes("name", "Violet".as_bytes(), Duration::from_secs(10)).await;
     /// #     "set"
     /// # }
@@ -234,7 +234,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let val: Option<String> = storage.get("key").await?;
     /// #     Ok(val.unwrap())
     /// # }
@@ -268,7 +268,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String> {
+    /// # async fn index(storage: Storage) -> Result<String> {
     /// let val: Option<(String, _)> = storage.get_expiring("key").await?;
     /// #     Ok(val.unwrap().0)
     /// # }
@@ -304,7 +304,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let val = storage.get_bytes("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
     /// # }
@@ -328,7 +328,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let val = storage.get_expiring_bytes("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap().0).unwrap_or_default().to_owned())
     /// # }
@@ -355,7 +355,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let val = storage.get_bytes_ref("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
     /// # }
@@ -373,7 +373,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let val = storage.get_expiring_bytes_ref("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap().0).unwrap_or_default().to_owned())
     /// # }
@@ -400,7 +400,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// storage.delete("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
@@ -418,7 +418,7 @@ impl Storage {
     /// # use actix_storage::Storage;
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let exist = storage.contains_key("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
@@ -440,7 +440,7 @@ impl Storage {
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// storage.expire("key", Duration::from_secs(10)).await?;
     /// #     Ok("deleted".to_string())
     /// # }
@@ -462,7 +462,7 @@ impl Storage {
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// let exp = storage.expiry("key").await?;
     /// if let Some(exp) = exp{
     ///     println!("Key will expire in {} seconds", exp.as_secs());
@@ -488,7 +488,7 @@ impl Storage {
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// storage.expire("key", Duration::from_secs(5)).await?;
     /// storage.extend("key", Duration::from_secs(5)).await?; // ket will expire in ~10 seconds
     /// #     Ok("deleted".to_string())
@@ -510,7 +510,7 @@ impl Storage {
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: web::Data<Storage>) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
     /// storage.persist("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }

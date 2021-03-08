@@ -60,10 +60,10 @@ async fn main() -> std::io::Result<()> {
    let storage = Storage::build().store(expiry).format(Format::Json).finish();
 
 
-   // Store it with .data
+   // Store it in you application state with actix_web::App.app_data
    let server = HttpServer::new(move || {
       App::new()
-            .data(storage.clone())
+            .app_data(storage.clone())
    });
    server.bind("localhost:5000")?.run().await
 }
@@ -72,7 +72,7 @@ async fn main() -> std::io::Result<()> {
 And later in your handlers
 
 ```rust
-async fn index(storage: web::Data<Storage>) -> Result<String, Error>{
+async fn index(storage: Storage) -> Result<String, Error>{
    storage.set_bytes("key", "value").await;
    let val = storage.get_bytes("key").await?.unwrap_or_default();
 
@@ -116,10 +116,10 @@ actix-storage-redis
 
 It can be usefull when:
 
-1. You don't know what kind of storage you'll want.
-2. You can't afford the long time compilation of some dbs while developing
+1. You don't know which key-value database you'll need later.
+2. You can't afford the long time compilation of some dbs while developing.
    - hashmap store compiles pretty fast
-3. You're writing a general purpose library and you want to let the user decide
+3. You're writing an actix-web extension library and need to support multiple storage backends.
 
 ## Why not?
 

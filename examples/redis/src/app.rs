@@ -14,7 +14,7 @@ struct Person {
 #[actix_web::get("/{name}/{age}")]
 async fn index(
     web::Path((name, age)): web::Path<(String, u16)>,
-    storage: web::Data<Storage>,
+    storage: Storage,
 ) -> Result<String, Error> {
     if let Some(person) = storage.get::<_, Person>(&name).await? {
         storage.expire(&name, Duration::from_secs(5)).await?;
@@ -48,6 +48,6 @@ async fn main() -> std::io::Result<()> {
         .format(Format::Yaml)
         .finish();
 
-    let server = HttpServer::new(move || App::new().data(storage.clone()).service(index));
+    let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(index));
     server.bind("localhost:5000")?.run().await
 }
