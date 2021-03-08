@@ -213,7 +213,9 @@ impl Handler<StoreRequest> for HashMapActor {
                     let mut exp = self.exp.clone();
                     ctx.spawn(
                         async move {
-                            exp.remove(ExpiryKey::new(scope, key)).await.ok().unwrap();
+                            if let Err(err) = exp.remove(ExpiryKey::new(scope, key)).await {
+                                log::error!("actix-storage-hashmap: {}", err);
+                            }
                         }
                         .into_actor(self),
                     );
@@ -278,9 +280,17 @@ impl Handler<ExpiryRequest> for HashMapActor {
             ExpiryRequest::Get(scope, key) => {
                 let mut exp = self.exp.clone();
                 Box::pin(
-                    async move { exp.get(ExpiryKey::new(scope, key)).await.ok().flatten() }
-                        .into_actor(self)
-                        .map(|val, _, _| ExpiryResponse::Get(Ok(val))),
+                    async move {
+                        match exp.get(ExpiryKey::new(scope, key)).await {
+                            Ok(val) => val,
+                            Err(err) => {
+                                log::error!("actix-storage-hashmap: {}", err);
+                                None
+                            }
+                        }
+                    }
+                    .into_actor(self)
+                    .map(|val, _, _| ExpiryResponse::Get(Ok(val))),
                 )
             }
             ExpiryRequest::Extend(scope, key, duration) => {
@@ -324,11 +334,19 @@ impl Handler<ExpiryStoreRequest> for HashMapActor {
                 if let Some(val) = val {
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.get(ExpiryKey::new(scope, key)).await.ok().flatten() }
-                            .into_actor(self)
-                            .map(|expiry, _, _| {
-                                ExpiryStoreResponse::GetExpiring(Ok(Some((val, expiry))))
-                            }),
+                        async move {
+                            match exp.get(ExpiryKey::new(scope, key)).await {
+                                Ok(val) => val,
+                                Err(err) => {
+                                    log::error!("actix-storage-hashmap: {}", err);
+                                    None
+                                }
+                            }
+                        }
+                        .into_actor(self)
+                        .map(|expiry, _, _| {
+                            ExpiryStoreResponse::GetExpiring(Ok(Some((val, expiry))))
+                        }),
                     )
                 } else {
                     Box::pin(async { ExpiryStoreResponse::GetExpiring(Ok(None)) }.into_actor(self))

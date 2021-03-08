@@ -211,15 +211,17 @@ where
                                 Commands::Get(value, oneshottx) => {
                                     // We don't care if the receiver has dropped
                                     // as it doesn't affect our internal state
-                                    if let Some((_, timeout)) = ids.get(&value) {
+                                    let res = if let Some((_, timeout)) = ids.get(&value) {
                                         oneshottx.send(
                                             timeout
                                                 .checked_duration_since(Instant::now()),
                                         )
                                     } else {
                                         oneshottx.send(None)
+                                    };
+                                    if res.is_err(){
+                                        log::error!("actix-storage-hashmap::delayqueue: Receiving channel dropped")
                                     }
-                                    .ok();
                                 }
                                 Commands::Remove(value) => {
                                     if let Some((key, _)) = ids.get(&value) {

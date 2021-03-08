@@ -86,6 +86,18 @@ impl ExpiryFlags {
     }
 }
 
+struct DelayedIem {
+    scope: Arc<[u8]>,
+    key: Arc<[u8]>,
+    nonce: u64,
+}
+
+impl DelayedIem {
+    fn new(scope: Arc<[u8]>, key: Arc<[u8]>, nonce: u64) -> Self {
+        Self { scope, key, nonce }
+    }
+}
+
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
 /// actix actors and sled, using delay_queue crate to provide expiration
 ///
@@ -123,7 +135,7 @@ impl ExpiryFlags {
 #[derive(Clone)]
 pub struct SledActor {
     db: sled::Db,
-    queue: DelayQueue<Delay<((Arc<[u8]>, Arc<[u8]>), u64)>>,
+    queue: DelayQueue<Delay<DelayedIem>>,
     perform_deletion: bool,
     scan_db_on_start: bool,
 
@@ -157,6 +169,21 @@ pub fn encode(value: &[u8], exp: ExpiryFlags) -> Vec<u8> {
     buff.extend_from_slice(value);
     buff.extend_from_slice(exp.as_bytes());
     buff
+}
+
+/// Used in expiration thread to remove delayed items from map
+fn remove_expired_item(db: &sled::Db, item: DelayedIem) -> Result<(), sled::Error> {
+    let tree = db.open_tree(item.scope)?;
+    let val = tree.get(&item.key)?;
+    if let Some(mut bytes) = val {
+        if let Some((_, exp)) = decode_mut(&mut bytes) {
+            if exp.nonce.get() == item.nonce && exp.persist.get() == 0 {
+                tree.remove(&item.key)?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 impl SledActor {
@@ -199,8 +226,9 @@ impl SledActor {
                                 deleted_keys.push(key);
                             } else if let Some(dur) = exp.expires_in() {
                                 self.queue.push(Delay::for_duration(
-                                    (
-                                        (tree_name.to_vec().into(), key.to_vec().into()),
+                                    DelayedIem::new(
+                                        tree_name.to_vec().into(),
+                                        key.to_vec().into(),
                                         exp.nonce.get(),
                                     ),
                                     dur,
@@ -221,27 +249,18 @@ impl Actor for SledActor {
     type Context = SyncContext<Self>;
 
     fn started(&mut self, _: &mut Self::Context) {
-        let map = self.db.clone();
-        let mut queue = self.queue.clone();
-
         if self.scan_db_on_start && self.perform_deletion {
             self.scan_expired_items();
         }
 
-        let stopped = self.stopped.clone();
-
         if self.perform_deletion {
+            let db = self.db.clone();
+            let mut queue = self.queue.clone();
+            let stopped = self.stopped.clone();
             std::thread::spawn(move || loop {
                 if let Some(item) = queue.try_pop_for(Duration::from_secs(1)) {
-                    if let Ok(tree) = map.open_tree(item.value.0 .0) {
-                        let val = tree.get(&item.value.0 .1).ok().flatten();
-                        if let Some(mut bytes) = val {
-                            if let Some((_, exp)) = decode_mut(&mut bytes) {
-                                if exp.nonce.get() == item.value.1 && exp.persist.get() == 0 {
-                                    tree.remove(&item.value.0 .1).ok();
-                                }
-                            }
-                        }
+                    if let Err(err) = remove_expired_item(&db, item.value) {
+                        log::error!("actix-storage-sled: {}", err);
                     }
                 } else if stopped.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
@@ -251,15 +270,20 @@ impl Actor for SledActor {
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {
-        // Should have better error handling here
-        self.stopped
-            .compare_exchange(
-                false,
-                true,
-                std::sync::atomic::Ordering::Acquire,
-                std::sync::atomic::Ordering::Acquire,
-            )
-            .ok();
+        loop {
+            if self
+                .stopped
+                .compare_exchange(
+                    false,
+                    true,
+                    std::sync::atomic::Ordering::Acquire,
+                    std::sync::atomic::Ordering::Acquire,
+                )
+                .is_ok()
+            {
+                break;
+            }
+        }
     }
 }
 
@@ -362,8 +386,10 @@ impl Handler<ExpiryRequest> for SledActor {
                     Err(err) => ExpiryResponse::Set(Err(StorageError::custom(err))),
                     Ok(_) => {
                         if let Some(total_duration) = total_duration {
-                            self.queue
-                                .push(Delay::for_duration(((scope, key), nonce), total_duration));
+                            self.queue.push(Delay::for_duration(
+                                DelayedIem::new(scope, key, nonce),
+                                total_duration,
+                            ));
                         }
                         ExpiryResponse::Set(Ok(()))
                     }
@@ -428,8 +454,10 @@ impl Handler<ExpiryRequest> for SledActor {
                     Err(err) => ExpiryResponse::Extend(Err(StorageError::custom(err))),
                     Ok(_) => {
                         if let Some(total_duration) = total_duration {
-                            self.queue
-                                .push(Delay::for_duration(((scope, key), nonce), total_duration));
+                            self.queue.push(Delay::for_duration(
+                                DelayedIem::new(scope, key, nonce),
+                                total_duration,
+                            ));
                         }
                         ExpiryResponse::Extend(Ok(()))
                     }
