@@ -1,4 +1,4 @@
-# actix-storage-hashmap
+# actix-storage-sled
 
 It's an implementation for actix-storage based on `sled` database, please refer to actix-storage crate documentations.
 
