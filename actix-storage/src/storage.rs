@@ -54,8 +54,21 @@ impl Storage {
     }
 
     /// Return a new Storage struct for the specified scope.
+    ///
     /// Scopes may or may not be implemented as key prefixes but should provide
     /// some guarantees to not mutate other scopes.
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use actix_storage::Storage;
+    /// # use actix_web::*;
+    /// #
+    /// # async fn index<'a>(storage: web::Data<Storage>) -> &'a str {
+    /// let cache = storage.scope("cache");
+    /// cache.set("age", &60_u8).await;
+    /// #     "set"
+    /// # }
+    /// ```
     pub fn scope(&self, scope: impl AsRef<[u8]>) -> Storage {
         Storage {
             scope: scope.as_ref().into(),
