@@ -62,7 +62,7 @@ impl Value {
             self.persist = false;
             self.timeout = Some(new_timeout);
             self.ref_count += 1;
-            timeout
+            new_timeout
         } else {
             self.set_expires_in(expires_in)
         }
