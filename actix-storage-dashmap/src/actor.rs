@@ -14,27 +14,25 @@ struct Value {
     bytes: Arc<[u8]>,
     timeout: Option<Instant>,
     persist: bool,
-    ref_count: u32,
-    nonce: u32,
+    // nonce increases whenever a new value is set or expiration time changes
+    nonce: usize,
 }
 
 impl Value {
-    pub fn new(bytes: Arc<[u8]>, nonce: u32) -> Self {
+    pub fn new(bytes: Arc<[u8]>, nonce: usize) -> Self {
         Value {
             bytes,
             timeout: None,
             persist: true,
-            ref_count: 0,
             nonce,
         }
     }
 
-    pub fn new_expiring(bytes: Arc<[u8]>, nonce: u32, expires_in: Duration) -> Self {
+    pub fn new_expiring(bytes: Arc<[u8]>, nonce: usize, expires_in: Duration) -> Self {
         Value {
             bytes,
             timeout: Some(Instant::now() + expires_in),
             persist: false,
-            ref_count: 1,
             nonce,
         }
     }
@@ -52,7 +50,7 @@ impl Value {
         let timeout = Instant::now() + expires_in;
         self.persist = false;
         self.timeout = Some(timeout);
-        self.ref_count += 1;
+        self.nonce += 1;
         timeout
     }
 
@@ -61,7 +59,7 @@ impl Value {
             let new_timeout = timeout + expires_in;
             self.persist = false;
             self.timeout = Some(new_timeout);
-            self.ref_count += 1;
+            self.nonce += 1;
             new_timeout
         } else {
             self.set_expires_in(expires_in)
@@ -76,7 +74,7 @@ impl Value {
 type ScopeMap = DashMap<Arc<[u8]>, Value>;
 type InternalMap = DashMap<Arc<[u8]>, ScopeMap>;
 /// (Scope, Key, Nonce)
-type ExpiringKey = (Arc<[u8]>, Arc<[u8]>, u32);
+type ExpiringKey = (Arc<[u8]>, Arc<[u8]>, usize);
 
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
 /// actix actors and HashMap
@@ -161,14 +159,12 @@ impl Actor for DashMapActor {
                 let key = &item.value.1;
                 let nonce = item.value.2;
                 if let Some(scope_map) = map.get_mut(scope) {
-                    if let Some(mut value) = scope_map.get_mut(key) {
+                    if let Some(value) = scope_map.get(key) {
                         if value.nonce != nonce {
                             continue;
                         }
 
-                        value.ref_count -= 1;
-
-                        if value.ref_count == 0 && !value.persist {
+                        if !value.persist {
                             should_delete = true;
                         }
                     }
