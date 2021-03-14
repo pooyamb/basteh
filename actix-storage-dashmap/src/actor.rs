@@ -317,10 +317,15 @@ mod test {
         test_store(store).await;
     }
 
-    #[actix_rt::test]
-    async fn test_dashmap_expiry() {
-        let store = DashMapActor::default().start(1);
-        test_expiry(store.clone(), store, 2).await;
+    #[test]
+    fn test_dashmap_expiry() {
+        test_expiry(
+            Box::pin(async {
+                let store = DashMapActor::default().start(1);
+                (store.clone(), store)
+            }),
+            2,
+        );
     }
 
     #[actix_rt::test]

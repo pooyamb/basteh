@@ -571,8 +571,13 @@ mod test {
 
     #[actix_rt::test]
     async fn test_sled_expiry() {
-        let store = SledActor::from_db(open_database().await).start(1);
-        test_expiry(store.clone(), store.clone(), 4).await;
+        test_expiry(
+            Box::pin(async {
+                let store = SledActor::from_db(open_database().await).start(1);
+                (store.clone(), store)
+            }),
+            5,
+        );
     }
 
     #[actix_rt::test]

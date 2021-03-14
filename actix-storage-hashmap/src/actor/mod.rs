@@ -383,10 +383,15 @@ mod test {
         test_store(store).await;
     }
 
-    #[actix_rt::test]
-    async fn test_hashmap_expiry() {
-        let store = HashMapActor::start_default();
-        test_expiry(store.clone(), store, 2).await;
+    #[test]
+    fn test_hashmap_expiry() {
+        test_expiry(
+            Box::pin(async {
+                let store = HashMapActor::start_default();
+                (store.clone(), store)
+            }),
+            2,
+        );
     }
 
     #[actix_rt::test]

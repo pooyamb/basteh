@@ -180,7 +180,7 @@ mod test {
                 });
                 con
             }
-            Err(err) => panic!(err),
+            Err(err) => panic!("{:?}", err),
         }
     }
 
@@ -190,10 +190,15 @@ mod test {
         test_store(store).await;
     }
 
-    #[actix_rt::test]
-    async fn test_redis_expiry() {
-        let store = get_connection().await;
-        test_expiry(store.clone(), store, 5).await;
+    #[test]
+    fn test_redis_expiry() {
+        test_expiry(
+            Box::pin(async {
+                let store = get_connection().await;
+                (store.clone(), store)
+            }),
+            5,
+        );
     }
 
     #[actix_rt::test]
