@@ -106,15 +106,15 @@ mod test {
         }
     }
 
-    #[actix_rt::test]
-    async fn test_sled_basic_store() {
-        let store = open_database().await;
-        let store = SledStore::from_db(store);
-        test_store(store).await;
+    #[test]
+    fn test_sled_basic_store() {
+        test_store(Box::pin(async {
+            SledStore::from_db(open_database().await)
+        }));
     }
 
-    #[actix_rt::test]
-    async fn test_sled_basic_formats() {
+    #[test]
+    fn test_sled_basic_formats() {
         impl Clone for SledStore {
             fn clone(&self) -> Self {
                 Self {
@@ -122,8 +122,8 @@ mod test {
                 }
             }
         }
-        let store = open_database().await;
-        let store = SledStore::from_db(store);
-        test_all_formats(store).await;
+        test_all_formats(Box::pin(async {
+            SledStore::from_db(open_database().await)
+        }));
     }
 }

@@ -33,7 +33,6 @@ actix-web = "3"
 rand = "0.8"
 serde = "1"
 actix-storage = { version = "0.2.0-alpha.1", features = ["all", "tests"] }
-actix-rt = "1.1"
 
 [features]
 actor = ["tokio", "futures"]

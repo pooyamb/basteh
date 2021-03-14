@@ -184,10 +184,9 @@ mod test {
         }
     }
 
-    #[actix_rt::test]
-    async fn test_redis_store() {
-        let store = get_connection().await;
-        test_store(store).await;
+    #[test]
+    fn test_redis_store() {
+        test_store(Box::pin(async { get_connection().await }));
     }
 
     #[test]
@@ -201,15 +200,13 @@ mod test {
         );
     }
 
-    #[actix_rt::test]
-    async fn test_redis_expiry_store() {
-        let store = get_connection().await;
-        test_expiry_store(store, 5).await;
+    #[test]
+    fn test_redis_expiry_store() {
+        test_expiry_store(Box::pin(async { get_connection().await }), 5);
     }
 
-    #[actix_rt::test]
-    async fn test_redis_formats() {
-        let store = get_connection().await;
-        test_all_formats(store).await;
+    #[test]
+    fn test_redis_formats() {
+        test_all_formats(Box::pin(async { get_connection().await }));
     }
 }

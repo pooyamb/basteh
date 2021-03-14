@@ -6,28 +6,36 @@ use crate::{dev::*, *};
 ////////////////////////////////////////////////////    Store tests     ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub async fn test_store<S: 'static + Store>(store: S) {
-    let store = Storage::build().store(store).finish();
+pub fn test_store<F, S>(cfg: Pin<Box<F>>)
+where
+    F: 'static + Future<Output = S>,
+    S: 'static + Store,
+{
+    let mut system = actix_rt::System::new("store_tests");
+    let store = system.block_on(async { cfg.await });
+    let storage = Storage::build().store(store).finish();
 
-    assert!(store.set_bytes("store_key", "val").await.is_ok());
+    system.block_on(async move {
+        assert!(storage.set_bytes("store_key", "val").await.is_ok());
 
-    let get_res = store.get_bytes("store_key").await;
-    assert!(get_res.is_ok());
-    assert_eq!(get_res.unwrap(), Some("val".as_bytes().into()));
+        let get_res = storage.get_bytes("store_key").await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some("val".as_bytes().into()));
 
-    let contains_res = store.contains_key("store_key").await;
-    assert!(contains_res.is_ok());
-    assert_eq!(contains_res.unwrap(), true);
+        let contains_res = storage.contains_key("store_key").await;
+        assert!(contains_res.is_ok());
+        assert_eq!(contains_res.unwrap(), true);
 
-    assert!(store.delete("store_key").await.is_ok());
+        assert!(storage.delete("store_key").await.is_ok());
 
-    let get_res = store.get_bytes("store_key").await;
-    assert!(get_res.is_ok());
-    assert_eq!(get_res.unwrap(), None);
+        let get_res = storage.get_bytes("store_key").await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), None);
 
-    let contains_res = store.contains_key("store_key").await;
-    assert!(contains_res.is_ok());
-    assert_eq!(contains_res.unwrap(), false);
+        let contains_res = storage.contains_key("store_key").await;
+        assert!(contains_res.is_ok());
+        assert_eq!(contains_res.unwrap(), false);
+    });
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -220,38 +228,49 @@ where
 // delay_secs is the duration of time we set for expiry and we wait to see
 // the result, it should depend on how much delay an implementor has between
 // getting a command and executing it
-pub async fn test_expiry_store<S: 'static + ExpiryStore>(store: S, delay_secs: u64) {
-    let store = Storage::build().expiry_store(store).finish();
+pub fn test_expiry_store<F, S>(cfg: Pin<Box<F>>, delay_secs: u64)
+where
+    F: 'static + Future<Output = S>,
+    S: 'static + ExpiryStore,
+{
+    let mut system = actix_rt::System::new("expiry_tests");
+    let store = system.block_on(async { cfg.await });
+    let storage = Storage::build().expiry_store(store).finish();
     let delay = Duration::from_secs(delay_secs);
 
-    // Test set and get expiring
-    assert!(store.set_expiring_bytes("key3", "val", delay).await.is_ok());
-    let (v, e) = store.get_expiring_bytes("key3").await.unwrap().unwrap();
-    assert_eq!(v, "val".as_bytes());
-    assert!(e.unwrap().as_secs() > 0);
-    assert!(e.unwrap().as_secs() <= delay_secs);
+    system.block_on(async move {
+        // Test set and get expiring
+        assert!(storage
+            .set_expiring_bytes("key3", "val", delay)
+            .await
+            .is_ok());
+        let (v, e) = storage.get_expiring_bytes("key3").await.unwrap().unwrap();
+        assert_eq!(v, "val".as_bytes());
+        assert!(e.unwrap().as_secs() > 0);
+        assert!(e.unwrap().as_secs() <= delay_secs);
 
-    // Test if second call to set expiring, overwrites expiry for key
-    assert!(store
-        .set_expiring_bytes("key3_2set", "val", delay)
-        .await
-        .is_ok());
-    assert!(store
-        .set_expiring_bytes("key3_2set", "val", Duration::from_secs(delay_secs * 2))
-        .await
-        .is_ok());
-    let exp = store.expiry("key3_2set").await.unwrap().unwrap();
-    assert!(exp.as_secs() > delay_secs);
-    assert!(exp.as_secs() <= delay_secs * 2);
+        // Test if second call to set expiring, overwrites expiry for key
+        assert!(storage
+            .set_expiring_bytes("key3_2set", "val", delay)
+            .await
+            .is_ok());
+        assert!(storage
+            .set_expiring_bytes("key3_2set", "val", Duration::from_secs(delay_secs * 2))
+            .await
+            .is_ok());
+        let exp = storage.expiry("key3_2set").await.unwrap().unwrap();
+        assert!(exp.as_secs() > delay_secs);
+        assert!(exp.as_secs() <= delay_secs * 2);
 
-    // Adding some error to the delay, for the implementors sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+        // Adding some error to the delay, for the implementors sake
+        actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
-    // Check if first item expired as expected
-    assert_eq!(store.get_expiring_bytes("key3").await.unwrap(), None);
+        // Check if first item expired as expected
+        assert_eq!(storage.get_expiring_bytes("key3").await.unwrap(), None);
 
-    // Check if the second call to set overwrites expiry
-    assert!(store.get_bytes("key3_2set").await.unwrap().is_some());
+        // Check if the second call to set overwrites expiry
+        assert!(storage.get_bytes("key3_2set").await.unwrap().is_some());
+    });
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -323,9 +342,22 @@ fn get_formats() -> Vec<Format> {
     feature = "serde-bincode",
     feature = "serde-xml"
 ))]
-pub async fn test_all_formats<S: 'static + Store + Clone>(store: S) {
+// delay_secs is the duration of time we set for expiry and we wait to see
+// the result, it should depend on how much delay an implementor has between
+// getting a command and executing it
+pub fn test_all_formats<F, S>(cfg: Pin<Box<F>>)
+where
+    F: 'static + Future<Output = S>,
+    S: 'static + Store + Clone,
+{
+    let mut system = actix_rt::System::new("expiry_tests");
+    let store = system.block_on(async { cfg.await });
+
     let formats = get_formats();
     for format in formats {
-        test_format(store.clone(), format).await;
+        let store = store.clone();
+        system.block_on(async move {
+            test_format(store, format).await;
+        });
     }
 }

@@ -311,10 +311,9 @@ mod test {
     use super::*;
     use actix_storage::tests::*;
 
-    #[actix_rt::test]
-    async fn test_dashmap_store() {
-        let store = DashMapActor::default().start(1);
-        test_store(store).await;
+    #[test]
+    fn test_dashmap_store() {
+        test_store(Box::pin(async { DashMapActor::default().start(1) }));
     }
 
     #[test]
@@ -328,15 +327,22 @@ mod test {
         );
     }
 
-    #[actix_rt::test]
-    async fn test_dashmap_expiry_store() {
-        let store = DashMapActor::default().start(1);
-        test_expiry_store(store, 2).await;
+    #[test]
+    fn test_dashmap_expiry_store() {
+        test_expiry_store(
+            Box::pin(async {
+                let store = DashMapActor::default().start(1);
+                store
+            }),
+            2,
+        );
     }
 
-    #[actix_rt::test]
-    async fn test_dashmap_formats() {
-        let store = DashMapActor::default().start(1);
-        test_all_formats(store).await;
+    #[test]
+    fn test_dashmap_formats() {
+        test_all_formats(Box::pin(async {
+            let store = DashMapActor::default().start(1);
+            store
+        }));
     }
 }

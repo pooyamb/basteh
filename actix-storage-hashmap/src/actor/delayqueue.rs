@@ -292,7 +292,7 @@ mod test {
 
     use super::*;
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_read() {
         let dur1 = Duration::from_secs(1);
         let dur2 = Duration::from_secs(2);
@@ -314,7 +314,7 @@ mod test {
         assert!(next_item.unwrap() == 10);
     }
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_send() {
         let dur1 = Duration::from_secs(1);
         let dur2 = Duration::from_secs(2);
@@ -340,7 +340,7 @@ mod test {
         assert!(exp.unwrap().is_none())
     }
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_emergency() {
         let dur1 = Duration::from_secs(1);
         let (mut tx, mut rx, mut etx) = delayqueue::<i32>(1, 1);
@@ -362,7 +362,7 @@ mod test {
         assert!(tx.insert_or_update(5, dur1).await.is_err());
     }
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_emergency_droped() {
         let dur1 = Duration::from_secs(1);
 

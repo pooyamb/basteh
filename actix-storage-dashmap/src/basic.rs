@@ -88,14 +88,13 @@ mod test {
     use super::*;
     use actix_storage::tests::*;
 
-    #[actix_rt::test]
-    async fn test_dashmap_basic_store() {
-        let store = DashMapStore::default();
-        test_store(store).await;
+    #[test]
+    fn test_dashmap_basic_store() {
+        test_store(Box::pin(async { DashMapStore::default() }));
     }
 
-    #[actix_rt::test]
-    async fn test_dashmap_basic_formats() {
+    #[test]
+    fn test_dashmap_basic_formats() {
         impl Clone for DashMapStore {
             fn clone(&self) -> Self {
                 Self {
@@ -103,7 +102,6 @@ mod test {
                 }
             }
         }
-        let store = DashMapStore::default();
-        test_all_formats(store).await;
+        test_all_formats(Box::pin(async { DashMapStore::default() }));
     }
 }

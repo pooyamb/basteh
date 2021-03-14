@@ -563,10 +563,11 @@ mod test {
         panic!("Sled can not open the database files")
     }
 
-    #[actix_rt::test]
-    async fn test_sled_store() {
-        let store = SledActor::from_db(open_database().await).start(1);
-        test_store(store.clone()).await;
+    #[test]
+    fn test_sled_store() {
+        test_store(Box::pin(async {
+            SledActor::from_db(open_database().await).start(1)
+        }));
     }
 
     #[test]
@@ -576,20 +577,23 @@ mod test {
                 let store = SledActor::from_db(open_database().await).start(1);
                 (store.clone(), store)
             }),
-            5,
+            4,
         );
     }
 
-    #[actix_rt::test]
-    async fn test_sled_expiry_store() {
-        let store = SledActor::from_db(open_database().await).start(1);
-        test_expiry_store(store, 4).await;
+    #[test]
+    fn test_sled_expiry_store() {
+        test_expiry_store(
+            Box::pin(async { SledActor::from_db(open_database().await).start(1) }),
+            4,
+        );
     }
 
-    #[actix_rt::test]
-    async fn test_sled_formats() {
-        let store = SledActor::from_db(open_database().await).start(1);
-        test_all_formats(store).await;
+    #[test]
+    fn test_sled_formats() {
+        test_all_formats(Box::pin(async {
+            SledActor::from_db(open_database().await).start(1)
+        }));
     }
 
     #[actix_rt::test]

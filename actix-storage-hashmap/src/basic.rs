@@ -107,20 +107,18 @@ mod test {
     use super::*;
     use actix_storage::tests::*;
 
-    #[actix_rt::test]
-    async fn test_hashmap_basic_store() {
-        let store = HashMapStore::default();
-        test_store(store).await;
+    #[test]
+    fn test_hashmap_basic_store() {
+        test_store(Box::pin(async { HashMapStore::default() }));
     }
 
-    #[actix_rt::test]
-    async fn test_hashmap_basic_formats() {
+    #[test]
+    fn test_hashmap_basic_formats() {
         impl Clone for HashMapStore {
             fn clone(&self) -> Self {
                 Self::default()
             }
         }
-        let store = HashMapStore::default();
-        test_all_formats(store).await;
+        test_all_formats(Box::pin(async { HashMapStore::default() }));
     }
 }

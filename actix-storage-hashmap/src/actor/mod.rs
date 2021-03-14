@@ -377,10 +377,9 @@ mod test {
     use super::*;
     use actix_storage::tests::*;
 
-    #[actix_rt::test]
-    async fn test_hashmap_store() {
-        let store = HashMapActor::start_default();
-        test_store(store).await;
+    #[test]
+    fn test_hashmap_store() {
+        test_store(Box::pin(async { HashMapActor::start_default() }));
     }
 
     #[test]
@@ -394,15 +393,13 @@ mod test {
         );
     }
 
-    #[actix_rt::test]
-    async fn test_hashmap_expiry_store() {
-        let store = HashMapActor::start_default();
-        test_expiry_store(store, 2).await;
+    #[test]
+    fn test_hashmap_expiry_store() {
+        test_expiry_store(Box::pin(async { HashMapActor::start_default() }), 2);
     }
 
-    #[actix_rt::test]
-    async fn test_hashmap_formats() {
-        let store = HashMapActor::start_default();
-        test_all_formats(store).await;
+    #[test]
+    fn test_hashmap_formats() {
+        test_all_formats(Box::pin(async { HashMapActor::start_default() }));
     }
 }
