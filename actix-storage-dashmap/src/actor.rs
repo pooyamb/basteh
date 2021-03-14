@@ -50,7 +50,7 @@ impl Value {
         let timeout = Instant::now() + expires_in;
         self.persist = false;
         self.timeout = Some(timeout);
-        self.nonce += 1;
+        self.increase_nonce();
         timeout
     }
 
@@ -59,11 +59,15 @@ impl Value {
             let new_timeout = timeout + expires_in;
             self.persist = false;
             self.timeout = Some(new_timeout);
-            self.nonce += 1;
+            self.increase_nonce();
             new_timeout
         } else {
             self.set_expires_in(expires_in)
         }
+    }
+
+    fn increase_nonce(&mut self) {
+        self.nonce = self.nonce.checked_add(1).unwrap_or(0);
     }
 
     pub fn persist(&mut self) {
