@@ -67,27 +67,4 @@ jobs:
         with:
           command: test
           args: >
-            --all-features --workspace -- --test-threads=1
-
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-20.04
-    env:
-      ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-
-      - run: sudo apt install redis-server -y
-      - run: sudo service redis-server start
-
-      - uses: actions-rs/tarpaulin@v0.1.0
-        with:
-          args: --all-features --workspace -o Xml -- --test-threads=2
-
-      - uses: codecov/codecov-action@v1.0.14
+            --all-features --workspace -- --test-threads=2
