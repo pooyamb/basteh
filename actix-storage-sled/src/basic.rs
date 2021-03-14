@@ -1,13 +1,9 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use actix_storage::{dev::Store, Result as StorageResult, StorageError};
-use thiserror::Error;
+use sled::Tree;
 
 use crate::{SledConfig, SledError};
-
-#[derive(Debug, Error)]
-#[error("A proccess obtaining the lock has failed while keeping it.")]
-pub struct LockStorageError;
 
 /// A simple implementation of [`Store`](actix_storage::dev::Store) based on Sled
 ///
@@ -46,37 +42,48 @@ impl SledStore {
     pub fn from_db(db: sled::Db) -> Self {
         Self { db }
     }
+
+    #[cfg(not(feature = "v01-compat"))]
+    fn get_tree(&self, scope: Arc<[u8]>) -> StorageResult<Tree> {
+        self.db.open_tree(scope).map_err(StorageError::custom)
+    }
+
+    #[cfg(feature = "v01-compat")]
+    fn get_tree(&self, scope: Arc<[u8]>) -> StorageResult<Tree> {
+        if scope.as_ref() == &actix_storage::GLOBAL_SCOPE {
+            Ok(self.db.deref().clone())
+        } else {
+            self.db.open_tree(scope).map_err(StorageError::custom)
+        }
+    }
 }
 
 #[async_trait::async_trait]
 impl Store for SledStore {
     async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> StorageResult<()> {
-        let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        match tree.insert(key, value.as_ref()) {
+        match self.get_tree(scope)?.insert(key, value.as_ref()) {
             Ok(_) => Ok(()),
             Err(err) => Err(StorageError::custom(err)),
         }
     }
 
     async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<Option<Arc<[u8]>>> {
-        let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        Ok(tree
+        Ok(self
+            .get_tree(scope)?
             .get(key)
             .map_err(StorageError::custom)?
             .map(|val| val.as_ref().into()))
     }
 
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<()> {
-        let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        match tree.remove(key) {
+        match self.get_tree(scope)?.remove(key) {
             Ok(_) => Ok(()),
             Err(err) => Err(StorageError::custom(err)),
         }
     }
 
     async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<bool> {
-        let tree = self.db.open_tree(scope).map_err(StorageError::custom)?;
-        match tree.contains_key(key) {
+        match self.get_tree(scope)?.contains_key(key) {
             Ok(res) => Ok(res),
             Err(err) => Err(StorageError::custom(err)),
         }

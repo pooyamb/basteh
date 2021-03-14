@@ -1,5 +1,8 @@
-use std::sync::{atomic::AtomicBool, Arc};
 use std::time::{Duration, SystemTime};
+use std::{
+    ops::Deref,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use actix::{Actor, Addr, Handler, SyncArbiter, SyncContext};
 use actix_storage::{
@@ -135,9 +138,26 @@ pub fn encode(value: &[u8], exp: ExpiryFlags) -> Vec<u8> {
     buff
 }
 
+#[cfg(not(feature = "v01-compat"))]
+#[inline]
+fn open_tree(db: &sled::Db, scope: &[u8]) -> Result<sled::Tree, sled::Error> {
+    db.open_tree(scope)
+}
+
+#[cfg(feature = "v01-compat")]
+#[inline]
+fn open_tree(db: &sled::Db, scope: &[u8]) -> Result<sled::Tree, sled::Error> {
+    if scope.as_ref() == &actix_storage::GLOBAL_SCOPE {
+        Ok(db.deref().clone())
+    } else {
+        db.open_tree(scope)
+    }
+}
+
 /// Used in expiration thread to remove delayed items from map
+#[inline]
 fn remove_expired_item(db: &sled::Db, item: DelayedIem) -> Result<(), sled::Error> {
-    let tree = db.open_tree(item.scope)?;
+    let tree = open_tree(&db, &item.scope)?;
     let val = tree.get(&item.key)?;
     if let Some(mut bytes) = val {
         if let Some((_, exp)) = decode_mut(&mut bytes) {
@@ -196,12 +216,15 @@ pub struct SledActor {
 }
 
 impl SledActor {
+    /// If set to true, actor will perform real deletion when an item expires instead of soft deleting it,
+    /// it requires a seprate thread for expiration notification.
     #[must_use = "Actor should be started by calling start method"]
     pub fn perform_deletion(mut self, to: bool) -> Self {
         self.perform_deletion = to;
         self
     }
 
+    /// If set to true, actor will scan the database on start to mark expired items.
     #[must_use = "Actor should be started by calling start method"]
     pub fn scan_db_on_start(mut self, to: bool) -> Self {
         self.scan_db_on_start = to;
@@ -219,13 +242,14 @@ impl SledActor {
         }
     }
 
+    /// Start the actor in an actix's sync arbiter
     pub fn start(self, threads_num: usize) -> Addr<Self> {
         SyncArbiter::start(threads_num, move || self.clone())
     }
 
     fn scan_expired_items(&mut self) {
         for tree_name in self.db.tree_names() {
-            if let Ok(tree) = self.db.open_tree(&tree_name) {
+            if let Ok(tree) = open_tree(&self.db, &tree_name) {
                 let mut deleted_keys = vec![];
                 for kv in tree.iter() {
                     if let Ok((key, value)) = kv {
@@ -302,9 +326,7 @@ impl Handler<StoreRequest> for SledActor {
     fn handle(&mut self, msg: StoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
             StoreRequest::Set(scope, key, value) => {
-                let res = self
-                    .db
-                    .open_tree(scope)
+                let res = open_tree(&self.db, &scope)
                     .and_then(|tree| {
                         tree.update_and_fetch(&key, |bytes| {
                             let nonce = if let Some(bytes) = bytes {
@@ -326,9 +348,7 @@ impl Handler<StoreRequest> for SledActor {
                 StoreResponse::Set(res)
             }
             StoreRequest::Get(scope, key) => {
-                let value = self
-                    .db
-                    .open_tree(scope)
+                let value = open_tree(&self.db, &scope)
                     .and_then(|tree| {
                         tree.get(&key).map(|val| {
                             val.and_then(|bytes| {
@@ -345,17 +365,13 @@ impl Handler<StoreRequest> for SledActor {
                 StoreResponse::Get(value)
             }
             StoreRequest::Delete(scope, key) => {
-                let res = self
-                    .db
-                    .open_tree(scope)
+                let res = open_tree(&self.db, &scope)
                     .and_then(|tree| tree.remove(&key).map(|_| ()))
                     .map_err(StorageError::custom);
                 StoreResponse::Delete(res)
             }
             StoreRequest::Contains(scope, key) => {
-                let res = self
-                    .db
-                    .open_tree(scope)
+                let res = open_tree(&self.db, &scope)
                     .and_then(|tree| tree.contains_key(&key))
                     .map_err(StorageError::custom);
                 StoreResponse::Contains(res)
@@ -372,7 +388,7 @@ impl Handler<ExpiryRequest> for SledActor {
             ExpiryRequest::Set(scope, key, expires_in) => {
                 let mut nonce = 0;
                 let mut total_duration = None;
-                let val = self.db.open_tree(&scope).and_then(|tree| {
+                let val = open_tree(&self.db, &scope).and_then(|tree| {
                     tree.update_and_fetch(&key, |existing| {
                         let mut bytes = sled::IVec::from(existing?);
 
@@ -405,7 +421,7 @@ impl Handler<ExpiryRequest> for SledActor {
                 }
             }
             ExpiryRequest::Persist(scope, key) => {
-                let val = self.db.open_tree(scope).and_then(|tree| {
+                let val = open_tree(&self.db, &scope).and_then(|tree| {
                     tree.update_and_fetch(&key, |existing| {
                         let mut bytes = sled::IVec::from(existing?);
                         if let Some((_, exp)) = decode_mut(&mut bytes) {
@@ -421,9 +437,7 @@ impl Handler<ExpiryRequest> for SledActor {
                 }
             }
             ExpiryRequest::Get(scope, key) => {
-                let item = self
-                    .db
-                    .open_tree(scope)
+                let item = open_tree(&self.db, &scope)
                     .and_then(|tree| {
                         tree.get(&key).map(|val| {
                             val.and_then(|bytes| {
@@ -438,7 +452,7 @@ impl Handler<ExpiryRequest> for SledActor {
             ExpiryRequest::Extend(scope, key, duration) => {
                 let mut nonce = 0;
                 let mut total_duration = None;
-                let val = self.db.open_tree(&scope).and_then(|tree| {
+                let val = open_tree(&self.db, &scope).and_then(|tree| {
                     tree.update_and_fetch(&key, |existing| {
                         let mut bytes = sled::IVec::from(existing?);
 
@@ -482,9 +496,7 @@ impl Handler<ExpiryStoreRequest> for SledActor {
     fn handle(&mut self, msg: ExpiryStoreRequest, _: &mut Self::Context) -> Self::Result {
         match msg {
             ExpiryStoreRequest::SetExpiring(scope, key, value, exp) => {
-                let res = self
-                    .db
-                    .open_tree(scope)
+                let res = open_tree(&self.db, &scope)
                     .and_then(|tree| {
                         tree.update_and_fetch(key.as_ref(), |bytes| {
                             let nonce = if let Some(bytes) = bytes {
@@ -506,9 +518,7 @@ impl Handler<ExpiryStoreRequest> for SledActor {
                 ExpiryStoreResponse::SetExpiring(res)
             }
             ExpiryStoreRequest::GetExpiring(scope, key) => {
-                let value = self
-                    .db
-                    .open_tree(scope)
+                let value = open_tree(&self.db, &scope)
                     .and_then(|tree| tree.get(&key))
                     .map_err(StorageError::custom)
                     .map(|val| {
@@ -614,13 +624,12 @@ mod test {
             .send(ExpiryRequest::Set(scope.clone(), key.clone(), dur))
             .await
             .unwrap();
-        assert!(db
-            .open_tree(&scope)
+        assert!(open_tree(&db, &scope)
             .unwrap()
             .contains_key(key.clone())
             .unwrap());
         actix::clock::delay_for(dur * 2).await;
-        assert!(!db.open_tree(&scope).unwrap().contains_key(key).unwrap());
+        assert!(!open_tree(&db, &scope).unwrap().contains_key(key).unwrap());
     }
 
     #[actix_rt::test]

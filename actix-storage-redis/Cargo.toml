@@ -20,11 +20,13 @@ redis = { version = "0.17", default-features = false, features = [
     "connection-manager"
 ] }
 
-[features]
-tls = ["redis/tokio-tls-comp"]
-
 [dev-dependencies]
 actix-web = "3"
 rand = "0.8"
 serde = "1"
 actix-storage = { version = "0.2.0-alpha.1", features = ["all", "tests"] }
+
+[features]
+tls = ["redis/tokio-tls-comp"]
+# Uses the default tree for actix-storage's global scope, at the cost of 1 string comparation on every operation
+v01-compat = []

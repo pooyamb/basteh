@@ -9,6 +9,22 @@ use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
 
 pub use redis::{ConnectionAddr, ConnectionInfo, RedisError};
 
+#[cfg(not(feature = "v01-compat"))]
+#[inline]
+fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
+    [scope.as_ref(), b":", key.as_ref()].concat()
+}
+
+#[cfg(feature = "v01-compat")]
+#[inline]
+fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
+    if scope.as_ref() == &actix_storage::GLOBAL_SCOPE {
+        key.as_ref().to_vec()
+    } else {
+        [scope.as_ref(), b":", key.as_ref()].concat()
+    }
+}
+
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on redis
 /// using redis-rs async runtime
 ///
@@ -63,7 +79,7 @@ impl RedisBackend {
 #[async_trait::async_trait]
 impl Store for RedisBackend {
     async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         self.con
             .clone()
             .set(full_key, value.as_ref())
@@ -73,7 +89,7 @@ impl Store for RedisBackend {
     }
 
     async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         let res: Option<Vec<u8>> = self
             .con
             .clone()
@@ -84,7 +100,7 @@ impl Store for RedisBackend {
     }
 
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         self.con
             .clone()
             .del(full_key)
@@ -94,7 +110,7 @@ impl Store for RedisBackend {
     }
 
     async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         let res: u8 = self
             .con
             .clone()
@@ -108,7 +124,7 @@ impl Store for RedisBackend {
 #[async_trait::async_trait]
 impl Expiry for RedisBackend {
     async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         self.con
             .clone()
             .persist(full_key)
@@ -118,7 +134,7 @@ impl Expiry for RedisBackend {
     }
 
     async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         let res: i32 = self
             .con
             .clone()
@@ -133,7 +149,7 @@ impl Expiry for RedisBackend {
     }
 
     async fn expire(&self, scope: Arc<[u8]>, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         self.con
             .clone()
             .expire(full_key, expire_in.as_secs() as usize)
@@ -152,7 +168,7 @@ impl ExpiryStore for RedisBackend {
         value: Arc<[u8]>,
         expire_in: Duration,
     ) -> Result<()> {
-        let full_key = [scope.as_ref(), b":", key.as_ref()].concat();
+        let full_key = get_full_key(scope, key);
         self.con
             .clone()
             .set_ex(full_key, value.as_ref(), expire_in.as_secs() as usize)
