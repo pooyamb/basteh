@@ -619,7 +619,7 @@ mod test {
             .unwrap()
             .contains_key(key.clone())
             .unwrap());
-        actix::clock::delay_for(dur).await;
+        actix::clock::delay_for(dur * 2).await;
         assert!(!db.open_tree(&scope).unwrap().contains_key(key).unwrap());
     }
 
