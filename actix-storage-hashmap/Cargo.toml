@@ -1,6 +1,6 @@
 [package]
 name = "actix-storage-hashmap"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 description = "An implementation of actix-storage based on hashmap"
 edition = "2018"
@@ -25,14 +25,14 @@ tokio = { version = "0.2", features = [
 ], optional = true }
 thiserror = "1"
 futures = { version = "0.3", optional = true }
-actix-storage = { version = "0.2.0-alpha.1" }
+actix-storage = { version = "0.2.0-alpha.2" }
 log = "0.4"
 
 [dev-dependencies]
 actix-web = "3"
 rand = "0.8"
 serde = "1"
-actix-storage = { version = "0.2.0-alpha.1", features = ["all", "tests"] }
+actix-storage = { version = "0.2.0-alpha.2", features = ["all", "tests"] }
 
 [features]
 actor = ["tokio", "futures"]
