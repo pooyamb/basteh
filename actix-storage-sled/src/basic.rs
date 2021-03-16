@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
+
+#[cfg(feature = "v01-compat")]
+use std::ops::Deref;
 
 use actix_storage::{dev::Store, Result as StorageResult, StorageError};
 use sled::Tree;

@@ -1,8 +1,8 @@
 use std::time::{Duration, SystemTime};
-use std::{
-    ops::Deref,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::sync::{atomic::AtomicBool, Arc};
+
+#[cfg(feature = "v01-compat")]
+use std::ops::Deref;
 
 use actix::{Actor, Addr, Handler, SyncArbiter, SyncContext};
 use actix_storage::{
