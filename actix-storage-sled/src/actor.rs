@@ -1,5 +1,5 @@
-use std::time::{Duration, SystemTime};
 use std::sync::{atomic::AtomicBool, Arc};
+use std::time::{Duration, SystemTime};
 
 #[cfg(feature = "v01-compat")]
 use std::ops::Deref;
