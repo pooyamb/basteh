@@ -249,30 +249,45 @@ impl SledActor {
 
     fn scan_expired_items(&mut self) {
         for tree_name in self.db.tree_names() {
-            if let Ok(tree) = open_tree(&self.db, &tree_name) {
-                let mut deleted_keys = vec![];
-                for kv in tree.iter() {
-                    if let Ok((key, value)) = kv {
-                        let mut bytes = value.clone();
-                        if let Some((_, exp)) = decode_mut(&mut bytes) {
-                            if exp.expired() {
-                                deleted_keys.push(key);
-                            } else if let Some(dur) = exp.expires_in() {
-                                self.queue.push(Delay::for_duration(
-                                    DelayedIem::new(
-                                        tree_name.to_vec().into(),
-                                        key.to_vec().into(),
-                                        exp.nonce.get(),
-                                    ),
-                                    dur,
-                                ));
-                            }
-                        }
+            let tree = if let Ok(tree) = open_tree(&self.db, &tree_name) {
+                tree
+            } else {
+                log::warn!("Failed to open tree {:?}", tree_name);
+                continue;
+            };
+
+            let mut deleted_keys = vec![];
+            for kv in tree.iter() {
+                let (key, value) = if let Ok((key, value)) = kv {
+                    (key, value)
+                } else {
+                    log::warn!(
+                        "Failed to read key-value pair, {:?} in tree {:?}",
+                        kv,
+                        tree_name
+                    );
+                    continue;
+                };
+
+                if let Some((_, exp)) = decode(&value) {
+                    if exp.expired() {
+                        deleted_keys.push(key);
+                    } else if let Some(dur) = exp.expires_in() {
+                        self.queue.push(Delay::for_duration(
+                            DelayedIem::new(
+                                tree_name.to_vec().into(),
+                                key.to_vec().into(),
+                                exp.nonce.get(),
+                            ),
+                            dur,
+                        ));
                     }
+                } else {
+                    log::warn!("Failed to decode key ({:?}) in tree ({:?})", key, tree_name);
                 }
-                for key in deleted_keys {
-                    tree.remove(&key).unwrap();
-                }
+            }
+            for key in deleted_keys {
+                tree.remove(&key).unwrap();
             }
         }
     }
@@ -293,7 +308,7 @@ impl Actor for SledActor {
             std::thread::spawn(move || loop {
                 if let Some(item) = queue.try_pop_for(Duration::from_secs(1)) {
                     if let Err(err) = remove_expired_item(&db, item.value) {
-                        log::error!("actix-storage-sled: {}", err);
+                        log::error!("{}", err);
                     }
                 } else if stopped.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
