@@ -5,10 +5,10 @@ use thiserror::Error;
 
 /// Error type that will be returned from all fallible methods of actix_storage.
 ///
-/// Implementors should generally use Custom variant for their own errors.
+/// implementers should generally use Custom variant for their own errors.
 #[derive(Debug, Error)]
 pub enum StorageError {
-    /// Occurs when expiry methods are not available or the implementor doesn't support
+    /// Occurs when expiry methods are not available or the implementer doesn't support
     /// the method.
     #[error("StorageError: Method not supported for the storage backend provided")]
     MethodNotSupported,
@@ -20,7 +20,7 @@ pub enum StorageError {
     /// or wrong type.
     #[error("StorageError: Deserialization failed")]
     DeserializationError,
-    /// Occurs when the underlying storage implementor faces error
+    /// Occurs when the underlying storage implementer faces error
     #[error("StorageError: {:?}", self)]
     Custom(Box<dyn Error + Send>),
 }

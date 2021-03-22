@@ -2,7 +2,7 @@
 
 It's an implementation for actix-storage based on `sled` database, please refer to actix-storage crate documentations.
 
-There are 2 different implementors available in this crate
+There are 2 different implementers available in this crate
 
 ## SledStore
 `SledStore` is a simple store without expiration functionality.

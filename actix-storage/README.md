@@ -21,7 +21,7 @@ Actix storage is a simple wrapper around some key-value storages to provide basi
 
 ## Install
 
-Actix-storage is meant to be used alongside one the implementor crates, ex:
+Actix-storage is meant to be used alongside one the implementer crates, ex:
 
 ```toml
 # Cargo.toml

@@ -2,7 +2,7 @@
 
 It's an implementation for actix-storage based on `redis`, please refer to actix-storage crate documentations.
 
-There are 2 different implementors available in this crate
+There are 2 different implementers available in this crate
 
 ## RedisBackend
 `RedisBackend` is a full expiry_store implementation.

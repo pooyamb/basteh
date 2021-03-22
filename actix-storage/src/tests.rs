@@ -67,7 +67,7 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     assert!(exp.as_secs() > 0);
     assert!(exp.as_secs() <= delay_secs);
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
@@ -93,13 +93,13 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
     assert!(exp.as_secs() >= delay_secs);
     assert!(exp.as_secs() <= delay_secs * 2);
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item still exist
     assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
@@ -116,7 +116,7 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.persist(key).await.is_ok());
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if persistent key is still there
@@ -182,7 +182,7 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
 }
 
 // delay_secs is the duration of time we set for expiry and we wait to see
-// the result, it should depend on how much delay an implementor has between
+// the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
 pub fn test_expiry<F, S, E>(cfg: Pin<Box<F>>, delay_secs: u64)
 where
@@ -235,7 +235,7 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     assert!(e.unwrap().as_secs() > 0);
     assert!(e.unwrap().as_secs() <= delay_secs);
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
@@ -259,7 +259,7 @@ pub async fn test_expiry_store_override_shorter(storage: Storage, delay_secs: u6
     assert!(exp.as_secs() > delay_secs);
     assert!(exp.as_secs() <= delay_secs * 2);
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
@@ -283,7 +283,7 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     assert!(exp.as_secs() > 0);
     assert!(exp.as_secs() <= delay_secs);
 
-    // Adding some error to the delay, for the implementors sake
+    // Adding some error to the delay, for the implementers sake
     actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
@@ -291,7 +291,7 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
 }
 
 // delay_secs is the duration of time we set for expiry and we wait to see
-// the result, it should depend on how much delay an implementor has between
+// the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
 pub fn test_expiry_store<F, S>(cfg: Pin<Box<F>>, delay_secs: u64)
 where
@@ -392,7 +392,7 @@ fn get_formats() -> Vec<Format> {
     feature = "serde-xml"
 ))]
 // delay_secs is the duration of time we set for expiry and we wait to see
-// the result, it should depend on how much delay an implementor has between
+// the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
 pub fn test_all_formats<F, S>(cfg: Pin<Box<F>>)
 where

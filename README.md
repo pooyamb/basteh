@@ -21,7 +21,7 @@ Actix storage is a simple wrapper around some key-value storages to provide basi
 
 ## Install
 
-Actix-storage is meant to be used alongside one the implementor crates, ex:
+Actix-storage is meant to be used alongside one the implementer crates, ex:
 
 ```toml
 # Cargo.toml
@@ -39,7 +39,7 @@ actix-storage = {version = "0.2.0-alpha", features=["serde-json"]}
 
 ## Usage
 
-After you picked an implementor:
+After you picked an implementer:
 
 ```rust
 use actix_storage::{Storage, Format};
@@ -48,7 +48,7 @@ use actix_web::{App, HttpServer};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-   // Intialize the implementor according to its docs
+   // Intialize the implementer according to its docs
    let store = HashMapActor::start_default();
 
    // Give it to the Storage struct
