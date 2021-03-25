@@ -220,7 +220,7 @@ where
                                         oneshottx.send(None)
                                     };
                                     if res.is_err(){
-                                        log::error!("actix-storage-hashmap::delayqueue: Receiving channel dropped")
+                                        log::error!("Receiving channel for expiry items dropped")
                                     }
                                 }
                                 Commands::Remove(value) => {

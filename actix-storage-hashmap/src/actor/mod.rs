@@ -152,7 +152,7 @@ impl Actor for HashMapActor {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         // if there receiver channel is available, we take it
-        // otherwise we stablish a new connection through emergency channel
+        // otherwise we establish a new receiving channel through emergency channel
         if self.exp_receiver.is_some() {
             let rx = std::mem::take(&mut self.exp_receiver).unwrap();
             ctx.add_stream(rx);
@@ -166,8 +166,12 @@ impl Actor for HashMapActor {
                             Ok(ch) => {
                                 ctx.add_stream(ch);
                             }
-                            Err(_) => {
+                            Err(err) => {
                                 // Something went wrong with the channel, we stop
+                                log::error!(
+                                    "Expiration channel closed and could not be recovered. {}",
+                                    err
+                                );
                                 ctx.terminate();
                             }
                         }
@@ -202,9 +206,13 @@ impl Handler<StoreRequest> for HashMapActor {
                     // Remove the key from expiry if it already exists
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.remove(ExpiryKey::new(scope, key)).await }
-                            .into_actor(self)
-                            .map(move |_, _, _| StoreResponse::Set(Ok(()))),
+                        async move {
+                            if let Err(err) = exp.remove(ExpiryKey::new(scope, key)).await {
+                                log::error!("{}", err);
+                            }
+                        }
+                        .into_actor(self)
+                        .map(move |_, _, _| StoreResponse::Set(Ok(()))),
                     )
                 } else {
                     Box::pin(async { StoreResponse::Set(Ok(())) }.into_actor(self))
@@ -230,7 +238,7 @@ impl Handler<StoreRequest> for HashMapActor {
                     ctx.spawn(
                         async move {
                             if let Err(err) = exp.remove(ExpiryKey::new(scope, key)).await {
-                                log::error!("actix-storage-hashmap: {}", err);
+                                log::error!("{}", err);
                             }
                         }
                         .into_actor(self),
@@ -265,8 +273,12 @@ impl Handler<ExpiryRequest> for HashMapActor {
                     let mut exp = self.exp.clone();
                     Box::pin(
                         async move {
-                            exp.insert_or_update(ExpiryKey::new(scope, key), expires_in)
+                            if let Err(err) = exp
+                                .insert_or_update(ExpiryKey::new(scope, key), expires_in)
                                 .await
+                            {
+                                log::error!("{}", err);
+                            }
                         }
                         .into_actor(self)
                         .map(move |_, _, _| ExpiryResponse::Set(Ok(()))),
@@ -285,9 +297,13 @@ impl Handler<ExpiryRequest> for HashMapActor {
                 {
                     let mut exp = self.exp.clone();
                     Box::pin(
-                        async move { exp.remove(ExpiryKey::new(scope, key)).await }
-                            .into_actor(self)
-                            .map(move |_, _, _| ExpiryResponse::Persist(Ok(()))),
+                        async move {
+                            if let Err(err) = exp.remove(ExpiryKey::new(scope, key)).await {
+                                log::error!("{}", err);
+                            }
+                        }
+                        .into_actor(self)
+                        .map(move |_, _, _| ExpiryResponse::Persist(Ok(()))),
                     )
                 } else {
                     Box::pin(async { ExpiryResponse::Persist(Ok(())) }.into_actor(self))
@@ -300,7 +316,7 @@ impl Handler<ExpiryRequest> for HashMapActor {
                         match exp.get(ExpiryKey::new(scope, key)).await {
                             Ok(val) => val,
                             Err(err) => {
-                                log::error!("actix-storage-hashmap: {}", err);
+                                log::error!("{}", err);
                                 None
                             }
                         }
@@ -354,7 +370,7 @@ impl Handler<ExpiryStoreRequest> for HashMapActor {
                             match exp.get(ExpiryKey::new(scope, key)).await {
                                 Ok(val) => val,
                                 Err(err) => {
-                                    log::error!("actix-storage-hashmap: {}", err);
+                                    log::error!("{}", err);
                                     None
                                 }
                             }
