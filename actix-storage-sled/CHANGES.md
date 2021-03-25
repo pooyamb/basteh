@@ -1,3 +1,7 @@
+## Version 0.2-alpha.3
+- Restructured the code
+- Bug fixes
+
 ## Version 0.2-alpha.2
 - Updated to actix-storage 0.2-alpha.2
 - There is now a new feature flag `v01-compat` for backward compatiblity with 0.1 global scopes
