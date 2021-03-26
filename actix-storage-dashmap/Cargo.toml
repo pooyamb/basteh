@@ -1,32 +1,32 @@
 [package]
-name = "actix-storage-dashmap"
-version = "0.2.0-alpha.2"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of actix-storage based on dashmap"
+documentation = "https://docs.rs/actix-storage-dashmap"
 edition = "2018"
+keywords = ["actix", "storage", "web", "async", "dashmap"]
+license = "MIT OR Apache-2.0"
+name = "actix-storage-dashmap"
 readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
-documentation = "https://docs.rs/actix-storage-dashmap"
-license = "MIT OR Apache-2.0"
-keywords = ["actix", "storage", "web", "async", "dashmap"]
-categories = ["asynchronous", "caching", "web-programming::http-server"]
+version = "0.2.0"
 
 [package.metadata.docs.rs]
 features = ["actor"]
 
 [dependencies]
-actix = { version = "0.10", default-features = false }
+actix = {version = "0.10", default-features = false}
+actix-storage = {version = "0.2.0", features = ["with-serde"]}
 async-trait = "0.1"
-thiserror = "1"
 dashmap = "4.0.0"
-delay-queue = { version = "0.2", optional = true }
-actix-storage = { version = "0.2.0-alpha.2", features = ["with-serde"] }
+delay-queue = {version = "0.2", optional = true}
+thiserror = "1"
 
 [dev-dependencies]
+actix-storage = {version = "0.2.0", features = ["all", "tests"]}
 actix-web = "3"
 rand = "0.8"
 serde = "1.0"
-actix-storage = { version = "0.2.0-alpha.2", features = ["all", "tests"] }
 
 [features]
 actor = ["delay-queue"]
