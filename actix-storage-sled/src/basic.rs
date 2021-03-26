@@ -108,7 +108,7 @@ mod test {
                 Ok(db) => return db,
                 Err(err) => {
                     if tries > 10 {
-                        panic!(err)
+                        panic!("{}", err)
                     };
                 }
             }
