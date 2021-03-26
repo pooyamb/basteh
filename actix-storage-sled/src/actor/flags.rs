@@ -77,3 +77,45 @@ impl ExpiryFlags {
         self.persist.get() == 0 && expires_at <= get_current_timestamp()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_persist_flag() {
+        let mut flags = ExpiryFlags::new_persist(0);
+        assert_eq!(flags.expired(), false);
+        assert_eq!(flags.expires_in(), None);
+
+        // Setting expiry shouldn't mutate persist state
+        flags.expire_in(Duration::from_millis(100));
+
+        // We don't support durations under 1 seconds so it should be considered expired
+        assert_eq!(flags.expired(), false);
+        assert_eq!(flags.expires_in(), None);
+
+        // Changing the flag manually should do
+        flags.persist.set(0);
+        assert_ne!(flags.expired(), false);
+        assert_ne!(flags.expires_in(), None);
+    }
+
+    #[test]
+    fn test_expiry() {
+        let mut flags = ExpiryFlags::new_expiring(0, Duration::from_millis(1000));
+        assert_eq!(flags.expired(), false);
+
+        let expires_in = flags.expires_in();
+        assert!(expires_in.is_some());
+        assert!(expires_in.unwrap().as_millis() <= 1000);
+        assert!(expires_in.unwrap().as_millis() > 0);
+
+        flags.expire_in(Duration::from_millis(1000));
+
+        let expires_in = flags.expires_in();
+        assert!(expires_in.is_some());
+        assert!(expires_in.unwrap().as_millis() <= 2000);
+        assert!(expires_in.unwrap().as_millis() >= 1000);
+    }
+}
