@@ -1,6 +1,8 @@
 # actix-storage-redis
 
-It's an implementation for actix-storage based on `redis`, please refer to actix-storage crate documentations.
+This crate provides an implementation for actix-storage based on `redis`.
+
+> Please refer to actix-storage crate documentations for full details about usage and use cases.
 
 There are 2 different implementers available in this crate
 

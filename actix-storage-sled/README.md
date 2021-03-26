@@ -1,6 +1,8 @@
 # actix-storage-sled
 
-It's an implementation for actix-storage based on `sled` database, please refer to actix-storage crate documentations.
+This crate provides implementations for actix-storage based on `sled` database.
+
+> Please refer to actix-storage crate documentations for full details about usage and use cases.
 
 There are 2 different implementers available in this crate
 

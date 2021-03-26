@@ -1,6 +1,8 @@
 # actix-storage-dashmap
 
-It's an implementation for actix-storage based on dashmap, please refer to actix-storage crate documentations.
+This crate provides implementations for actix-storage based on dashmap.
+
+> Please refer to actix-storage crate documentations for full details about usage and use cases.
 
 There are 2 different implementers available in this crate
 
