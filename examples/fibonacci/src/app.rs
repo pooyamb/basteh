@@ -24,11 +24,11 @@ fn recr_fibo(input: usize, storage: Storage) -> Pin<Box<dyn Future<Output = usiz
 }
 
 #[actix_web::get("/{input}")]
-async fn fibo(web::Path(input): web::Path<usize>, storage: Storage) -> String {
-    if input > 93 {
+async fn fibo(input: web::Path<usize>, storage: Storage) -> String {
+    if *input > 93 {
         format!("Maximum supported input is 93")
     } else {
-        recr_fibo(input, storage.scope("fibo")).await.to_string()
+        recr_fibo(*input, storage.scope("fibo")).await.to_string()
     }
 }
 

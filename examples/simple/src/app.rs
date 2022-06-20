@@ -23,10 +23,11 @@ struct PersonOut {
 /// for that name at the end.
 #[actix_web::get("/{name}/{lesson}/{point}")]
 async fn index(
-    web::Path((name, lesson, point)): web::Path<(String, String, u16)>,
+    path: web::Path<(String, String, u16)>,
     storage: Storage,
 ) -> Result<web::Json<PersonOut>, Error> {
     let new: bool;
+    let (name, lesson, point) = path.into_inner();
     let mut previous_point: Option<u16> = None;
 
     let person = if let Some(mut person) = storage.get::<_, Person>(&name).await? {

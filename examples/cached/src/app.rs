@@ -18,7 +18,7 @@ struct Response {
 
 async fn get_obj_by_id(id: u64) -> Object {
     // Pretending it's a heavy query by waiting a second
-    actix_web::rt::time::delay_for(Duration::from_secs(1)).await;
+    actix_web::rt::time::sleep(Duration::from_secs(1)).await;
 
     Object {
         id,
@@ -27,11 +27,11 @@ async fn get_obj_by_id(id: u64) -> Object {
 }
 
 #[actix_web::get("/{obj_id}")]
-async fn get_obj(web::Path(obj_id): web::Path<u64>, storage: Storage) -> web::Json<Response> {
-    let resp = if let Ok(Some(resp)) = storage.get(&obj_id.to_string()).await {
+async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response> {
+    let resp = if let Ok(Some(resp)) = storage.get(obj_id.to_string()).await {
         resp
     } else {
-        let object = get_obj_by_id(obj_id).await;
+        let object = get_obj_by_id(*obj_id).await;
         let resp = Response {
             object,
             cached_on: SystemTime::now(),
