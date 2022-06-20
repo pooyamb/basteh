@@ -112,7 +112,7 @@ mod test {
                     };
                 }
             }
-            actix::clock::delay_for(Duration::from_millis(500)).await;
+            actix::clock::sleep(Duration::from_millis(500)).await;
         }
     }
 

@@ -1,10 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix::{
-    dev::{MessageResponse, ResponseChannel, ToEnvelope},
-    Actor, Addr, Handler, Message,
-};
+use actix::dev::{self, MessageResponse, ToEnvelope};
+use actix::{Actor, Addr, Handler, Message};
 
 use crate::dev::{Expiry, ExpiryStore, Store};
 use crate::error::{Result, StorageError};
@@ -41,9 +39,13 @@ pub enum StoreResponse {
 }
 
 impl<A: Actor> MessageResponse<A, StoreRequest> for StoreResponse {
-    fn handle<R: ResponseChannel<StoreRequest>>(self, _: &mut A::Context, tx: Option<R>) {
+    fn handle(
+        self,
+        _ctx: &mut <A as Actor>::Context,
+        tx: Option<dev::OneshotSender<<StoreRequest as Message>::Result>>,
+    ) {
         if let Some(tx) = tx {
-            tx.send(self)
+            let _ = tx.send(self);
         }
     }
 }
@@ -127,9 +129,13 @@ pub enum ExpiryResponse {
 }
 
 impl<A: Actor> MessageResponse<A, ExpiryRequest> for ExpiryResponse {
-    fn handle<R: ResponseChannel<ExpiryRequest>>(self, _: &mut A::Context, tx: Option<R>) {
+    fn handle(
+        self,
+        _ctx: &mut <A as Actor>::Context,
+        tx: Option<dev::OneshotSender<<ExpiryRequest as Message>::Result>>,
+    ) {
         if let Some(tx) = tx {
-            tx.send(self)
+            let _ = tx.send(self);
         }
     }
 }
@@ -209,9 +215,13 @@ pub enum ExpiryStoreResponse {
 }
 
 impl<A: Actor> MessageResponse<A, ExpiryStoreRequest> for ExpiryStoreResponse {
-    fn handle<R: ResponseChannel<ExpiryStoreRequest>>(self, _: &mut A::Context, tx: Option<R>) {
+    fn handle(
+        self,
+        _ctx: &mut <A as Actor>::Context,
+        tx: Option<dev::OneshotSender<<ExpiryStoreRequest as Message>::Result>>,
+    ) {
         if let Some(tx) = tx {
-            tx.send(self)
+            let _ = tx.send(self);
         }
     }
 }
@@ -268,9 +278,10 @@ where
 mod tests {
     use std::time::Duration;
 
+    use actix::Context;
+
     use super::*;
     use crate::dev::*;
-    use actix::prelude::*;
 
     #[derive(Default)]
     struct TestActor;
@@ -315,7 +326,7 @@ mod tests {
         }
     }
 
-    #[actix_rt::test]
+    #[actix::test]
     #[should_panic(expected = "explicit panic")]
     async fn test_actor() {
         let actor = TestActor::start_default();

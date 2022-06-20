@@ -1,38 +1,42 @@
 [package]
 name = "actix-storage-hashmap"
-version = "0.2.0"
+version = "0.3.0"
+
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of actix-storage based on hashmap"
+documentation = "https://docs.rs/actix-storage-hashmap"
 edition = "2018"
+keywords = ["actix", "storage", "web", "async", "hashmap"]
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
-documentation = "https://docs.rs/actix-storage-hashmap"
-license = "MIT OR Apache-2.0"
-keywords = ["actix", "storage", "web", "async", "hashmap"]
-categories = ["asynchronous", "caching", "web-programming::http-server"]
 
 [package.metadata.docs.rs]
 features = ["actor"]
 
 [dependencies]
-actix = { version = "0.10", default-features = false }
+actix = {version = "0.13", default-features = false}
+actix-storage = {version = "0.3.0"}
 async-trait = "0.1"
-tokio = { version = "0.2", features = [
-    "time",
-    "sync",
-    "stream",
-    "macros"
-], optional = true }
-thiserror = "1"
-futures = { version = "0.3", optional = true }
-actix-storage = { version = "0.2.0" }
+futures = {version = "0.3", optional = true}
 log = "0.4"
+thiserror = "1"
+tokio = {version = "1.13.1", features = [
+  "time",
+  "sync",
+  "macros",
+], optional = true}
+tokio-stream = {version = "0.1", optional = true}
+tokio-util = {version = "0.7", features = [
+  "time",
+], optional = true}
 
 [dev-dependencies]
-actix-web = "3"
+actix-storage = {version = "0.3.0", features = ["all", "tests"]}
+actix-web = "4.0.0"
 rand = "0.8"
 serde = "1"
-actix-storage = { version = "0.2.0", features = ["all", "tests"] }
 
 [features]
-actor = ["tokio", "futures"]
+actor = ["tokio", "tokio-util", "tokio-stream", "futures"]

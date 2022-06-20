@@ -7,15 +7,13 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::stream::StreamExt;
+use futures::stream::{Stream, StreamExt};
 use tokio::{
-    stream::Stream,
     sync::{mpsc, oneshot},
-    time::{
-        delay_queue::{self, DelayQueue},
-        Instant,
-    },
+    time::Instant,
 };
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::time::{delay_queue, DelayQueue};
 
 #[derive(Debug)]
 pub(crate) enum Commands<T> {
@@ -115,7 +113,7 @@ where
     pub(crate) fn try_receive(&mut self) -> Result<Expired<T>, ChannelError> {
         self.0.try_recv().map_err(|err| match err {
             mpsc::error::TryRecvError::Empty => ChannelError::Empty,
-            mpsc::error::TryRecvError::Closed => ChannelError::Closed,
+            mpsc::error::TryRecvError::Disconnected => ChannelError::Closed,
         })
     }
 }
@@ -174,7 +172,7 @@ where
     // Emergency channel
     let (etx, erx) = mpsc::channel::<EmergencyCommand<T>>(1);
 
-    let mut erx = erx.peekable();
+    let mut erx = ReceiverStream::new(erx).peekable();
 
     let mut senders_dropped = false;
 
@@ -182,21 +180,19 @@ where
         'main: loop {
             'task: loop {
                 tokio::select! {
-                    Some(item) = dq.next(), if !dq.is_empty() => {
-                        if let Ok(expired) = item {
-                            ids.remove(expired.get_ref());
+                    Some(expired) = dq.next(), if !dq.is_empty() => {
+                        ids.remove(expired.get_ref());
 
-                            // If the receiver is dropped, we close the task
-                            // and put the last item back in queue
-                            if let Err(err) = tx.send(expired.into()).await{
-                                let item = err.0.into_inner();
-                                let key = dq.insert(item.clone(), Duration::default());
-                                ids.insert(item, (key, Instant::now()));
-                                break 'task;
-                            };
-                        }
+                        // If the receiver is dropped, we close the task
+                        // and put the last item back in queue
+                        if let Err(err) = tx.send(expired.into()).await{
+                            let item = err.0.into_inner();
+                            let key = dq.insert(item.clone(), Duration::default());
+                            ids.insert(item, (key, Instant::now()));
+                            break 'task;
+                        };
                     },
-                    message = rx.next(), if !senders_dropped => {
+                    message = rx.recv(), if !senders_dropped => {
                         if let Some(command) = message {
                             match command {
                                 Commands::InsertOrUpdate(value, timeout) => {
@@ -288,7 +284,7 @@ where
 mod test {
     use std::time::Duration;
 
-    use tokio::time::delay_for;
+    use actix::clock::sleep;
 
     use super::*;
 
@@ -302,13 +298,13 @@ mod test {
         tx.insert_or_update(10, dur2).await.unwrap();
         assert!(rx.try_receive().is_err());
 
-        delay_for(dur1).await;
+        sleep(dur1).await;
         let next_item = rx.next().await.map(|val| val.item);
         assert!(next_item.is_some());
         assert!(next_item.unwrap() == 5);
         assert!(rx.try_receive().is_err());
 
-        delay_for(dur1).await;
+        sleep(dur1).await;
         let next_item = rx.receive().await.map(|val| val.item);
         assert!(next_item.is_some());
         assert!(next_item.unwrap() == 10);
@@ -353,12 +349,12 @@ mod test {
         let new_channel = etx.restart().await;
         assert!(new_channel.is_ok());
         rx = new_channel.unwrap();
-        delay_for(Duration::from_secs(2)).await;
+        sleep(Duration::from_secs(2)).await;
         let next = rx.try_receive().unwrap();
         assert!(next.item == 10);
 
         assert!(etx.kill().await.is_ok());
-        delay_for(Duration::from_millis(10)).await;
+        sleep(Duration::from_millis(10)).await;
         assert!(tx.insert_or_update(5, dur1).await.is_err());
     }
 
@@ -375,7 +371,7 @@ mod test {
 
         assert!(tx.insert_or_update(5, Duration::from_secs(0)).await.is_ok());
         // Wait for dealy queue to notice the problem and drop
-        delay_for(Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(100)).await;
         assert!(tx.insert_or_update(5, dur1).await.is_err());
     }
 }

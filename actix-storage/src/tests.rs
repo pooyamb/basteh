@@ -11,7 +11,7 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + Store,
 {
-    let mut system = actix_rt::System::new("store_tests");
+    let system = actix::System::new();
     let store = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).finish();
 
@@ -27,17 +27,17 @@ where
 
         let contains_res = storage.contains_key(key).await;
         assert!(contains_res.is_ok());
-        assert_eq!(contains_res.unwrap(), true);
+        assert!(contains_res.unwrap());
 
         assert!(storage.delete(key).await.is_ok());
 
         let get_res = storage.get_bytes(key).await;
         assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), None);
+        assert!(get_res.unwrap().is_none());
 
         let contains_res = storage.contains_key(key).await;
         assert!(contains_res.is_ok());
-        assert_eq!(contains_res.unwrap(), false);
+        assert!(!contains_res.unwrap());
     });
 }
 
@@ -68,7 +68,7 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     assert!(exp.as_secs() <= delay_secs);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
     assert_eq!(storage.get_bytes(key).await.unwrap(), None);
@@ -94,13 +94,13 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
     assert!(exp.as_secs() <= delay_secs * 2);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item still exist
     assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
     assert_eq!(storage.get_bytes(key).await.unwrap(), None);
@@ -117,7 +117,7 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
     assert!(storage.persist(key).await.is_ok());
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if persistent key is still there
     assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
@@ -133,7 +133,7 @@ pub async fn test_expiry_set_clearing(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.set_bytes(key, value).await.is_ok());
 
-    actix::clock::delay_for(Duration::from_secs((delay_secs) + 1)).await;
+    actix::clock::sleep(Duration::from_secs((delay_secs) + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
@@ -154,7 +154,7 @@ pub async fn test_expiry_override_shorter(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay * 5).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
 
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(storage.get_bytes(key).await.unwrap(), None);
@@ -172,7 +172,7 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.expire(key, delay * 5).await.is_ok());
 
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
@@ -190,28 +190,19 @@ where
     S: 'static + Store,
     E: 'static + Expiry,
 {
-    let mut system = actix_rt::System::new("expiry_tests");
+    let system = actix::System::new();
 
     let (store, expiry) = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).expiry(expiry).finish();
 
-    let mut futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = Vec::new();
-
-    futures.push(Box::pin(test_expiry_basics(storage.clone(), delay_secs)));
-    futures.push(Box::pin(test_expiry_extend(storage.clone(), delay_secs)));
-    futures.push(Box::pin(test_expiry_persist(storage.clone(), delay_secs)));
-    futures.push(Box::pin(test_expiry_set_clearing(
-        storage.clone(),
-        delay_secs,
-    )));
-    futures.push(Box::pin(test_expiry_override_shorter(
-        storage.clone(),
-        delay_secs,
-    )));
-    futures.push(Box::pin(test_expiry_override_longer(
-        storage.clone(),
-        delay_secs,
-    )));
+    let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
+        Box::pin(test_expiry_basics(storage.clone(), delay_secs)),
+        Box::pin(test_expiry_extend(storage.clone(), delay_secs)),
+        Box::pin(test_expiry_persist(storage.clone(), delay_secs)),
+        Box::pin(test_expiry_set_clearing(storage.clone(), delay_secs)),
+        Box::pin(test_expiry_override_shorter(storage.clone(), delay_secs)),
+        Box::pin(test_expiry_override_longer(storage, delay_secs)),
+    ];
 
     system.block_on(async {
         futures::future::join_all(futures).await;
@@ -236,7 +227,7 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     assert!(e.unwrap().as_secs() <= delay_secs);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
     assert_eq!(storage.get_expiring_bytes(key).await.unwrap(), None);
@@ -260,7 +251,7 @@ pub async fn test_expiry_store_override_shorter(storage: Storage, delay_secs: u6
     assert!(exp.as_secs() <= delay_secs * 2);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
     assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
@@ -284,7 +275,7 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     assert!(exp.as_secs() <= delay_secs);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::delay_for(Duration::from_secs(delay_secs + 1)).await;
+    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
     assert_eq!(storage.get_bytes(key).await.unwrap(), None);
@@ -298,24 +289,18 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + ExpiryStore,
 {
-    let mut system = actix_rt::System::new("expiry_store_tests");
+    let system = actix::System::new();
     let store = system.block_on(async { cfg.await });
     let storage = Storage::build().expiry_store(store).finish();
 
-    let mut futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = Vec::new();
-
-    futures.push(Box::pin(test_expiry_store_basics(
-        storage.clone(),
-        delay_secs,
-    )));
-    futures.push(Box::pin(test_expiry_store_override_shorter(
-        storage.clone(),
-        delay_secs,
-    )));
-    futures.push(Box::pin(test_expiry_store_override_longer(
-        storage.clone(),
-        delay_secs,
-    )));
+    let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
+        Box::pin(test_expiry_store_basics(storage.clone(), delay_secs)),
+        Box::pin(test_expiry_store_override_shorter(
+            storage.clone(),
+            delay_secs,
+        )),
+        Box::pin(test_expiry_store_override_longer(storage, delay_secs)),
+    ];
 
     system.block_on(async move {
         futures::future::join_all(futures).await;
@@ -335,10 +320,7 @@ where
     feature = "serde-xml"
 ))]
 pub async fn test_format<S: 'static + Store>(store: S, format: Format) {
-    let storage = Storage::build()
-        .store(store)
-        .format(format.clone())
-        .finish();
+    let storage = Storage::build().store(store).format(format).finish();
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -399,7 +381,7 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + Store + Clone,
 {
-    let mut system = actix_rt::System::new("format_tests");
+    let system = actix::System::new();
     let store = system.block_on(async { cfg.await });
 
     let formats = get_formats();

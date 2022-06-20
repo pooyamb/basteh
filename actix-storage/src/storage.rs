@@ -606,7 +606,6 @@ impl StorageBuilder {
 
 /// It is pretty much copied as-is from actix-web Data
 impl FromRequest for Storage {
-    type Config = ();
     type Error = actix_web::Error;
     type Future = Ready<std::result::Result<Self, actix_web::Error>>;
 
@@ -750,7 +749,7 @@ mod test {
 
     use super::*;
 
-    #[actix_rt::test]
+    #[actix::test]
     async fn test_no_expiry() {
         struct OnlyStore;
 
@@ -791,7 +790,7 @@ mod test {
         assert!(storage.contains_key(k).await.is_ok());
     }
 
-    #[actix_rt::test]
+    #[actix::test]
     async fn test_expiry_store_polyfill() {
         #[derive(Clone)]
         struct SampleStore;

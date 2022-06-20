@@ -7,7 +7,7 @@ use actix_storage::{
 };
 use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
 
-pub use redis::{ConnectionAddr, ConnectionInfo, RedisError};
+pub use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo, RedisError};
 
 #[cfg(not(feature = "v01-compat"))]
 #[inline]
@@ -31,7 +31,7 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
 /// ## Example
 /// ```no_run
 /// use actix_storage::Storage;
-/// use actix_storage_redis::{RedisBackend, ConnectionInfo, ConnectionAddr};
+/// use actix_storage_redis::{RedisBackend, ConnectionInfo,RedisConnectionInfo, ConnectionAddr};
 /// use actix_web::{App, HttpServer};
 ///
 /// #[actix_web::main]
@@ -41,9 +41,11 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
 ///     // OR
 ///     let connection_info = ConnectionInfo {
 ///         addr: ConnectionAddr::Tcp("127.0.0.1".to_string(), 1234).into(),
-///         db: 0,
-///         username: Some("god".to_string()),
-///         passwd: Some("bless".to_string()),
+///         redis: RedisConnectionInfo{
+///             db: 0,
+///             username: Some("god".to_string()),
+///             password: Some("bless".to_string()),
+///         }
 ///     };
 ///     let store = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
 ///

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use actix::{
-    Actor, ActorContext, ActorFuture, Addr, AsyncContext, Context, Handler, ResponseActFuture,
+    Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, ResponseActFuture,
     StreamHandler, WrapFuture,
 };
 use actix_storage::dev::actor::{

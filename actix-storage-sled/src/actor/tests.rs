@@ -16,7 +16,7 @@ async fn open_database() -> sled::Db {
             return db;
         } else {
             // Wait for sometime and try again.
-            actix::clock::delay_for(Duration::from_millis(500)).await;
+            actix::clock::sleep(Duration::from_millis(500)).await;
         }
     }
     panic!("Sled can not open the database files")
@@ -55,7 +55,7 @@ fn test_sled_formats() {
     }));
 }
 
-#[actix_rt::test]
+#[actix::test]
 async fn test_sled_perform_deletion() {
     let scope: Arc<[u8]> = "prefix".as_bytes().into();
     let key: Arc<[u8]> = "key".as_bytes().into();
@@ -77,11 +77,11 @@ async fn test_sled_perform_deletion() {
         .unwrap()
         .contains_key(key.clone())
         .unwrap());
-    actix::clock::delay_for(dur * 2).await;
+    actix::clock::sleep(dur * 2).await;
     assert!(!open_tree(&db, &scope).unwrap().contains_key(key).unwrap());
 }
 
-#[actix_rt::test]
+#[actix::test]
 async fn test_sled_scan_on_start() {
     let db = open_database().await;
 
@@ -104,10 +104,10 @@ async fn test_sled_scan_on_start() {
         .start(1);
 
     // Waiting for the actor to start up, there should be a better way
-    actix::clock::delay_for(Duration::from_millis(500)).await;
+    actix::clock::sleep(Duration::from_millis(500)).await;
     assert!(db.contains_key("key").unwrap());
     assert!(!db.contains_key("key2").unwrap());
-    actix::clock::delay_for(Duration::from_millis(2000)).await;
+    actix::clock::sleep(Duration::from_millis(2000)).await;
     assert!(!db.contains_key("key").unwrap());
 
     // Making sure actor stays alive
