@@ -26,15 +26,15 @@ Actix-storage is meant to be used alongside one the implementer crates, ex:
 ```toml
 # Cargo.toml
 [dependencies]
-actix-storage = "0.2.0"
-actix-storage-hashmap = "0.2.0"
+actix-storage = "0.3.0"
+actix-storage-hashmap = "0.3.0"
 ```
 
 Or you want to use the serde based methods for typed information:
 
 ```toml
 [dependencies]
-actix-storage = {version = "0.2.0", features=["serde-json"]}
+actix-storage = {version = "0.3.0", features=["serde-json"]}
 ```
 
 ## Usage
