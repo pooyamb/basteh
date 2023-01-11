@@ -16,7 +16,7 @@ repository = "https://github.com/pooyamb/actix-storage/"
 actix = {version = "0.13", default-features = false}
 actix-storage = {version = "0.3.0", features = ["with-serde"]}
 async-trait = "0.1"
-redis = {version = "0.21", default-features = false, features = [
+redis = {version = "0.22", default-features = false, features = [
   "connection-manager",
   "tokio-comp",
 ]}
