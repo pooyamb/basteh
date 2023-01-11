@@ -1,5 +1,8 @@
 use std::sync::Arc;
-use std::{ops::Deref, time::Duration};
+use std::time::Duration;
+
+#[cfg(feature = "v01-compat")]
+use std::ops::Deref;
 
 use actix_storage::StorageError;
 
