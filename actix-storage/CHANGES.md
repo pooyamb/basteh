@@ -1,3 +1,6 @@
+## Version 0.3
+- Update to actix 4 and tokio 1
+
 ## Version 0.2-alpha.2
 - Improved tests utils
 
