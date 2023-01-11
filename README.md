@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
   </a>
-  <img src="https://img.shields.io/github/workflow/status/pooyamb/actix-storage/Storage?style=flat-square" alt="actions status" />
+  <img src="https://img.shields.io/github/actions/workflow/status/pooyamb/actix-storage/storage.yml?style=flat-square" alt="actions status" />
   <img alt="Codecov" src="https://img.shields.io/codecov/c/github/pooyamb/actix-storage?style=flat-square">
   <img alt="Crates.io" src="https://img.shields.io/crates/l/actix-storage?style=flat-square">
 </div>
