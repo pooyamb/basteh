@@ -37,6 +37,5 @@ serde = "1"
 
 [features]
 actor = ["delay-queue", "zerocopy", "byteorder"]
-compression = ["sled/compression"]
 # Uses the default tree for actix-storage's global scope, at the cost of 1 string comparation on every operation
 v01-compat = []
