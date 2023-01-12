@@ -13,8 +13,7 @@ readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
 
 [dependencies]
-actix = { version = "0.13.0" }
-actix-web = { version = "4.0.0", default-features = false }
+actix-web = { version = "4.0.0", default-features = false, optional = true }
 
 async-trait = "0.1"
 log = "0.4"
@@ -22,10 +21,12 @@ thiserror = "1"
 
 # For tests
 futures = { version = "0.3", optional = true }
+actix = { version = "0.13.0", optional = true }
 
 [features]
 all = []
-tests = ["futures"]
+tests = ["actix", "futures"]
+default = ["actix-web"]
 
 [package.metadata.docs.rs]
 features = ["all"]

@@ -16,6 +16,9 @@ pub mod dev {
     pub use crate::storage::StorageBuilder;
 }
 
+#[cfg(feature = "actix-web")]
+mod actix_web;
+
 #[doc(hidden)]
 #[cfg(feature = "tests")]
 pub mod tests;
