@@ -240,3 +240,120 @@ mod private {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::{sync::Arc, time::Duration};
+
+    use crate::{
+        dev::{Expiry, Store},
+        Result, Storage,
+    };
+
+    #[tokio::test]
+    async fn test_no_expiry() {
+        struct OnlyStore;
+
+        #[async_trait::async_trait]
+        impl Store for OnlyStore {
+            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+                Ok(())
+            }
+            async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+                Ok(None)
+            }
+            async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
+                Ok(false)
+            }
+            async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let storage = Storage::build().store(OnlyStore).no_expiry().finish();
+
+        let k = "key";
+        let v = "value".as_bytes();
+        let d = Duration::from_secs(1);
+
+        // These checks should all result in error as we didn't set any expiry
+        assert!(storage.expire(k, d).await.is_err());
+        assert!(storage.expiry(k).await.is_err());
+        assert!(storage.extend(k, d).await.is_err());
+        assert!(storage.persist(k).await.is_err());
+        assert!(storage.set_expiring(k, v, d).await.is_err());
+        assert!(storage.get_expiring(k).await.is_err());
+
+        // These tests should all succeed
+        assert!(storage.set(k, v).await.is_ok());
+        assert!(storage.get(k).await.is_ok());
+        assert!(storage.delete(k).await.is_ok());
+        assert!(storage.contains_key(k).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_expiry_store_polyfill() {
+        #[derive(Clone)]
+        struct SampleStore;
+
+        #[async_trait::async_trait]
+        impl Store for SampleStore {
+            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+                Ok(())
+            }
+            async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+                Ok(Some("v".as_bytes().into()))
+            }
+            async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
+                Ok(false)
+            }
+            async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        #[async_trait::async_trait]
+        impl Expiry for SampleStore {
+            async fn expire(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
+                Ok(())
+            }
+            async fn expiry(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Duration>> {
+                Ok(Some(Duration::from_secs(1)))
+            }
+            async fn extend(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
+                Ok(())
+            }
+            async fn persist(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let k = "key";
+        let v = "value".as_bytes();
+        let d = Duration::from_secs(1);
+
+        let store = SampleStore;
+        let storage = Storage::build().store(store.clone()).expiry(store).finish();
+        assert!(storage
+            .set_expiring("key", "value", Duration::from_secs(1))
+            .await
+            .is_ok());
+
+        // These tests should all succeed
+        assert!(storage.expire(k, d).await.is_ok());
+        assert!(storage.expiry(k).await.is_ok());
+        assert!(storage.extend(k, d).await.is_ok());
+        assert!(storage.persist(k).await.is_ok());
+        assert!(storage.set_expiring(k, v, d).await.is_ok());
+        assert!(storage.get_expiring(k).await.is_ok());
+        assert!(storage.set(k, v).await.is_ok());
+        assert!(storage.get(k).await.is_ok());
+        assert!(storage.delete(k).await.is_ok());
+        assert!(storage.contains_key(k).await.is_ok());
+
+        // values should match
+        let res = storage.get_expiring("key").await;
+        assert!(res.is_ok());
+        assert!(res.unwrap() == Some(("v".as_bytes().into(), Some(Duration::from_secs(1)))));
+    }
+}
