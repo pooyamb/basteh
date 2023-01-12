@@ -16,18 +16,17 @@ repository = "https://github.com/pooyamb/actix-storage/"
 features = ["actor"]
 
 [dependencies]
-actix = {version = "0.13", default-features = false}
-actix-storage = {version = "0.3.0", features = ["with-serde"]}
+actix = { version = "0.13", default-features = false }
+actix-storage = "0.3.0"
 async-trait = "0.1"
 dashmap = "5.3.4"
-delay-queue = {version = "0.2", optional = true}
+delay-queue = { version = "0.2", optional = true }
 thiserror = "1"
 
 [dev-dependencies]
-actix-storage = {version = "0.3.0", features = ["all", "tests"]}
+actix-storage = { version = "0.3.0", features = ["all", "tests"] }
 actix-web = "4.0.0"
 rand = "0.8"
-serde = "1.0"
 
 [features]
 actor = ["delay-queue"]

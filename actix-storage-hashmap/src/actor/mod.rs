@@ -413,9 +413,4 @@ mod test {
     fn test_hashmap_expiry_store() {
         test_expiry_store(Box::pin(async { HashMapActor::start_default() }), 2);
     }
-
-    #[test]
-    fn test_hashmap_formats() {
-        test_all_formats(Box::pin(async { HashMapActor::start_default() }));
-    }
 }

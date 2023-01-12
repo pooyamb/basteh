@@ -5,14 +5,13 @@ name = "cached"
 version = "0.1.0"
 
 [dependencies]
-actix-storage = {version = "0.3.0", features = ["serde-json"]}
-actix-storage-dashmap = {version = "0.3.0", features = ["actor"]}
-actix-storage-hashmap = {version = "0.3.0", features = ["actor"]}
-actix-storage-redis = {version = "0.3.0"}
-actix-storage-sled = {version = "0.3.0", features = ["actor"]}
+actix-storage = "0.3.0"
+actix-storage-hashmap = { version = "0.3.0", features = ["actor"] }
 actix-web = "4.0.0"
+
 rand = "0.8"
-serde = "1.0.117"
+serde = { version = "1.0.117", features = ["derive"] }
+serde_json = "1"
 
 [[example]]
 name = "cached"

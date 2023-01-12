@@ -222,9 +222,4 @@ mod test {
     fn test_redis_expiry_store() {
         test_expiry_store(Box::pin(async { get_connection().await }), 5);
     }
-
-    #[test]
-    fn test_redis_formats() {
-        test_all_formats(Box::pin(async { get_connection().await }));
-    }
 }

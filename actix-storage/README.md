@@ -30,12 +30,6 @@ actix-storage = "0.3.0"
 actix-storage-hashmap = "0.3.0"
 ```
 
-Or you want to use the serde based methods for typed information:
-
-```toml
-[dependencies]
-actix-storage = {version = "0.3.0", features=["serde-json"]}
-```
 
 ## Usage
 
@@ -62,11 +56,6 @@ async fn main() -> std::io::Result<()> {
    // as long as it works on the same storage backend
    let storage = Storage::build().expiry(expiry).finish();
 
-   // It is also possible to add a format to directly
-   // set and get values using serde.
-   let storage = Storage::build().store(expiry).format(Format::Json).finish();
-
-
    // Store it in you application state with actix_web::App.app_data
    let server = HttpServer::new(move || {
       App::new()
@@ -82,11 +71,6 @@ And later in your handlers
 async fn index(storage: Storage) -> Result<String, Error>{
    storage.set_bytes("key", "value").await;
    let val = storage.get_bytes("key").await?.unwrap_or_default();
-
-   // Or if you defined a serde format
-   let number: i32 = 5
-   storage.set("number", number);
-   let x: i32 = storage.get("number");
 
    Ok(std::str::from_utf8(&val)
       .map_err(|err| error::ErrorInternalServerError("Storage error"))?.to_string())

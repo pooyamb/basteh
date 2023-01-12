@@ -13,20 +13,16 @@ readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
 
 [dependencies]
-actix = {version = "0.13", default-features = false}
-actix-storage = {version = "0.3.0", features = ["with-serde"]}
+actix = { version = "0.13", default-features = false }
+actix-storage = "0.3.0"
 async-trait = "0.1"
-redis = {version = "0.22", default-features = false, features = [
-  "connection-manager",
-  "tokio-comp",
-]}
+redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp"] }
 thiserror = "1"
 
 [dev-dependencies]
-actix-storage = {version = "0.3.0", features = ["all", "tests"]}
+actix-storage = { version = "0.3.0", features = ["all", "tests"] }
 actix-web = "4.0.0"
 rand = "0.8"
-serde = "1"
 
 [features]
 tls = ["redis/tokio-native-tls-comp"]

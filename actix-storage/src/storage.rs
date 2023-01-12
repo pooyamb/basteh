@@ -8,9 +8,6 @@ use actix_web::{dev::Payload, error::ErrorInternalServerError, FromRequest, Http
 use crate::dev::{Expiry, ExpiryStore, Store};
 use crate::error::Result;
 
-#[cfg(feature = "with-serde")]
-use crate::format::{deserialize, serialize, Format};
-
 pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
 
 /// Takes the underlying backend and provides common methods for it
@@ -36,15 +33,11 @@ pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
 /// }
 /// ```
 ///
-/// It is also possible to set and get values directly using serde by enabling
-/// `with-serde` feature flag.
 ///
 #[derive(Clone)]
 pub struct Storage {
     scope: Arc<[u8]>,
     store: Arc<dyn ExpiryStore>,
-    #[cfg(feature = "with-serde")]
-    format: Format,
 }
 
 impl Storage {
@@ -65,7 +58,7 @@ impl Storage {
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// let cache = storage.scope("cache");
-    /// cache.set("age", &60_u8).await;
+    /// cache.set_bytes("age", "60").await;
     /// #     "set"
     /// # }
     /// ```
@@ -73,94 +66,7 @@ impl Storage {
         Storage {
             scope: scope.as_ref().into(),
             store: self.store.clone(),
-            #[cfg(feature = "with-serde")]
-            format: self.format,
         }
-    }
-
-    /// Stores a generic serializable value on storage using serde
-    ///
-    /// Calling set operations twice on the same key, overwrites it's value and
-    /// clear the expiry on that key(if it exist).
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
-    /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set("age", &60_u8).await;
-    /// #     "set"
-    /// # }
-    /// ```
-    ///
-    /// ## Errors
-    /// Beside the normal errors caused by the storage itself, it will result in error if
-    /// serialization fails.
-    ///
-    /// Note: it required the value to be `Sized` as some of the serde extensions currently
-    /// has the same requirement, this restriction may be lifted in future.
-    ///
-    /// requires `"with-serde"` feature and one of the format features to work ex. `"serde-json"`
-    #[cfg(feature = "with-serde")]
-    pub async fn set<V>(&self, key: impl AsRef<[u8]>, value: &V) -> Result<()>
-    where
-        V: serde::Serialize,
-    {
-        self.store
-            .set(
-                self.scope.clone(),
-                key.as_ref().into(),
-                serialize(value, &self.format)?.into(),
-            )
-            .await
-    }
-
-    /// Stores a generic serializable value on storage using serde and sets expiry on the key
-    /// It should be prefered over explicity setting a value and putting an expiry on it as
-    /// providers may provide a more optimized way to do both operations at once.
-    ///
-    /// Calling set operations twice on the same key, overwrites it's value and
-    /// clear the expiry on that key(if it exist).
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
-    /// # use std::time::Duration;
-    /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set_expiring("age", &60_u8, Duration::from_secs(10)).await;
-    /// #     "set"
-    /// # }
-    /// ```
-    ///
-    /// ## Errors
-    /// Beside the normal errors caused by the storage itself, it will result in error if
-    /// expiry provider is not set or serialization fails.
-    ///
-    /// Note: it required the value to be `Sized` as some of the serde extensions currently
-    /// has the same requirement, this restriction may be lifted in future.
-    ///
-    /// requires `"with-serde"` feature and one of the format features to work ex. `"serde-json"`
-    #[cfg(feature = "with-serde")]
-    pub async fn set_expiring<V>(
-        &self,
-        key: impl AsRef<[u8]>,
-        value: &V,
-        expires_in: Duration,
-    ) -> Result<()>
-    where
-        V: serde::Serialize,
-    {
-        self.store
-            .set_expiring(
-                self.scope.clone(),
-                key.as_ref().into(),
-                serialize(value, &self.format)?.into(),
-                expires_in,
-            )
-            .await
     }
 
     /// Stores a sequence of bytes on storage
@@ -225,76 +131,6 @@ impl Storage {
                 expires_in,
             )
             .await
-    }
-
-    /// Gets a generic deserializable value from backend using serde
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
-    /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
-    /// let val: Option<String> = storage.get("key").await?;
-    /// #     Ok(val.unwrap())
-    /// # }
-    /// ```
-    ///
-    /// ## Errors
-    /// Beside the normal errors caused by the storage itself, it will result in error if
-    /// deserialization fails.
-    ///
-    /// requires `"with-serde"` feature and one of the format features to work ex. `"serde-json"`
-    #[cfg(feature = "with-serde")]
-    pub async fn get<K, V>(&self, key: K) -> Result<Option<V>>
-    where
-        K: AsRef<[u8]>,
-        V: serde::de::DeserializeOwned,
-    {
-        let val = self
-            .store
-            .get(self.scope.clone(), key.as_ref().into())
-            .await?;
-        val.map(|val| deserialize(val.as_ref(), &self.format))
-            .transpose()
-    }
-
-    /// Gets a generic deserializable value from backend using serde together with its expiry
-    /// It should be prefered over calling get and expiry as providers may define
-    /// a more optimized way to do the both operations at once.
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
-    /// #
-    /// # async fn index(storage: Storage) -> Result<String> {
-    /// let val: Option<(String, _)> = storage.get_expiring("key").await?;
-    /// #     Ok(val.unwrap().0)
-    /// # }
-    /// ```
-    ///
-    /// ## Errors
-    /// Beside the normal errors caused by the storage itself, it will result in error if
-    /// expiry provider is not set or deserialization fails.
-    ///
-    /// requires `"with-serde"` and one of the format features to work ex. `"serde-json"`
-    #[cfg(feature = "with-serde")]
-    pub async fn get_expiring<K, V>(&self, key: K) -> Result<Option<(V, Option<Duration>)>>
-    where
-        K: AsRef<[u8]>,
-        V: serde::de::DeserializeOwned,
-    {
-        if let Some((val, expiry)) = self
-            .store
-            .get_expiring(self.scope.clone(), key.as_ref().into())
-            .await?
-        {
-            let val = deserialize(val.as_ref(), &self.format)?;
-            Ok(Some((val, expiry)))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Gets a sequence of bytes from backend, resulting in an owned vector
@@ -536,8 +372,6 @@ pub struct StorageBuilder {
     store: Option<Arc<dyn Store>>,
     expiry: Option<Arc<dyn Expiry>>,
     expiry_store: Option<Arc<dyn ExpiryStore>>,
-    #[cfg(feature = "with-serde")]
-    format: Format,
 }
 
 impl StorageBuilder {
@@ -570,16 +404,6 @@ impl StorageBuilder {
         self
     }
 
-    #[cfg(feature = "with-serde")]
-    #[must_use = "Builder must be used by calling finish"]
-    /// This method can be used to set the format storage will use for serialization/deserialization,
-    /// we will use default format if it is not called which can be None if there is no serde feature
-    /// enabled.
-    pub fn format(mut self, format: Format) -> Self {
-        self.format = format;
-        self
-    }
-
     /// This method should be used after configuring the storage.
     ///
     /// ## Panics
@@ -598,8 +422,6 @@ impl StorageBuilder {
         Storage {
             scope: Arc::new(GLOBAL_SCOPE),
             store: expiry_store,
-            #[cfg(feature = "with-serde")]
-            format: self.format,
         }
     }
 }

@@ -48,13 +48,6 @@ fn test_sled_expiry_store() {
     );
 }
 
-#[test]
-fn test_sled_formats() {
-    test_all_formats(Box::pin(async {
-        SledActor::from_db(open_database().await).start(1)
-    }));
-}
-
 #[actix::test]
 async fn test_sled_perform_deletion() {
     let scope: Arc<[u8]> = "prefix".as_bytes().into();

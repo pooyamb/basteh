@@ -337,12 +337,4 @@ mod test {
             2,
         );
     }
-
-    #[test]
-    fn test_dashmap_formats() {
-        test_all_formats(Box::pin(async {
-            let store = DashMapActor::default().start(1);
-            store
-        }));
-    }
 }

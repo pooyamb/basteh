@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use actix_storage::{Format, Storage};
+use actix_storage::Storage;
 use actix_web::{web, App, Error, HttpServer};
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,11 @@ async fn index(
     let (name, lesson, point) = path.into_inner();
     let mut previous_point: Option<u16> = None;
 
-    let person = if let Some(mut person) = storage.get::<_, Person>(&name).await? {
+    let person = if let Some(Ok(mut person)) = storage
+        .get_bytes(&name)
+        .await?
+        .map(|person| serde_json::from_slice::<Person>(&person))
+    {
         new = false;
         if let Some(point) = person.points.insert(lesson, point) {
             previous_point = Some(point);
@@ -49,7 +53,9 @@ async fn index(
     };
 
     // Setting back the data to storage
-    storage.set(&name, &person).await?;
+    storage
+        .set_bytes(&name, &serde_json::to_vec(&person).unwrap())
+        .await?;
 
     let out = PersonOut {
         name: person.name,
@@ -63,9 +69,7 @@ async fn index(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let store = actix_storage_dashmap::DashMapStore::new();
-    // OR
-    // let store = actix_storage_hashmap::HashMapStore::new();
+    let store = actix_storage_hashmap::HashMapStore::new();
     // OR
     // let store = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
     // OR
@@ -75,7 +79,7 @@ async fn main() -> std::io::Result<()> {
     //         .open()?,
     // );
 
-    let storage = Storage::build().store(store).format(Format::Json).finish();
+    let storage = Storage::build().store(store).finish();
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(index));
     server.bind("localhost:5000")?.run().await

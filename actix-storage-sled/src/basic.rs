@@ -122,18 +122,4 @@ mod test {
             SledStore::from_db(open_database().await)
         }));
     }
-
-    #[test]
-    fn test_sled_basic_formats() {
-        impl Clone for SledStore {
-            fn clone(&self) -> Self {
-                Self {
-                    db: self.db.clone(),
-                }
-            }
-        }
-        test_all_formats(Box::pin(async {
-            SledStore::from_db(open_database().await)
-        }));
-    }
 }

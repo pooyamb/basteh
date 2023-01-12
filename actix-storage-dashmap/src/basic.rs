@@ -92,16 +92,4 @@ mod test {
     fn test_dashmap_basic_store() {
         test_store(Box::pin(async { DashMapStore::default() }));
     }
-
-    #[test]
-    fn test_dashmap_basic_formats() {
-        impl Clone for DashMapStore {
-            fn clone(&self) -> Self {
-                Self {
-                    map: self.map.clone(),
-                }
-            }
-        }
-        test_all_formats(Box::pin(async { DashMapStore::default() }));
-    }
 }

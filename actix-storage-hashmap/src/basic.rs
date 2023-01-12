@@ -111,14 +111,4 @@ mod test {
     fn test_hashmap_basic_store() {
         test_store(Box::pin(async { HashMapStore::default() }));
     }
-
-    #[test]
-    fn test_hashmap_basic_formats() {
-        impl Clone for HashMapStore {
-            fn clone(&self) -> Self {
-                Self::default()
-            }
-        }
-        test_all_formats(Box::pin(async { HashMapStore::default() }));
-    }
 }

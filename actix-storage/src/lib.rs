@@ -3,12 +3,6 @@ mod error;
 mod provider;
 mod storage;
 
-#[cfg(feature = "with-serde")]
-mod format;
-
-#[cfg(feature = "with-serde")]
-pub use crate::format::Format;
-
 pub use error::{Result, StorageError};
 pub use storage::{Storage, GLOBAL_SCOPE};
 

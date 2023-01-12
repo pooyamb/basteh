@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
-use actix_storage::{Format, Storage};
+use actix_storage::Storage;
 use actix_web::{web, App, HttpServer};
 
 #[derive(Serialize, Deserialize)]
@@ -28,8 +28,8 @@ async fn get_obj_by_id(id: u64) -> Object {
 
 #[actix_web::get("/{obj_id}")]
 async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response> {
-    let resp = if let Ok(Some(resp)) = storage.get(obj_id.to_string()).await {
-        resp
+    let resp = if let Ok(Some(resp)) = storage.get_bytes(obj_id.to_string()).await {
+        serde_json::from_slice(&resp).unwrap()
     } else {
         let object = get_obj_by_id(*obj_id).await;
         let resp = Response {
@@ -39,7 +39,11 @@ async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response
 
         // Cache for 5 seconds
         storage
-            .set_expiring(&obj_id.to_string(), &resp, Duration::from_secs(5))
+            .set_expiring_bytes(
+                &obj_id.to_string(),
+                &serde_json::to_vec(&resp).unwrap(),
+                Duration::from_secs(5),
+            )
             .await
             .unwrap();
 
@@ -51,9 +55,7 @@ async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let expiry_store = actix_storage_dashmap::DashMapActor::start_default(4);
-    // OR
-    // let expiry_store = actix_storage_hashmap::HashMapActor::start_default();
+    let expiry_store = actix_storage_hashmap::HashMapActor::start_default();
     // OR
     // let expiry_store = actix_storage_redis::RedisBackend::connect_default()
     //     .await
@@ -66,10 +68,7 @@ async fn main() -> std::io::Result<()> {
     // )
     // .start(4);
 
-    let storage = Storage::build()
-        .expiry_store(expiry_store)
-        .format(Format::Json)
-        .finish();
+    let storage = Storage::build().expiry_store(expiry_store).finish();
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(get_obj));
     server.bind("localhost:5000")?.run().await
