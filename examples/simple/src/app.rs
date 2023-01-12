@@ -31,7 +31,7 @@ async fn index(
     let mut previous_point: Option<u16> = None;
 
     let person = if let Some(Ok(mut person)) = storage
-        .get_bytes(&name)
+        .get(&name)
         .await?
         .map(|person| serde_json::from_slice::<Person>(&person))
     {
@@ -54,7 +54,7 @@ async fn index(
 
     // Setting back the data to storage
     storage
-        .set_bytes(&name, &serde_json::to_vec(&person).unwrap())
+        .set(&name, &serde_json::to_vec(&person).unwrap())
         .await?;
 
     let out = PersonOut {

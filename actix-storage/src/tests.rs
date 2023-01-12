@@ -19,9 +19,9 @@ where
         let key = "store_key";
         let value = "val";
 
-        assert!(storage.set_bytes(key, value).await.is_ok());
+        assert!(storage.set(key, value).await.is_ok());
 
-        let get_res = storage.get_bytes(key).await;
+        let get_res = storage.get(key).await;
         assert!(get_res.is_ok());
         assert_eq!(get_res.unwrap(), Some(value.as_bytes().into()));
 
@@ -31,7 +31,7 @@ where
 
         assert!(storage.delete(key).await.is_ok());
 
-        let get_res = storage.get_bytes(key).await;
+        let get_res = storage.get(key).await;
         assert!(get_res.is_ok());
         assert!(get_res.unwrap().is_none());
 
@@ -55,10 +55,10 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     assert!(storage.expiry(key).await.unwrap().is_none());
 
     // Testing set and get before expiry
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
     assert_eq!(
-        storage.get_bytes(key).await.unwrap(),
+        storage.get(key).await.unwrap(),
         Some(value.as_bytes().into())
     );
 
@@ -71,7 +71,7 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
-    assert_eq!(storage.get_bytes(key).await.unwrap(), None);
+    assert_eq!(storage.get(key).await.unwrap(), None);
 }
 
 /// Testing extending functionality by setting an expiry and extending it later,
@@ -82,7 +82,7 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
     let value = "val";
 
     // Testing set and get before expiry
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
 
     // Testing extending the expiry time
@@ -97,13 +97,16 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item still exist
-    assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
+    assert_eq!(
+        storage.get(key).await.unwrap(),
+        Some(value.as_bytes().into())
+    );
 
     // Adding some error to the delay, for the implementers sake
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
-    assert_eq!(storage.get_bytes(key).await.unwrap(), None);
+    assert_eq!(storage.get(key).await.unwrap(), None);
 }
 
 /// Testing persist, by setting an expiry for a key and making it persistant later
@@ -112,7 +115,7 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
     let key = "persistant_key";
     let value = "val";
 
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.persist(key).await.is_ok());
 
@@ -120,7 +123,10 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if persistent key is still there
-    assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
+    assert_eq!(
+        storage.get(key).await.unwrap(),
+        Some(value.as_bytes().into())
+    );
 }
 
 /// Testing if calling set after expire, clears expiration from the key
@@ -129,15 +135,15 @@ pub async fn test_expiry_set_clearing(storage: Storage, delay_secs: u64) {
     let key = "set_after_expire_key";
     let value = "val";
 
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
 
     actix::clock::sleep(Duration::from_secs((delay_secs) + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
-        storage.get_bytes(key).await.unwrap(),
+        storage.get(key).await.unwrap(),
         Some(value.as_bytes().into())
     );
 }
@@ -150,14 +156,14 @@ pub async fn test_expiry_override_shorter(storage: Storage, delay_secs: u64) {
     let value = "val";
 
     // Test if second call to expire overwrites the first expiry
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay * 5).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
 
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if calling set twice cleaerd the expire
-    assert_eq!(storage.get_bytes(key).await.unwrap(), None);
+    assert_eq!(storage.get(key).await.unwrap(), None);
 }
 
 /// Testing if second call to expire overrides the first one
@@ -168,7 +174,7 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
     let value = "val";
 
     // Test if second call to expire overwrites the first expiry
-    assert!(storage.set_bytes(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.expire(key, delay * 5).await.is_ok());
 
@@ -176,7 +182,7 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
-        storage.get_bytes(key).await.unwrap(),
+        storage.get(key).await.unwrap(),
         Some(value.as_bytes().into())
     );
 }
@@ -219,10 +225,10 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     let value = "value";
 
     // Test set and get expiring
-    assert!(storage.set_expiring_bytes(key, value, delay).await.is_ok());
+    assert!(storage.set_expiring(key, value, delay).await.is_ok());
 
-    let (v, e) = storage.get_expiring_bytes(key).await.unwrap().unwrap();
-    assert_eq!(v, value.as_bytes());
+    let (v, e) = storage.get_expiring(key).await.unwrap().unwrap();
+    assert_eq!(v.as_ref(), value.as_bytes());
     assert!(e.unwrap().as_secs() > 0);
     assert!(e.unwrap().as_secs() <= delay_secs);
 
@@ -230,7 +236,7 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
-    assert_eq!(storage.get_expiring_bytes(key).await.unwrap(), None);
+    assert_eq!(storage.get_expiring(key).await.unwrap(), None);
 }
 
 /// Testing if second call to expire overrides the first one
@@ -241,11 +247,8 @@ pub async fn test_expiry_store_override_shorter(storage: Storage, delay_secs: u6
     let value = "value";
 
     // Test if second call to set expiring, overwrites expiry for key
-    assert!(storage.set_expiring_bytes(key, value, delay).await.is_ok());
-    assert!(storage
-        .set_expiring_bytes(key, value, delay * 2)
-        .await
-        .is_ok());
+    assert!(storage.set_expiring(key, value, delay).await.is_ok());
+    assert!(storage.set_expiring(key, value, delay * 2).await.is_ok());
     let exp = storage.expiry(key).await.unwrap().unwrap();
     assert!(exp.as_secs() > delay_secs);
     assert!(exp.as_secs() <= delay_secs * 2);
@@ -254,7 +257,10 @@ pub async fn test_expiry_store_override_shorter(storage: Storage, delay_secs: u6
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
-    assert_eq!(storage.get_bytes(key).await.unwrap(), Some(value.into()));
+    assert_eq!(
+        storage.get(key).await.unwrap(),
+        Some(value.as_bytes().into())
+    );
 }
 
 /// Testing if second call to expire overrides the first one
@@ -265,11 +271,8 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     let value = "value";
 
     // Test if second call to set expiring, overwrites expiry for key
-    assert!(storage
-        .set_expiring_bytes(key, value, delay * 2)
-        .await
-        .is_ok());
-    assert!(storage.set_expiring_bytes(key, value, delay).await.is_ok());
+    assert!(storage.set_expiring(key, value, delay * 2).await.is_ok());
+    assert!(storage.set_expiring(key, value, delay).await.is_ok());
     let exp = storage.expiry(key).await.unwrap().unwrap();
     assert!(exp.as_secs() > 0);
     assert!(exp.as_secs() <= delay_secs);
@@ -278,7 +281,7 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
-    assert_eq!(storage.get_bytes(key).await.unwrap(), None);
+    assert_eq!(storage.get(key).await.unwrap(), None);
 }
 
 // delay_secs is the duration of time we set for expiry and we wait to see

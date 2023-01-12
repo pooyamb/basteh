@@ -26,8 +26,8 @@ pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
 /// use actix_web::*;
 ///
 /// async fn index(storage: Storage) -> Result<String, Error>{
-///     storage.set_bytes("key", "value").await;
-///     let val = storage.get_bytes("key").await?.unwrap_or_default();
+///     storage.set("key", "value").await;
+///     let val = storage.get("key").await?.unwrap();
 ///     Ok(std::str::from_utf8(&val)
 ///         .map_err(|err| error::ErrorInternalServerError("Storage error"))?.to_string())
 /// }
@@ -58,7 +58,7 @@ impl Storage {
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// let cache = storage.scope("cache");
-    /// cache.set_bytes("age", "60").await;
+    /// cache.set("age", "60").await;
     /// #     "set"
     /// # }
     /// ```
@@ -80,12 +80,12 @@ impl Storage {
     /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set_bytes("age", vec![10]).await;
-    /// storage.set_bytes("name", "Violet".as_bytes()).await;
+    /// storage.set("age", vec![10]).await;
+    /// storage.set("name", "Violet".as_bytes()).await;
     /// #     "set"
     /// # }
     /// ```
-    pub async fn set_bytes(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+    pub async fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.store
             .set(
                 self.scope.clone(),
@@ -109,7 +109,7 @@ impl Storage {
     /// # use std::time::Duration;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set_expiring_bytes("name", "Violet".as_bytes(), Duration::from_secs(10)).await;
+    /// storage.set_expiring("name", "Violet".as_bytes(), Duration::from_secs(10)).await;
     /// #     "set"
     /// # }
     /// ```
@@ -117,7 +117,7 @@ impl Storage {
     /// ## Errors
     /// Beside the normal errors caused by the storage itself, it will result in error if
     /// expiry provider is not set.
-    pub async fn set_expiring_bytes(
+    pub async fn set_expiring(
         &self,
         key: impl AsRef<[u8]>,
         value: impl AsRef<[u8]>,
@@ -141,17 +141,17 @@ impl Storage {
     /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, Error> {
-    /// let val = storage.get_bytes_ref("key").await?;
+    /// let val = storage.get("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
     /// # }
     /// ```
-    pub async fn get_bytes_ref(&self, key: impl AsRef<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    pub async fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Arc<[u8]>>> {
         self.store
             .get(self.scope.clone(), key.as_ref().into())
             .await
     }
 
-    /// Same as `get_bytes_ref` but it also gets expiry.
+    /// Same as `get` but it also gets expiry.
     ///
     /// ## Example
     /// ```rust
@@ -159,11 +159,11 @@ impl Storage {
     /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, Error> {
-    /// let val = storage.get_expiring_bytes_ref("key").await?;
+    /// let val = storage.get_expiring("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap().0).unwrap_or_default().to_owned())
     /// # }
     /// ```
-    pub async fn get_expiring_bytes_ref(
+    pub async fn get_expiring(
         &self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
@@ -551,12 +551,12 @@ mod test {
         assert!(storage.expiry(k).await.is_err());
         assert!(storage.extend(k, d).await.is_err());
         assert!(storage.persist(k).await.is_err());
-        assert!(storage.set_expiring_bytes(k, v, d).await.is_err());
-        assert!(storage.get_expiring_bytes(k).await.is_err());
+        assert!(storage.set_expiring(k, v, d).await.is_err());
+        assert!(storage.get_expiring(k).await.is_err());
 
         // These tests should all succeed
-        assert!(storage.set_bytes(k, v).await.is_ok());
-        assert!(storage.get_bytes(k).await.is_ok());
+        assert!(storage.set(k, v).await.is_ok());
+        assert!(storage.get(k).await.is_ok());
         assert!(storage.delete(k).await.is_ok());
         assert!(storage.contains_key(k).await.is_ok());
     }
@@ -605,7 +605,7 @@ mod test {
         let store = SampleStore;
         let storage = Storage::build().store(store.clone()).expiry(store).finish();
         assert!(storage
-            .set_expiring_bytes("key", "value", Duration::from_secs(1))
+            .set_expiring("key", "value", Duration::from_secs(1))
             .await
             .is_ok());
 
@@ -614,15 +614,15 @@ mod test {
         assert!(storage.expiry(k).await.is_ok());
         assert!(storage.extend(k, d).await.is_ok());
         assert!(storage.persist(k).await.is_ok());
-        assert!(storage.set_expiring_bytes(k, v, d).await.is_ok());
-        assert!(storage.get_expiring_bytes(k).await.is_ok());
-        assert!(storage.set_bytes(k, v).await.is_ok());
-        assert!(storage.get_bytes(k).await.is_ok());
+        assert!(storage.set_expiring(k, v, d).await.is_ok());
+        assert!(storage.get_expiring(k).await.is_ok());
+        assert!(storage.set(k, v).await.is_ok());
+        assert!(storage.get(k).await.is_ok());
         assert!(storage.delete(k).await.is_ok());
         assert!(storage.contains_key(k).await.is_ok());
 
         // values should match
-        let res = storage.get_expiring_bytes("key").await;
+        let res = storage.get_expiring("key").await;
         assert!(res.is_ok());
         assert!(res.unwrap() == Some(("v".as_bytes().into(), Some(Duration::from_secs(1)))));
     }

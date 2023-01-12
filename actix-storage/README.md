@@ -69,8 +69,8 @@ And later in your handlers
 
 ```rust
 async fn index(storage: Storage) -> Result<String, Error>{
-   storage.set_bytes("key", "value").await;
-   let val = storage.get_bytes("key").await?.unwrap_or_default();
+   storage.set("key", b"value").await;
+   let val = storage.get(b"key").await?.unwrap_or_default();
 
    Ok(std::str::from_utf8(&val)
       .map_err(|err| error::ErrorInternalServerError("Storage error"))?.to_string())
