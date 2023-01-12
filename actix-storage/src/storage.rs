@@ -133,57 +133,6 @@ impl Storage {
             .await
     }
 
-    /// Gets a sequence of bytes from backend, resulting in an owned vector
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
-    /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
-    /// let val = storage.get_bytes("key").await?;
-    /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
-    /// # }
-    /// ```
-    pub async fn get_bytes(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
-        Ok(self
-            .store
-            .get(self.scope.clone(), key.as_ref().into())
-            .await?
-            .map(|val| {
-                let mut new_value = vec![];
-                new_value.extend_from_slice(val.as_ref());
-                new_value
-            }))
-    }
-
-    /// Same as `get_bytes` but it also gets expiry.
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
-    /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
-    /// let val = storage.get_expiring_bytes("key").await?;
-    /// #     Ok(std::str::from_utf8(&val.unwrap().0).unwrap_or_default().to_owned())
-    /// # }
-    /// ```
-    pub async fn get_expiring_bytes(
-        &self,
-        key: impl AsRef<[u8]>,
-    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
-        if let Some((val, expiry)) = self
-            .store
-            .get_expiring(self.scope.clone(), key.as_ref().into())
-            .await?
-        {
-            Ok(Some((val.as_ref().into(), expiry)))
-        } else {
-            Ok(None)
-        }
-    }
-
     /// Gets a sequence of bytes from backend, resulting in an arc
     ///
     /// ## Example
