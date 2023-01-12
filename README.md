@@ -18,7 +18,7 @@
 <br>
 
 <div style="padding:5px 10px;background-color: #a64452; color: white">
-The main branch includes many breaking changes, swithc to v0.3 branch for the released version.
+The main branch includes many breaking changes, switch to v0.3 branch for the released version.
 </div>
 
 <br>
