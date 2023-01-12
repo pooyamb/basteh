@@ -85,12 +85,6 @@ actix-storage-hashmap
       alt="docs.rs docs" />
 </a>
 
-actix-storage-dashmap
-<a href="https://docs.rs/actix-storage-dashmap">
-<img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
-      alt="docs.rs docs" />
-</a>
-
 actix-storage-sled
 <a href="https://docs.rs/actix-storage-sled">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
