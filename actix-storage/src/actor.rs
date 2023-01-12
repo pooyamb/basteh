@@ -326,7 +326,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[actix::test]
     #[should_panic(expected = "explicit panic")]
     async fn test_actor() {
         let actor = TestActor::start_default();

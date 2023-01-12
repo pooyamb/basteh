@@ -11,12 +11,12 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + Store,
 {
-    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let system = actix::System::new();
 
-    let store = runtime.block_on(async { cfg.await });
+    let store = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).finish();
 
-    runtime.block_on(async move {
+    system.block_on(async move {
         let key = "store_key";
         let value = "val";
 
@@ -197,9 +197,9 @@ where
     S: 'static + Store,
     E: 'static + Expiry,
 {
-    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let system = actix::System::new();
 
-    let (store, expiry) = runtime.block_on(async { cfg.await });
+    let (store, expiry) = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).expiry(expiry).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
@@ -211,7 +211,7 @@ where
         Box::pin(test_expiry_override_longer(storage, delay_secs)),
     ];
 
-    runtime.block_on(async {
+    system.block_on(async {
         futures::future::join_all(futures).await;
     });
 }
@@ -293,8 +293,9 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + ExpiryStore,
 {
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    let store = runtime.block_on(async { cfg.await });
+    let system = actix::System::new();
+
+    let store = system.block_on(async { cfg.await });
     let storage = Storage::build().expiry_store(store).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
@@ -306,7 +307,7 @@ where
         Box::pin(test_expiry_store_override_longer(storage, delay_secs)),
     ];
 
-    runtime.block_on(async move {
+    system.block_on(async move {
         futures::future::join_all(futures).await;
     });
 }

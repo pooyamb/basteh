@@ -22,12 +22,12 @@ thiserror = "1"
 
 # For tests
 futures = { version = "0.3", optional = true }
-tokio = { version = "1.20", features = ["rt-multi-thread"], optional = true }
+tokio = { version = "1.20", default-features = false, optional = true }
 
 [features]
 default = ["actix-web"]
 all = ["actor", "actix-web"]
-tests = ["tokio", "futures"]
+tests = ["actix", "tokio", "futures"]
 actor = ["actix"]
 
 [package.metadata.docs.rs]
