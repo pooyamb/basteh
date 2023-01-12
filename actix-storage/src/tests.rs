@@ -11,11 +11,12 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + Store,
 {
-    let system = actix::System::new();
-    let store = system.block_on(async { cfg.await });
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+
+    let store = runtime.block_on(async { cfg.await });
     let storage = Storage::build().store(store).finish();
 
-    system.block_on(async move {
+    runtime.block_on(async move {
         let key = "store_key";
         let value = "val";
 
@@ -68,7 +69,7 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     assert!(exp.as_secs() <= delay_secs);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
     assert_eq!(storage.get(key).await.unwrap(), None);
@@ -94,7 +95,7 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
     assert!(exp.as_secs() <= delay_secs * 2);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item still exist
     assert_eq!(
@@ -103,7 +104,7 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
     );
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
     assert_eq!(storage.get(key).await.unwrap(), None);
@@ -120,7 +121,7 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
     assert!(storage.persist(key).await.is_ok());
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if persistent key is still there
     assert_eq!(
@@ -139,7 +140,7 @@ pub async fn test_expiry_set_clearing(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.set(key, value).await.is_ok());
 
-    actix::clock::sleep(Duration::from_secs((delay_secs) + 1)).await;
+    tokio::time::sleep(Duration::from_secs((delay_secs) + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
@@ -160,7 +161,7 @@ pub async fn test_expiry_override_shorter(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay * 5).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
 
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(storage.get(key).await.unwrap(), None);
@@ -178,7 +179,7 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
     assert!(storage.expire(key, delay).await.is_ok());
     assert!(storage.expire(key, delay * 5).await.is_ok());
 
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
@@ -196,9 +197,9 @@ where
     S: 'static + Store,
     E: 'static + Expiry,
 {
-    let system = actix::System::new();
+    let runtime = tokio::runtime::Runtime::new().unwrap();
 
-    let (store, expiry) = system.block_on(async { cfg.await });
+    let (store, expiry) = runtime.block_on(async { cfg.await });
     let storage = Storage::build().store(store).expiry(expiry).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
@@ -210,7 +211,7 @@ where
         Box::pin(test_expiry_override_longer(storage, delay_secs)),
     ];
 
-    system.block_on(async {
+    runtime.block_on(async {
         futures::future::join_all(futures).await;
     });
 }
@@ -233,7 +234,7 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     assert!(e.unwrap().as_secs() <= delay_secs);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
     assert_eq!(storage.get_expiring(key).await.unwrap(), None);
@@ -254,7 +255,7 @@ pub async fn test_expiry_store_override_shorter(storage: Storage, delay_secs: u6
     assert!(exp.as_secs() <= delay_secs * 2);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
     assert_eq!(
@@ -278,7 +279,7 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     assert!(exp.as_secs() <= delay_secs);
 
     // Adding some error to the delay, for the implementers sake
-    actix::clock::sleep(Duration::from_secs(delay_secs + 1)).await;
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
     assert_eq!(storage.get(key).await.unwrap(), None);
@@ -292,8 +293,8 @@ where
     F: 'static + Future<Output = S>,
     S: 'static + ExpiryStore,
 {
-    let system = actix::System::new();
-    let store = system.block_on(async { cfg.await });
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let store = runtime.block_on(async { cfg.await });
     let storage = Storage::build().expiry_store(store).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
@@ -305,7 +306,7 @@ where
         Box::pin(test_expiry_store_override_longer(storage, delay_secs)),
     ];
 
-    system.block_on(async move {
+    runtime.block_on(async move {
         futures::future::join_all(futures).await;
     });
 }

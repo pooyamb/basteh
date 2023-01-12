@@ -35,6 +35,6 @@ actix-web = "4.0.0"
 rand = "0.8"
 
 [features]
-actor = ["delay-queue", "zerocopy", "byteorder"]
+actor = ["delay-queue", "zerocopy", "byteorder", "actix-storage/actor"]
 # Uses the default tree for actix-storage's global scope, at the cost of 1 string comparation on every operation
 v01-compat = []

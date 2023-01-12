@@ -494,7 +494,7 @@ mod test {
 
     use super::*;
 
-    #[actix::test]
+    #[tokio::test]
     async fn test_no_expiry() {
         struct OnlyStore;
 
@@ -535,7 +535,7 @@ mod test {
         assert!(storage.contains_key(k).await.is_ok());
     }
 
-    #[actix::test]
+    #[tokio::test]
     async fn test_expiry_store_polyfill() {
         #[derive(Clone)]
         struct SampleStore;

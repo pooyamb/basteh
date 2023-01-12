@@ -1,4 +1,3 @@
-mod actor;
 mod error;
 mod provider;
 mod storage;
@@ -8,6 +7,7 @@ pub use storage::{Storage, GLOBAL_SCOPE};
 
 /// Set of traits and structs used for storage backend development
 pub mod dev {
+    #[cfg(feature = "actor")]
     /// Set of actix messages to help with store and expiry implementation
     pub mod actor {
         pub use crate::actor::*;
@@ -15,6 +15,9 @@ pub mod dev {
     pub use crate::provider::*;
     pub use crate::storage::StorageBuilder;
 }
+
+#[cfg(feature = "actor")]
+mod actor;
 
 #[cfg(feature = "actix-web")]
 mod actix_web;
