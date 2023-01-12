@@ -17,60 +17,49 @@ pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
 /// If there is no [`Expiry`](trait.Expiry.html) set in either of the ways, it will result in runtime
 /// errors when calling methods which require that functionality.
 #[derive(Default)]
-pub struct StorageBuilder {
-    store: Option<Arc<dyn Store>>,
-    expiry: Option<Arc<dyn Expiry>>,
-    expiry_store: Option<Arc<dyn ExpiryStore>>,
+pub struct StorageBuilder<S = ()> {
+    store: Option<S>,
 }
 
 impl StorageBuilder {
     #[must_use = "Builder must be used by calling finish"]
     /// This method can be used to set a [`Store`](trait.Store.html), the second call to this
     /// method will overwrite the store.
-    pub fn store(mut self, store: impl Store + 'static) -> Self {
-        self.store = Some(Arc::new(store));
-        self
-    }
-
-    #[must_use = "Builder must be used by calling finish"]
-    /// This method can be used to set a [`Expiry`](trait.Expiry.html), the second call to this
-    /// method will overwrite the expiry.
-    ///
-    /// The expiry should work on the same storage as the provided store.
-    pub fn expiry(mut self, expiry: impl Expiry + 'static) -> Self {
-        self.expiry = Some(Arc::new(expiry));
-        self
-    }
-
-    #[must_use = "Builder must be used by calling finish"]
-    /// This method can be used to set an [`ExpiryStore`](trait.ExpiryStore.html) directly,
-    /// Its error to call [`expiry`](#method.expiry) or [`store`](#method.store) after calling this method.
-    pub fn expiry_store<T>(mut self, expiry_store: T) -> Self
+    pub fn store<S>(self, store: S) -> StorageBuilder<S>
     where
-        T: 'static + Store + Expiry + ExpiryStore,
+        S: Store + 'static,
     {
-        self.expiry_store = Some(Arc::new(expiry_store));
-        self
+        StorageBuilder { store: Some(store) }
+    }
+}
+
+impl<S: Store> StorageBuilder<S> {
+    #[must_use = "Builder must be used by calling finish"]
+    /// This method can be used to set a [`Expiry`](trait.Expiry.html), if the store
+    /// already supports expiration methods, this will overwrite that behaviour
+    pub fn expiry<E: Expiry>(self, e: E) -> StorageBuilder<impl ExpiryStore> {
+        StorageBuilder {
+            store: Some(self::private::ExpiryStoreGlue(self.store.unwrap(), e)),
+        }
     }
 
-    /// This method should be used after configuring the storage.
-    ///
-    /// ## Panics
-    /// If there is no store provided either by calling [`expiry_store`](#method.expiry_store)
-    /// or [`store`](#method.store) it will panic.
-    pub fn finish(self) -> Storage {
-        let expiry_store = if let Some(expiry_store) = self.expiry_store {
-            expiry_store
-        } else if let Some(store) = self.store {
-            Arc::new(self::private::ExpiryStoreGlue(store, self.expiry))
-        } else {
-            // It is a configuration error, so we just panic.
-            panic!("Storage builder needs at least a store");
-        };
+    #[must_use = "Builder must be used by calling finish"]
+    /// This method should be called when there is no expiration method support in the store
+    /// and there won't be any seperate provider for it.
+    /// Calling this method means acknowleding all the expirations methods will fail.(with an error)
+    pub fn no_expiry(self) -> StorageBuilder<impl ExpiryStore> {
+        StorageBuilder {
+            store: Some(self::private::ExpiryStoreGlue(self.store.unwrap(), ())),
+        }
+    }
+}
 
+impl<S: ExpiryStore + 'static> StorageBuilder<S> {
+    /// Build the Storage
+    pub fn finish(self) -> Storage {
         Storage {
             scope: Arc::new(GLOBAL_SCOPE),
-            store: expiry_store,
+            store: Arc::new(self.store.unwrap()),
         }
     }
 }
@@ -80,33 +69,31 @@ mod private {
     use std::time::Duration;
 
     use crate::{
-        error::{Result, StorageError},
+        error::Result,
         provider::{Expiry, ExpiryStore, Store},
+        StorageError,
     };
 
-    pub(crate) struct ExpiryStoreGlue(pub Arc<dyn Store>, pub Option<Arc<dyn Expiry>>);
+    pub(crate) struct ExpiryStoreGlue<S, E = ()>(pub(super) S, pub(super) E);
 
+    /// For sepearate expiry and stores
     #[async_trait::async_trait]
-    impl Expiry for ExpiryStoreGlue {
+    impl<S, E> Expiry for ExpiryStoreGlue<S, E>
+    where
+        S: Send + Sync,
+        E: Send + Sync + Expiry,
+    {
         async fn expire(
             &self,
             scope: Arc<[u8]>,
             key: Arc<[u8]>,
             expire_in: Duration,
         ) -> Result<()> {
-            if let Some(expiry) = self.1.clone() {
-                expiry.expire(scope, key, expire_in).await
-            } else {
-                Err(StorageError::MethodNotSupported)
-            }
+            self.1.expire(scope, key, expire_in).await
         }
 
         async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
-            if let Some(ref expiry) = self.1 {
-                expiry.expiry(scope, key).await
-            } else {
-                Err(StorageError::MethodNotSupported)
-            }
+            self.1.expiry(scope, key).await
         }
 
         async fn extend(
@@ -115,29 +102,24 @@ mod private {
             key: Arc<[u8]>,
             expire_in: Duration,
         ) -> Result<()> {
-            if let Some(ref expiry) = self.1 {
-                expiry.extend(scope, key, expire_in).await
-            } else {
-                Err(StorageError::MethodNotSupported)
-            }
+            self.1.extend(scope, key, expire_in).await
         }
 
         async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
-            if let Some(ref expiry) = self.1 {
-                expiry.persist(scope, key).await
-            } else {
-                Err(StorageError::MethodNotSupported)
-            }
+            self.1.persist(scope, key).await
         }
     }
 
+    /// For sepearate expiry and stores
     #[async_trait::async_trait]
-    impl Store for ExpiryStoreGlue {
+    impl<S, E> Store for ExpiryStoreGlue<S, E>
+    where
+        S: Send + Sync + Store,
+        E: Send + Sync + Expiry,
+    {
         async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
             self.0.set(scope, key.clone(), value).await?;
-            if let Some(ref expiry) = self.1 {
-                expiry.set_called(key).await;
-            };
+            self.1.set_called(key).await;
             Ok(())
         }
 
@@ -154,8 +136,13 @@ mod private {
         }
     }
 
+    /// For sepearate expiry and stores
     #[async_trait::async_trait]
-    impl ExpiryStore for ExpiryStoreGlue {
+    impl<S, E> ExpiryStore for ExpiryStoreGlue<S, E>
+    where
+        S: Send + Sync + Store,
+        E: Send + Sync + Expiry,
+    {
         async fn set_expiring(
             &self,
             scope: Arc<[u8]>,
@@ -163,12 +150,8 @@ mod private {
             value: Arc<[u8]>,
             expire_in: Duration,
         ) -> Result<()> {
-            if let Some(expiry) = self.1.clone() {
-                self.0.set(scope.clone(), key.clone(), value).await?;
-                expiry.expire(scope, key, expire_in).await
-            } else {
-                Err(StorageError::MethodNotSupported)
-            }
+            self.0.set(scope.clone(), key.clone(), value).await?;
+            self.1.expire(scope, key, expire_in).await
         }
 
         async fn get_expiring(
@@ -176,17 +159,84 @@ mod private {
             scope: Arc<[u8]>,
             key: Arc<[u8]>,
         ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
-            if let Some(expiry) = self.1.clone() {
-                let val = self.0.get(scope.clone(), key.clone()).await?;
-                if let Some(val) = val {
-                    let expiry = expiry.expiry(scope, key).await?;
-                    Ok(Some((val, expiry)))
-                } else {
-                    Ok(None)
-                }
+            let val = self.0.get(scope.clone(), key.clone()).await?;
+            if let Some(val) = val {
+                let expiry = self.1.expiry(scope, key).await?;
+                Ok(Some((val, expiry)))
             } else {
-                Err(StorageError::MethodNotSupported)
+                Ok(None)
             }
+        }
+    }
+
+    /// For simple stores
+    #[async_trait::async_trait]
+    impl<S> Expiry for ExpiryStoreGlue<S>
+    where
+        S: Send + Sync,
+    {
+        async fn expire(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
+            Err(StorageError::MethodNotSupported)
+        }
+
+        async fn expiry(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Duration>> {
+            Err(StorageError::MethodNotSupported)
+        }
+
+        async fn extend(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
+            Err(StorageError::MethodNotSupported)
+        }
+
+        async fn persist(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            Err(StorageError::MethodNotSupported)
+        }
+    }
+
+    /// For sepearate expiry and stores
+    #[async_trait::async_trait]
+    impl<S> Store for ExpiryStoreGlue<S>
+    where
+        S: Send + Sync + Store,
+    {
+        async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+            self.0.set(scope, key.clone(), value).await
+        }
+
+        async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+            self.0.get(scope, key).await
+        }
+
+        async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+            self.0.delete(scope, key).await
+        }
+
+        async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+            self.0.contains_key(scope, key).await
+        }
+    }
+
+    /// For sepearate expiry and stores
+    #[async_trait::async_trait]
+    impl<S> ExpiryStore for ExpiryStoreGlue<S>
+    where
+        S: Send + Sync + Store,
+    {
+        async fn set_expiring(
+            &self,
+            _: Arc<[u8]>,
+            _: Arc<[u8]>,
+            _: Arc<[u8]>,
+            _: Duration,
+        ) -> Result<()> {
+            Err(StorageError::MethodNotSupported)
+        }
+
+        async fn get_expiring(
+            &self,
+            _: Arc<[u8]>,
+            _: Arc<[u8]>,
+        ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+            Err(StorageError::MethodNotSupported)
         }
     }
 }

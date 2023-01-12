@@ -14,7 +14,7 @@ where
     let system = actix::System::new();
 
     let store = system.block_on(async { cfg.await });
-    let storage = Storage::build().store(store).finish();
+    let storage = Storage::build().store(store).no_expiry().finish();
 
     system.block_on(async move {
         let key = "store_key";
@@ -296,7 +296,7 @@ where
     let system = actix::System::new();
 
     let store = system.block_on(async { cfg.await });
-    let storage = Storage::build().expiry_store(store).finish();
+    let storage = Storage::build().store(store).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
         Box::pin(test_expiry_store_basics(storage.clone(), delay_secs)),

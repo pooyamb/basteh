@@ -330,7 +330,7 @@ mod test {
             }
         }
 
-        let storage = Storage::build().store(OnlyStore).finish();
+        let storage = Storage::build().store(OnlyStore).no_expiry().finish();
 
         let k = "key";
         let v = "value".as_bytes();
@@ -415,11 +415,5 @@ mod test {
         let res = storage.get_expiring("key").await;
         assert!(res.is_ok());
         assert!(res.unwrap() == Some(("v".as_bytes().into(), Some(Duration::from_secs(1)))));
-    }
-
-    #[test]
-    #[should_panic(expected = "Storage builder needs at least a store")]
-    fn test_no_sotre() {
-        Storage::build().finish();
     }
 }

@@ -37,17 +37,17 @@ async fn fibo(input: web::Path<usize>, storage: Storage) -> String {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let store = actix_storage_hashmap::HashMapStore::new();
+    let provider = actix_storage_hashmap::HashMapStore::new();
     // OR
-    // let store = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
+    // let provider = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
     // OR
-    // let store = actix_storage_sled::SledStore::from_db(
+    // let provider = actix_storage_sled::SledStore::from_db(
     //     actix_storage_sled::SledConfig::default()
     //         .temporary(true)
     //         .open()?,
     // );
 
-    let storage = Storage::build().store(store).finish();
+    let storage = Storage::build().store(provider).no_expiry().finish();
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(fibo));
     server.bind("localhost:5000")?.run().await

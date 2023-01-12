@@ -55,20 +55,20 @@ async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let expiry_store = actix_storage_hashmap::HashMapActor::start_default();
+    let provider = actix_storage_hashmap::HashMapActor::start_default();
     // OR
-    // let expiry_store = actix_storage_redis::RedisBackend::connect_default()
+    // let provider = actix_storage_redis::RedisBackend::connect_default()
     //     .await
     //     .unwrap();
     // OR
-    // let expiry_store = actix_storage_sled::actor::SledActor::from_db(
+    // let provider = actix_storage_sled::actor::SledActor::from_db(
     //     actix_storage_sled::SledConfig::default()
     //         .temporary(true)
     //         .open()?,
     // )
     // .start(4);
 
-    let storage = Storage::build().expiry_store(expiry_store).finish();
+    let storage = Storage::build().store(provider).finish();
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(get_obj));
     server.bind("localhost:5000")?.run().await
