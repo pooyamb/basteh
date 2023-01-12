@@ -17,6 +17,12 @@
 
 <br>
 
+<div style="padding:5px 10px;background-color: #a64452; color: white">
+The main branch includes many breaking changes, swithc to v0.3 branch for the released version.
+</div>
+
+<br>
+
 Actix storage is a simple wrapper around some key-value storages to provide basic operations without knowing the backend in advance.
 
 ## Install
