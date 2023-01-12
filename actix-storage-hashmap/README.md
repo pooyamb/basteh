@@ -10,7 +10,7 @@ There are 2 different implementers available in this crate
 `HashMapStore` is a simple store without expiration functionality.
 
 ## HashMapActor
-`HashMapActor` is a full expiry_store implementation available under `actor` feature.
+`HashMapActor` is a full store with expiration implementation available under `actor` feature.
 
 ### Implementation details
 `HashMapActor` is an `AsyncActor` running in actix's arbiter which uses tokio's `delayqueue` internally for expiration notifications.

@@ -45,10 +45,10 @@ pub use utils::{decode, decode_mut, encode};
 ///     let db = SledConfig::default().open()?;
 ///     let store = SledActor::from_db(db).start(THREADS_NUMBER);
 ///     
-///     let storage = Storage::build().expiry_store(store).finish();
+///     let storage = Storage::build().store(store).finish();
 ///     let server = HttpServer::new(move || {
 ///         App::new()
-///             .data(storage.clone())
+///             .app_data(storage.clone())
 ///     });
 ///     server.bind("localhost:5000")?.run().await
 /// }

@@ -10,7 +10,7 @@ There are 2 different implementers available in this crate
 `SledStore` is a simple store without expiration functionality.
 
 ## SledActor
-`SledActor` is a full expiry_store implementation available under `actor` feature.
+`SledActor` is a full store with expiration implementation available under `actor` feature.
 
 ### Implementation details
 `SledActor` is a `SyncActor` running in a thread-pool by actix which uses `delay-queue` crate internally in a thread for expiration notifications.

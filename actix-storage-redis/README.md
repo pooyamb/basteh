@@ -7,7 +7,7 @@ This crate provides an implementation for actix-storage based on `redis`.
 There are 2 different implementers available in this crate
 
 ## RedisBackend
-`RedisBackend` is a full expiry_store implementation.
+`RedisBackend` is a full store with expiration implementation.
 
 ```rust
 // Connecting to the redis instance on localhost without username/password(for dev env)

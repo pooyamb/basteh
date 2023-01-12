@@ -24,10 +24,10 @@ type InternalMap = HashMap<Arc<[u8]>, ScopeMap>;
 ///
 /// #[actix_web::main]
 /// async fn main() -> std::io::Result<()> {
-///     let storage = Storage::build().store(HashMapStore::new()).finish();
+///     let storage = Storage::build().store(HashMapStore::new()).no_expiry().finish();
 ///     let server = HttpServer::new(move || {
 ///         App::new()
-///             .data(storage.clone())
+///             .app_data(storage.clone())
 ///     });
 ///     server.bind("localhost:5000")?.run().await
 /// }

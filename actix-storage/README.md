@@ -46,15 +46,15 @@ async fn main() -> std::io::Result<()> {
    let store = HashMapActor::start_default();
 
    // Give it to the Storage struct
-   let storage = Storage::build().expiry_store(store).finish();
+   let storage = Storage::build().store(store).finish();
 
    // Or if it doesn't support expiring functionality
    // it will give errors if those methods are called
-   let storage = Storage::build().store(store).finish();
+   let storage = Storage::build().store(store).no_expiry().finish();
 
    // It is also possible to feed a seprate expiry,
    // as long as it works on the same storage backend
-   let storage = Storage::build().expiry(expiry).finish();
+   let storage = Storage::build().store(store).expiry(expiry).finish();
 
    // Store it in you application state with actix_web::App.app_data
    let server = HttpServer::new(move || {

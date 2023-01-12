@@ -49,10 +49,10 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
 ///     };
 ///     let store = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
 ///
-///     let storage = Storage::build().expiry_store(store).finish();
+///     let storage = Storage::build().store(store).finish();
 ///     let server = HttpServer::new(move || {
 ///         App::new()
-///             .data(storage.clone())
+///             .app_data(storage.clone())
 ///     });
 ///     server.bind("localhost:5000")?.run().await
 /// }

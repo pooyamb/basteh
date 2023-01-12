@@ -46,10 +46,10 @@ impl ExpiryKey {
 ///     // OR
 ///     let store = HashMapActor::with_capacity(100).start();
 ///
-///     let storage = Storage::build().expiry_store(store).finish();
+///     let storage = Storage::build().store(store).finish();
 ///     let server = HttpServer::new(move || {
 ///         App::new()
-///             .data(storage.clone())
+///             .app_data(storage.clone())
 ///     });
 ///     server.bind("localhost:5000")?.run().await
 /// }
