@@ -20,7 +20,7 @@ redis = { version = "0.22", default-features = false, features = ["connection-ma
 thiserror = "1"
 
 [dev-dependencies]
-actix-storage = { version = "0.3.0", features = ["all", "tests"] }
+actix-storage = { version = "0.3.0", features = ["all", "test_utils"] }
 actix-web = "4.0.0"
 rand = "0.8"
 

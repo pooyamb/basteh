@@ -25,5 +25,5 @@ mod actor;
 mod actix_web;
 
 #[doc(hidden)]
-#[cfg(feature = "tests")]
-pub mod tests;
+#[cfg(feature = "test_utils")]
+pub mod test_utils;

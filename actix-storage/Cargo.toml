@@ -30,7 +30,7 @@ tokio = { version = "1.20", default-features = false, features = ["macros"] }
 [features]
 default = ["actix-web"]
 all = ["actor", "actix-web"]
-tests = ["actix", "tokio", "futures"]
+test_utils = ["actix", "tokio", "futures"]
 actor = ["actix"]
 
 [package.metadata.docs.rs]

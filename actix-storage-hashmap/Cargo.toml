@@ -29,7 +29,7 @@ tokio-stream = { version = "0.1", optional = true }
 tokio-util = { version = "0.7", features = ["time"], optional = true }
 
 [dev-dependencies]
-actix-storage = { version = "0.3.0", features = ["all", "tests", "actor"] }
+actix-storage = { version = "0.3.0", features = ["all", "test_utils", "actor"] }
 actix-web = "4.0.0"
 rand = "0.8"
 
