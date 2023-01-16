@@ -32,7 +32,7 @@ pub fn decode(bytes: &[u8]) -> Option<(&[u8], &ExpiryFlags)> {
 /// Takes a value as bytes and an ExpiryFlags and turns them into bytes
 #[allow(clippy::type_complexity)]
 #[inline]
-pub fn encode(value: &[u8], exp: ExpiryFlags) -> Vec<u8> {
+pub fn encode(value: &[u8], exp: &ExpiryFlags) -> Vec<u8> {
     let mut buff = vec![];
     buff.extend_from_slice(value);
     buff.extend_from_slice(exp.as_bytes());

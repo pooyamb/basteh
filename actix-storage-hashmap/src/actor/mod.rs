@@ -16,6 +16,8 @@ use actix_storage::{
 mod delayqueue;
 use delayqueue::{delayqueue, DelayQueueEmergency, DelayQueueReceiver, DelayQueueSender, Expired};
 
+use crate::utils::run_mutations;
+
 type ScopeMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
 type InternalMap = HashMap<Arc<[u8]>, ScopeMap>;
 
@@ -294,6 +296,31 @@ impl Handler<StoreRequest> for HashMapActor {
                     .unwrap_or(false);
                 Box::pin(async move { StoreResponse::Contains(Ok(con)) }.into_actor(self))
             }
+
+            StoreRequest::MutateNumber(scope, key, mutations) => {
+                let scope_map = self.map.entry(scope.clone()).or_default();
+                let value = if let Some(val) = scope_map.get(&key) {
+                    let num = val.as_ref().try_into().map(i64::from_le_bytes);
+                    if let Ok(val) = num {
+                        val
+                    } else {
+                        return Box::pin(
+                            async move {
+                                StoreResponse::Mutate(Err(StorageError::custom(num.unwrap_err())))
+                            }
+                            .into_actor(self),
+                        );
+                    }
+                } else {
+                    0
+                };
+
+                let value = run_mutations(value, mutations);
+
+                scope_map.insert(key, Arc::new(value.to_le_bytes()));
+
+                return Box::pin(async move { StoreResponse::Mutate(Ok(())) }.into_actor(self));
+            }
             _ => Box::pin(async move { StoreResponse::MethodNotSupported }.into_actor(self)),
         }
     }
@@ -442,6 +469,11 @@ mod test {
     #[test]
     fn test_hashmap_store_numbers() {
         test_store_numbers(Box::pin(async { HashMapActor::start_default() }));
+    }
+
+    #[test]
+    fn test_hashmap_mutate_numbers() {
+        test_mutate_numbers(Box::pin(async { HashMapActor::start_default() }));
     }
 
     #[test]

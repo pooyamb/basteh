@@ -160,6 +160,9 @@ impl Handler<StoreRequest> for SledActor {
             StoreRequest::Contains(scope, key) => {
                 StoreResponse::Contains(self.inner.contains(scope, key))
             }
+            StoreRequest::MutateNumber(scope, key, mutations) => {
+                StoreResponse::Mutate(self.inner.mutate(scope, key, mutations))
+            }
             _ => StoreResponse::MethodNotSupported,
         }
     }

@@ -2,12 +2,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use actix_storage::{
-    dev::{Expiry, ExpiryStore, Store},
+    dev::{Action, Expiry, ExpiryStore, Mutation, Store},
     Result, StorageError,
 };
 use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
 
 pub use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo, RedisError};
+use utils::run_mutations;
+
+mod utils;
 
 #[cfg(not(feature = "v01-compat"))]
 #[inline]
@@ -128,6 +131,38 @@ impl Store for RedisBackend {
         .transpose()
     }
 
+    async fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+        if mutations.len() == 0 {
+            return Ok(());
+        }
+
+        let full_key = get_full_key(scope, key);
+        if mutations.len() == 1 {
+            match mutations.into_iter().next().unwrap() {
+                Action::Incr(delta) => self
+                    .con
+                    .clone()
+                    .incr(full_key, delta)
+                    .await
+                    .map_err(StorageError::custom)?,
+                Action::Decr(delta) => self
+                    .con
+                    .clone()
+                    .decr(full_key, delta)
+                    .await
+                    .map_err(StorageError::custom)?,
+                action => run_mutations(self.con.clone(), full_key, [action])
+                    .await
+                    .map_err(|e| StorageError::Custom(Box::new(e)))?,
+            }
+        } else {
+            run_mutations(self.con.clone(), full_key, mutations.into_iter())
+                .await
+                .map_err(|e| StorageError::Custom(Box::new(e)))?
+        }
+        Ok(())
+    }
+
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
@@ -237,6 +272,11 @@ mod test {
     #[test]
     fn test_redis_store_numbers() {
         test_store_numbers(Box::pin(async { get_connection().await }));
+    }
+
+    #[test]
+    fn test_redis_mutate_numbers() {
+        test_mutate_numbers(Box::pin(async { get_connection().await }));
     }
 
     #[test]

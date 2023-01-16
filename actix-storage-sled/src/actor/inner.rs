@@ -4,7 +4,10 @@ use std::{convert::TryInto, sync::Arc};
 #[cfg(feature = "v01-compat")]
 use std::ops::Deref;
 
+use actix_storage::dev::Mutation;
 use actix_storage::StorageError;
+
+use crate::utils::run_mutations;
 
 use super::{
     decode, decode_mut,
@@ -130,7 +133,7 @@ impl SledActorInner {
             };
 
             let exp = ExpiryFlags::new_persist(nonce);
-            let val = encode(&value, exp);
+            let val = encode(&value, &exp);
 
             Some(val)
         })
@@ -167,6 +170,28 @@ impl SledActorInner {
                     .map_err(|_| StorageError::InvalidNumber)
             })
             .transpose()
+    }
+
+    pub fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+        match open_tree(&self.db, &scope)?.update_and_fetch(key, |existing| {
+            let mut bytes = sled::IVec::from(existing?);
+
+            let (val, exp) = decode_mut(&mut bytes)?;
+            let val = if !exp.expired() {
+                i64::from_le_bytes(val.try_into().unwrap_or_default())
+            } else {
+                0
+            };
+
+            let value = run_mutations(val, &mutations).to_le_bytes();
+
+            let val = encode(&value, exp);
+
+            Some(val)
+        }) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(StorageError::custom(err)),
+        }
     }
 
     pub fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
@@ -300,7 +325,7 @@ impl SledActorInner {
             };
 
             let exp = ExpiryFlags::new_expiring(nonce, duration);
-            let val = encode(&value, exp);
+            let val = encode(&value, &exp);
 
             Some(val)
         })

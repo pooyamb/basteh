@@ -2,8 +2,11 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::{Arc, RwLock};
 
+use actix_storage::dev::Mutation;
 use actix_storage::{dev::Store, Result, StorageError};
 use thiserror::Error;
+
+use crate::utils::run_mutations;
 
 #[derive(Debug, Error)]
 #[error("A proccess obtaining the lock has failed while keeping it.")]
@@ -101,6 +104,26 @@ impl Store for HashMapStore {
         }
     }
 
+    async fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+        match self.map.write() {
+            Ok(mut h) => {
+                let scope_map = h.entry(scope).or_default();
+                let v = if let Some(bytes) = scope_map.get(&key) {
+                    i64::from_le_bytes(bytes.as_ref().try_into().unwrap())
+                } else {
+                    0
+                };
+
+                let r = run_mutations(v, mutations);
+
+                scope_map.insert(key, Arc::new(r.to_le_bytes()));
+
+                Ok(())
+            }
+            Err(_) => Err(StorageError::custom(PoisionLockStorageError)),
+        }
+    }
+
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
         match self.map.write() {
             Ok(mut h) => {
@@ -136,5 +159,10 @@ mod test {
     #[test]
     fn test_hashmap_basic_store_numbers() {
         test_store_numbers(Box::pin(async { HashMapStore::default() }));
+    }
+
+    #[test]
+    fn test_hashmap_basic_mutate_numbers() {
+        test_mutate_numbers(Box::pin(async { HashMapStore::default() }));
     }
 }

@@ -3,10 +3,13 @@ use std::{convert::TryInto, sync::Arc};
 #[cfg(feature = "v01-compat")]
 use std::ops::Deref;
 
-use actix_storage::{dev::Store, Result as StorageResult, StorageError};
+use actix_storage::{
+    dev::{Mutation, Store},
+    Result as StorageResult, StorageError,
+};
 use sled::Tree;
 
-use crate::{SledConfig, SledError};
+use crate::{utils::run_mutations, SledConfig, SledError};
 
 /// A simple implementation of [`Store`](actix_storage::dev::Store) based on Sled
 ///
@@ -98,6 +101,28 @@ impl Store for SledStore {
             .transpose()
     }
 
+    async fn mutate(
+        &self,
+        scope: Arc<[u8]>,
+        key: Arc<[u8]>,
+        mutations: Mutation,
+    ) -> StorageResult<()> {
+        match self.get_tree(scope)?.update_and_fetch(key, |value| {
+            let val = value.map(TryInto::<[u8; 8]>::try_into);
+
+            let val = if let Some(val) = val {
+                val.map(i64::from_le_bytes).unwrap_or_default()
+            } else {
+                0
+            };
+
+            Some(run_mutations(val, &mutations).to_le_bytes().to_vec())
+        }) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(StorageError::custom(err)),
+        }
+    }
+
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<()> {
         match self.get_tree(scope)?.remove(key) {
             Ok(_) => Ok(()),
@@ -146,6 +171,13 @@ mod test {
     #[test]
     fn test_sled_basic_store_numbers() {
         test_store_numbers(Box::pin(async {
+            SledStore::from_db(open_database().await)
+        }));
+    }
+
+    #[test]
+    fn test_sled_basic_mutate_numbers() {
+        test_mutate_numbers(Box::pin(async {
             SledStore::from_db(open_database().await)
         }));
     }

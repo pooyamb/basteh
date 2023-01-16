@@ -16,7 +16,7 @@ repository = "https://github.com/pooyamb/actix-storage/"
 actix = { version = "0.13", default-features = false }
 actix-storage = "0.3.0"
 async-trait = "0.1"
-redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp"] }
+redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp", "script"] }
 thiserror = "1"
 
 [dev-dependencies]

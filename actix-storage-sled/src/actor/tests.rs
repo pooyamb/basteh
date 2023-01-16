@@ -37,6 +37,13 @@ fn test_sled_store_numbers() {
 }
 
 #[test]
+fn test_sled_mutate_numbers() {
+    test_mutate_numbers(Box::pin(async {
+        SledActor::from_db(open_database().await).start(1)
+    }));
+}
+
+#[test]
 fn test_sled_expiry() {
     test_expiry(
         Box::pin(async {
@@ -86,10 +93,10 @@ async fn test_sled_scan_on_start() {
     let db = open_database().await;
 
     let dur = Duration::from_secs(2);
-    let value = encode("value".as_bytes(), ExpiryFlags::new_expiring(1, dur));
+    let value = encode("value".as_bytes(), &ExpiryFlags::new_expiring(1, dur));
     let value2 = encode(
         "value2".as_bytes(),
-        ExpiryFlags {
+        &ExpiryFlags {
             persist: U16::ZERO,
             nonce: U64::new(1),
             expires_at: U64::new(get_current_timestamp() - 1),

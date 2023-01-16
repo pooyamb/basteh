@@ -1,0 +1,36 @@
+use actix_storage::dev::{Action, Mutation};
+
+pub(crate) fn run_mutations(mut value: i64, mutations: &Mutation) -> i64 {
+    for act in mutations.iter() {
+        match act {
+            Action::Set(rhs) => {
+                value = *rhs;
+            }
+            Action::Incr(rhs) => {
+                value = value + rhs;
+            }
+            Action::Decr(rhs) => {
+                value = value - rhs;
+            }
+            Action::Mul(rhs) => {
+                value = value * rhs;
+            }
+            Action::Div(rhs) => {
+                value = value / rhs;
+            }
+            Action::If(ord, rhs, ref sub) => {
+                if value.cmp(&rhs) == *ord {
+                    value = run_mutations(value, sub);
+                }
+            }
+            Action::IfElse(ord, rhs, ref sub, ref sub2) => {
+                if value.cmp(&rhs) == *ord {
+                    value = run_mutations(value, sub);
+                } else {
+                    value = run_mutations(value, sub2);
+                }
+            }
+        }
+    }
+    value
+}

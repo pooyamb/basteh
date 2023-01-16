@@ -3,6 +3,7 @@
 /// and sled, requires `["actor"]` feature
 pub mod actor;
 mod basic;
+mod utils;
 
 pub use basic::SledStore;
 
