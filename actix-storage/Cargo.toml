@@ -22,7 +22,10 @@ thiserror = "1"
 
 # For tests
 futures = { version = "0.3", optional = true }
-tokio = { version = "1.20", default-features = false, optional = true }
+tokio = { version = "1.20", default-features = false, features = ["macros"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.20", default-features = false, features = ["macros"] }
 
 [features]
 default = ["actix-web"]

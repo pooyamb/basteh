@@ -34,4 +34,4 @@ actix-web = "4.0.0"
 rand = "0.8"
 
 [features]
-actor = ["tokio", "tokio-util", "tokio-stream", "futures"]
+actor = ["actix", "tokio", "tokio-util", "tokio-stream", "futures", "actix-storage/actor"]
