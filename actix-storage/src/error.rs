@@ -8,19 +8,13 @@ use thiserror::Error;
 /// implementers should generally use Custom variant for their own errors.
 #[derive(Debug, Error)]
 pub enum StorageError {
-    /// Occurs when expiry methods are not available or the implementer doesn't support
-    /// the method.
+    /// States that the method(mostly expiration methods) is not supported by the backend
     #[error("StorageError: Method not supported for the storage backend provided")]
     MethodNotSupported,
-    /// Occurs when serialization is not possible, either because of wrong format specified
-    /// or wrong type.
-    #[error("StorageError: Serialization failed")]
-    SerializationError,
-    /// Occurs when deserialization is not possible, either because of wrong format specified
-    /// or wrong type.
-    #[error("StorageError: Deserialization failed")]
-    DeserializationError,
-    /// Occurs when the underlying storage implementer faces error
+    /// States that the retrieved number is invalid
+    #[error("StorageError: Invalid number retrieved from database")]
+    InvalidNumber,
+    /// An error from the underlying backend
     #[error("StorageError: {:?}", self)]
     Custom(Box<dyn Error + Send>),
 }

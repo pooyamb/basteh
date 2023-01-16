@@ -19,9 +19,12 @@ type Value = Arc<[u8]>;
 /// this message.
 #[derive(Debug, Message)]
 #[rtype(StoreResponse)]
+#[non_exhaustive]
 pub enum StoreRequest {
     Get(Scope, Key),
+    GetNumber(Scope, Key),
     Set(Scope, Key, Value),
+    SetNumber(Scope, Key, i64),
     Delete(Scope, Key),
     Contains(Scope, Key),
 }
@@ -31,11 +34,15 @@ pub enum StoreRequest {
 /// Every store methods are mirrored to an enum variant of the same name, and should
 /// be a result for its corresponding variant in [`StoreResponse`](enum.StoreResponse.html)
 /// Returning anything beside the requested variant, will result in panic at runtime.
+#[non_exhaustive]
 pub enum StoreResponse {
     Get(Result<Option<Value>>),
+    GetNumber(Result<Option<i64>>),
     Set(Result<()>),
+    SetNumber(Result<()>),
     Delete(Result<()>),
     Contains(Result<bool>),
+    MethodNotSupported,
 }
 
 impl<A: Actor> MessageResponse<A, StoreRequest> for StoreResponse {
@@ -63,28 +70,19 @@ where
             .map_err(StorageError::custom)?
         {
             StoreResponse::Set(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
             _ => panic!(),
         }
     }
 
-    async fn delete(&self, scope: Scope, key: Key) -> Result<()> {
+    async fn set_number(&self, scope: Scope, key: Key, value: i64) -> Result<()> {
         match self
-            .send(StoreRequest::Delete(scope, key))
+            .send(StoreRequest::SetNumber(scope, key, value))
             .await
             .map_err(StorageError::custom)?
         {
-            StoreResponse::Delete(val) => val,
-            _ => panic!(),
-        }
-    }
-
-    async fn contains_key(&self, scope: Scope, key: Key) -> Result<bool> {
-        match self
-            .send(StoreRequest::Contains(scope, key))
-            .await
-            .map_err(StorageError::custom)?
-        {
-            StoreResponse::Contains(val) => val,
+            StoreResponse::SetNumber(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
             _ => panic!(),
         }
     }
@@ -96,6 +94,43 @@ where
             .map_err(StorageError::custom)?
         {
             StoreResponse::Get(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
+            _ => panic!(),
+        }
+    }
+
+    async fn get_number(&self, scope: Scope, key: Key) -> Result<Option<i64>> {
+        match self
+            .send(StoreRequest::GetNumber(scope, key))
+            .await
+            .map_err(StorageError::custom)?
+        {
+            StoreResponse::GetNumber(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
+            _ => panic!(),
+        }
+    }
+
+    async fn delete(&self, scope: Scope, key: Key) -> Result<()> {
+        match self
+            .send(StoreRequest::Delete(scope, key))
+            .await
+            .map_err(StorageError::custom)?
+        {
+            StoreResponse::Delete(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
+            _ => panic!(),
+        }
+    }
+
+    async fn contains_key(&self, scope: Scope, key: Key) -> Result<bool> {
+        match self
+            .send(StoreRequest::Contains(scope, key))
+            .await
+            .map_err(StorageError::custom)?
+        {
+            StoreResponse::Contains(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
             _ => panic!(),
         }
     }
@@ -295,7 +330,9 @@ mod tests {
         fn handle(&mut self, msg: StoreRequest, _: &mut Self::Context) -> Self::Result {
             match msg {
                 StoreRequest::Get(_, _) => StoreResponse::Get(Ok(None)),
+                StoreRequest::GetNumber(_, _) => StoreResponse::GetNumber(Ok(None)),
                 StoreRequest::Set(_, _, _) => StoreResponse::Set(Ok(())),
+                StoreRequest::SetNumber(_, _, _) => StoreResponse::SetNumber(Ok(())),
                 StoreRequest::Delete(_, _) => StoreResponse::Get(Ok(None)),
                 StoreRequest::Contains(_, _) => StoreResponse::Contains(Ok(true)),
             }

@@ -123,8 +123,18 @@ mod private {
             Ok(())
         }
 
+        async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
+            self.0.set_number(scope, key.clone(), value).await?;
+            self.1.set_called(key).await;
+            Ok(())
+        }
+
         async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
             self.0.get(scope, key).await
+        }
+
+        async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+            self.0.get_number(scope, key).await
         }
 
         async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
@@ -202,8 +212,16 @@ mod private {
             self.0.set(scope, key.clone(), value).await
         }
 
+        async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
+            self.0.set_number(scope, key.clone(), value).await
+        }
+
         async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
             self.0.get(scope, key).await
+        }
+
+        async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+            self.0.get_number(scope, key).await
         }
 
         async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
@@ -250,27 +268,51 @@ mod test {
         Result, Storage,
     };
 
+    #[derive(Clone)]
+    struct SampleStore;
+
+    #[async_trait::async_trait]
+    impl Store for SampleStore {
+        async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            Ok(())
+        }
+        async fn set_number(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: i64) -> Result<()> {
+            Ok(())
+        }
+        async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+            Ok(Some("v".as_bytes().into()))
+        }
+        async fn get_number(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<i64>> {
+            Ok(Some(123))
+        }
+        async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
+            Ok(false)
+        }
+        async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Expiry for SampleStore {
+        async fn expire(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
+            Ok(())
+        }
+        async fn expiry(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Duration>> {
+            Ok(Some(Duration::from_secs(1)))
+        }
+        async fn extend(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
+            Ok(())
+        }
+        async fn persist(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn test_no_expiry() {
         struct OnlyStore;
-
-        #[async_trait::async_trait]
-        impl Store for OnlyStore {
-            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
-                Ok(())
-            }
-            async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
-                Ok(None)
-            }
-            async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
-                Ok(false)
-            }
-            async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
-                Ok(())
-            }
-        }
-
-        let storage = Storage::build().store(OnlyStore).no_expiry().finish();
+        let storage = Storage::build().store(SampleStore).no_expiry().finish();
 
         let k = "key";
         let v = "value".as_bytes();
@@ -293,41 +335,6 @@ mod test {
 
     #[tokio::test]
     async fn test_expiry_store_polyfill() {
-        #[derive(Clone)]
-        struct SampleStore;
-
-        #[async_trait::async_trait]
-        impl Store for SampleStore {
-            async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
-                Ok(())
-            }
-            async fn get(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
-                Ok(Some("v".as_bytes().into()))
-            }
-            async fn contains_key(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<bool> {
-                Ok(false)
-            }
-            async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
-                Ok(())
-            }
-        }
-
-        #[async_trait::async_trait]
-        impl Expiry for SampleStore {
-            async fn expire(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
-                Ok(())
-            }
-            async fn expiry(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<Option<Duration>> {
-                Ok(Some(Duration::from_secs(1)))
-            }
-            async fn extend(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Duration) -> Result<()> {
-                Ok(())
-            }
-            async fn persist(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
-                Ok(())
-            }
-        }
-
         let k = "key";
         let v = "value".as_bytes();
         let d = Duration::from_secs(1);
