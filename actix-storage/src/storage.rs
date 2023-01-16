@@ -177,8 +177,8 @@ impl Storage {
     /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, Error> {
-    /// let val: i64 = storage.get_number("key").await?;
-    /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
+    /// let val: Option<i64> = storage.get_number("key").await?;
+    /// #     Ok(val.unwrap_or(0).to_string())
     /// # }
     /// ```
     pub async fn get_number(&self, key: impl AsRef<[u8]>) -> Result<Option<i64>> {
