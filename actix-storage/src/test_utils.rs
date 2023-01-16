@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, time::Duration};
+use std::{cmp::Ordering, future::Future, pin::Pin, time::Duration};
 
 use crate::{dev::*, *};
 
@@ -335,5 +335,101 @@ where
         let get_res = storage.get_number(key).await;
         assert!(get_res.is_ok());
         assert_eq!(get_res.unwrap(), Some(value));
+    });
+}
+
+pub fn test_mutate_numbers<F, S>(cfg: Pin<Box<F>>)
+where
+    F: 'static + Future<Output = S>,
+    S: 'static + Store,
+{
+    let system = actix::System::new();
+
+    let store = system.block_on(async { cfg.await });
+    let storage = Storage::build().store(store).no_expiry().finish();
+
+    system.block_on(async move {
+        let key = "mutate_number_key";
+        let value = 1500;
+
+        assert!(storage.set_number(key, value).await.is_ok());
+
+        // Increase by 100
+        storage.mutate(key, |m| m.incr(100)).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(1600));
+
+        // Decrease by 200
+        storage.mutate(key, |m| m.decr(200)).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(1400));
+
+        // Mutiply by 2
+        storage.mutate(key, |m| m.mul(2)).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(2800));
+
+        // Divide by 4
+        storage.mutate(key, |m| m.div(4)).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(700));
+
+        // Set to 100
+        storage.mutate(key, |m| m.set(100)).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(100));
+
+        // Conditional if
+        storage
+            .mutate(key, |m| m.if_(Ordering::Equal, 100, |m| m.set(200)))
+            .await
+            .ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(200));
+
+        // Conditional if else
+        storage
+            .mutate(key, |m| {
+                m.if_else(Ordering::Greater, 200, |m| m.decr(100), |m| m.decr(50))
+            })
+            .await
+            .ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(150));
+
+        // Multi level conditionals
+        let mutation = |m: Mutation| {
+            m.if_(Ordering::Greater, 100, |m| {
+                m.if_(Ordering::Less, 200, |m| {
+                    m.if_else(Ordering::Greater, 150, |m| m.set(125), |m| m.set(175))
+                })
+            })
+        };
+        storage.mutate(key, mutation).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(175));
+
+        // Multi level conditionals
+        storage.mutate(key, mutation).await.ok();
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(125));
     });
 }

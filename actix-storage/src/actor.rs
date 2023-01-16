@@ -4,7 +4,7 @@ use std::time::Duration;
 use actix::dev::{self, MessageResponse, ToEnvelope};
 use actix::{Actor, Addr, Handler, Message};
 
-use crate::dev::{Expiry, ExpiryStore, Store};
+use crate::dev::{Expiry, ExpiryStore, Mutation, Store};
 use crate::error::{Result, StorageError};
 
 type Scope = Arc<[u8]>;
@@ -27,6 +27,7 @@ pub enum StoreRequest {
     SetNumber(Scope, Key, i64),
     Delete(Scope, Key),
     Contains(Scope, Key),
+    MutateNumber(Scope, Key, Mutation),
 }
 
 /// Actix message reply for [`Store`](../trait.Store.html) requests
@@ -42,6 +43,7 @@ pub enum StoreResponse {
     SetNumber(Result<()>),
     Delete(Result<()>),
     Contains(Result<bool>),
+    Mutate(Result<()>),
     MethodNotSupported,
 }
 
@@ -130,6 +132,18 @@ where
             .map_err(StorageError::custom)?
         {
             StoreResponse::Contains(val) => val,
+            StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
+            _ => panic!(),
+        }
+    }
+
+    async fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+        match self
+            .send(StoreRequest::MutateNumber(scope, key, mutations))
+            .await
+            .map_err(StorageError::custom)?
+        {
+            StoreResponse::Mutate(val) => val,
             StoreResponse::MethodNotSupported => Err(StorageError::MethodNotSupported),
             _ => panic!(),
         }
@@ -335,6 +349,7 @@ mod tests {
                 StoreRequest::SetNumber(_, _, _) => StoreResponse::SetNumber(Ok(())),
                 StoreRequest::Delete(_, _) => StoreResponse::Get(Ok(None)),
                 StoreRequest::Contains(_, _) => StoreResponse::Contains(Ok(true)),
+                StoreRequest::MutateNumber(_, _, _) => StoreResponse::Mutate(Ok(())),
             }
         }
     }

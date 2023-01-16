@@ -2,7 +2,7 @@ use std::convert::AsRef;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::dev::{ExpiryStore, StorageBuilder};
+use crate::dev::{ExpiryStore, Mutation, StorageBuilder};
 use crate::error::Result;
 
 /// Takes the underlying backend and provides common methods for it
@@ -212,6 +212,31 @@ impl Storage {
         } else {
             Ok(None)
         }
+    }
+
+    /// Mutate a numeric value in the storage
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use actix_storage::Storage;
+    /// # use actix_web::*;
+    /// #
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
+    /// storage.mutate("age", |v| v.incr(5)).await;
+    /// #     "set"
+    /// # }
+    /// ```
+    pub async fn mutate<F>(&self, key: impl AsRef<[u8]>, mutate_f: F) -> Result<()>
+    where
+        F: Fn(Mutation) -> Mutation,
+    {
+        self.store
+            .mutate(
+                self.scope.clone(),
+                key.as_ref().into(),
+                mutate_f(Mutation::new()),
+            )
+            .await
     }
 
     /// Deletes/Removes a key value pair from storage.

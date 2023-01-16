@@ -69,6 +69,7 @@ mod private {
     use std::time::Duration;
 
     use crate::{
+        dev::Mutation,
         error::Result,
         provider::{Expiry, ExpiryStore, Store},
         StorageError,
@@ -143,6 +144,15 @@ mod private {
 
         async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
             self.0.contains_key(scope, key).await
+        }
+
+        async fn mutate(
+            &self,
+            scope: Arc<[u8]>,
+            key: Arc<[u8]>,
+            mutations: Mutation,
+        ) -> Result<()> {
+            self.0.mutate(scope, key, mutations).await
         }
     }
 
@@ -231,6 +241,15 @@ mod private {
         async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
             self.0.contains_key(scope, key).await
         }
+
+        async fn mutate(
+            &self,
+            scope: Arc<[u8]>,
+            key: Arc<[u8]>,
+            mutations: Mutation,
+        ) -> Result<()> {
+            self.0.mutate(scope, key, mutations).await
+        }
     }
 
     /// For sepearate expiry and stores
@@ -264,7 +283,7 @@ mod test {
     use std::{sync::Arc, time::Duration};
 
     use crate::{
-        dev::{Expiry, Store},
+        dev::{Expiry, Mutation, Store},
         Result, Storage,
     };
 
@@ -289,6 +308,9 @@ mod test {
             Ok(false)
         }
         async fn delete(&self, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
+            Ok(())
+        }
+        async fn mutate(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Mutation) -> Result<()> {
             Ok(())
         }
     }
