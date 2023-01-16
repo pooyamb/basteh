@@ -90,6 +90,16 @@ impl Store for RedisBackend {
         Ok(())
     }
 
+    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
+        let full_key = get_full_key(scope, key);
+        self.con
+            .clone()
+            .set(full_key, value)
+            .await
+            .map_err(StorageError::custom)?;
+        Ok(())
+    }
+
     async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
         let full_key = get_full_key(scope, key);
         let res: Option<Vec<u8>> = self
@@ -99,6 +109,23 @@ impl Store for RedisBackend {
             .await
             .map_err(StorageError::custom)?;
         Ok(res.map(|val| val.into()))
+    }
+
+    /// Get a value for specified key, it should result in None if the value does not exist
+    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+        let full_key = get_full_key(scope, key);
+        let res: Option<Vec<u8>> = self
+            .con
+            .clone()
+            .get(full_key)
+            .await
+            .map_err(StorageError::custom)?;
+        res.map(|val| {
+            String::from_utf8_lossy(&val)
+                .parse()
+                .map_err(|_| StorageError::InvalidNumber)
+        })
+        .transpose()
     }
 
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
@@ -183,7 +210,7 @@ impl ExpiryStore for RedisBackend {
 #[cfg(test)]
 mod test {
     use super::*;
-    use actix_storage::tests::*;
+    use actix_storage::test_utils::*;
     use std::sync::Once;
 
     static INIT: Once = Once::new();
@@ -205,6 +232,11 @@ mod test {
     #[test]
     fn test_redis_store() {
         test_store(Box::pin(async { get_connection().await }));
+    }
+
+    #[test]
+    fn test_redis_store_numbers() {
+        test_store_numbers(Box::pin(async { get_connection().await }));
     }
 
     #[test]

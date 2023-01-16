@@ -147,13 +147,20 @@ impl Handler<StoreRequest> for SledActor {
             StoreRequest::Set(scope, key, value) => {
                 StoreResponse::Set(self.inner.set(scope, key, value))
             }
+            StoreRequest::SetNumber(scope, key, value) => {
+                StoreResponse::SetNumber(self.inner.set_number(scope, key, value))
+            }
             StoreRequest::Get(scope, key) => StoreResponse::Get(self.inner.get(scope, key)),
+            StoreRequest::GetNumber(scope, key) => {
+                StoreResponse::GetNumber(self.inner.get_number(scope, key))
+            }
             StoreRequest::Delete(scope, key) => {
                 StoreResponse::Delete(self.inner.delete(scope, key))
             }
             StoreRequest::Contains(scope, key) => {
                 StoreResponse::Contains(self.inner.contains(scope, key))
             }
+            _ => StoreResponse::MethodNotSupported,
         }
     }
 }

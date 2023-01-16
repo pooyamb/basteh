@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::sync::{Arc, RwLock};
 
 use actix_storage::{dev::Store, Result, StorageError};
@@ -70,6 +71,11 @@ impl Store for HashMapStore {
         }
     }
 
+    /// Set a key-value pair with a numeric value, if the key already exist, value should be overwritten.
+    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
+        self.set(scope, key, Arc::new(value.to_le_bytes())).await
+    }
+
     async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
         match self.map.read() {
             Ok(h) => Ok(h
@@ -77,6 +83,21 @@ impl Store for HashMapStore {
                 .and_then(|scope_map| scope_map.get(&key))
                 .cloned()),
             Err(_) => Err(StorageError::custom(PoisionLockStorageError)),
+        }
+    }
+
+    /// Get a value for specified key, it should result in None if the value does not exist
+    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+        let v = self.get(scope, key).await?;
+        if let Some(v) = v {
+            let n = i64::from_le_bytes(
+                v.as_ref()
+                    .try_into()
+                    .map_err(|_| StorageError::InvalidNumber)?,
+            );
+            Ok(Some(n))
+        } else {
+            Ok(None)
         }
     }
 
@@ -105,10 +126,15 @@ impl Store for HashMapStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use actix_storage::tests::*;
+    use actix_storage::test_utils::*;
 
     #[test]
     fn test_hashmap_basic_store() {
         test_store(Box::pin(async { HashMapStore::default() }));
+    }
+
+    #[test]
+    fn test_hashmap_basic_store_numbers() {
+        test_store_numbers(Box::pin(async { HashMapStore::default() }));
     }
 }

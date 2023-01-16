@@ -1,13 +1,16 @@
-use std::collections::HashMap;
 use std::sync::Arc;
+use std::{collections::HashMap, convert::TryInto};
 
 use actix::{
     Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, ResponseActFuture,
     StreamHandler, WrapFuture,
 };
-use actix_storage::dev::actor::{
-    ExpiryRequest, ExpiryResponse, ExpiryStoreRequest, ExpiryStoreResponse, StoreRequest,
-    StoreResponse,
+use actix_storage::{
+    dev::actor::{
+        ExpiryRequest, ExpiryResponse, ExpiryStoreRequest, ExpiryStoreResponse, StoreRequest,
+        StoreResponse,
+    },
+    StorageError,
 };
 
 mod delayqueue;
@@ -218,6 +221,29 @@ impl Handler<StoreRequest> for HashMapActor {
                     Box::pin(async { StoreResponse::Set(Ok(())) }.into_actor(self))
                 }
             }
+            StoreRequest::SetNumber(scope, key, value) => {
+                if self
+                    .map
+                    .entry(scope.clone())
+                    .or_default()
+                    .insert(key.clone(), Arc::new(value.to_le_bytes()))
+                    .is_some()
+                {
+                    // Remove the key from expiry if it already exists
+                    let mut exp = self.exp.clone();
+                    Box::pin(
+                        async move {
+                            if let Err(err) = exp.remove(ExpiryKey::new(scope, key)).await {
+                                log::error!("{}", err);
+                            }
+                        }
+                        .into_actor(self)
+                        .map(move |_, _, _| StoreResponse::SetNumber(Ok(()))),
+                    )
+                } else {
+                    Box::pin(async { StoreResponse::SetNumber(Ok(())) }.into_actor(self))
+                }
+            }
             StoreRequest::Get(scope, key) => {
                 let val = self
                     .map
@@ -225,6 +251,20 @@ impl Handler<StoreRequest> for HashMapActor {
                     .and_then(|scope_map| scope_map.get(&key))
                     .cloned();
                 Box::pin(async move { StoreResponse::Get(Ok(val)) }.into_actor(self))
+            }
+            StoreRequest::GetNumber(scope, key) => {
+                let val = self
+                    .map
+                    .get(&scope)
+                    .and_then(|scope_map| scope_map.get(&key))
+                    .map(|val| {
+                        val.as_ref()
+                            .try_into()
+                            .map_err(|_| StorageError::InvalidNumber)
+                            .map(i64::from_le_bytes)
+                    })
+                    .transpose();
+                Box::pin(async move { StoreResponse::GetNumber(val) }.into_actor(self))
             }
             StoreRequest::Delete(scope, key) => {
                 if self
@@ -254,6 +294,7 @@ impl Handler<StoreRequest> for HashMapActor {
                     .unwrap_or(false);
                 Box::pin(async move { StoreResponse::Contains(Ok(con)) }.into_actor(self))
             }
+            _ => Box::pin(async move { StoreResponse::MethodNotSupported }.into_actor(self)),
         }
     }
 }
@@ -391,11 +432,16 @@ impl Handler<ExpiryStoreRequest> for HashMapActor {
 #[cfg(test)]
 mod test {
     use super::*;
-    use actix_storage::tests::*;
+    use actix_storage::test_utils::*;
 
     #[test]
     fn test_hashmap_store() {
         test_store(Box::pin(async { HashMapActor::start_default() }));
+    }
+
+    #[test]
+    fn test_hashmap_store_numbers() {
+        test_store_numbers(Box::pin(async { HashMapActor::start_default() }));
     }
 
     #[test]

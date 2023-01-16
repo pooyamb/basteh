@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::time::Duration;
+use std::{convert::TryInto, sync::Arc};
 
 #[cfg(feature = "v01-compat")]
 use std::ops::Deref;
@@ -138,6 +138,10 @@ impl SledActorInner {
         Ok(())
     }
 
+    pub fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
+        self.set(scope, key, Arc::new(value.to_le_bytes()))
+    }
+
     pub fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
         let tree = open_tree(&self.db, &scope)?;
         tree.get(&key)
@@ -152,6 +156,17 @@ impl SledActorInner {
                 })
             })
             .map_err(StorageError::custom)
+    }
+
+    pub fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+        self.get(scope, key)?
+            .map(|v| {
+                v.as_ref()
+                    .try_into()
+                    .map(i64::from_le_bytes)
+                    .map_err(|_| StorageError::InvalidNumber)
+            })
+            .transpose()
     }
 
     pub fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 #[cfg(feature = "v01-compat")]
 use std::ops::Deref;
@@ -70,12 +70,32 @@ impl Store for SledStore {
         }
     }
 
+    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> StorageResult<()> {
+        match self.get_tree(scope)?.insert(key, &value.to_le_bytes()) {
+            Ok(_) => Ok(()),
+            Err(err) => Err(StorageError::custom(err)),
+        }
+    }
+
     async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<Option<Arc<[u8]>>> {
         Ok(self
             .get_tree(scope)?
             .get(key)
             .map_err(StorageError::custom)?
             .map(|val| val.as_ref().into()))
+    }
+
+    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<Option<i64>> {
+        self.get_tree(scope)?
+            .get(key)
+            .map_err(StorageError::custom)?
+            .map(|val| {
+                val.as_ref()
+                    .try_into()
+                    .map(i64::from_le_bytes)
+                    .map_err(|_| StorageError::InvalidNumber)
+            })
+            .transpose()
     }
 
     async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> StorageResult<()> {
@@ -96,7 +116,7 @@ impl Store for SledStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use actix_storage::tests::*;
+    use actix_storage::test_utils::*;
     use std::time::Duration;
 
     async fn open_database() -> sled::Db {
@@ -119,6 +139,13 @@ mod test {
     #[test]
     fn test_sled_basic_store() {
         test_store(Box::pin(async {
+            SledStore::from_db(open_database().await)
+        }));
+    }
+
+    #[test]
+    fn test_sled_basic_store_numbers() {
+        test_store_numbers(Box::pin(async {
             SledStore::from_db(open_database().await)
         }));
     }

@@ -1,5 +1,5 @@
 use super::*;
-use actix_storage::tests::*;
+use actix_storage::test_utils::*;
 use inner::open_tree;
 use utils::{encode, get_current_timestamp};
 use zerocopy::{U16, U64};
@@ -25,6 +25,13 @@ async fn open_database() -> sled::Db {
 #[test]
 fn test_sled_store() {
     test_store(Box::pin(async {
+        SledActor::from_db(open_database().await).start(1)
+    }));
+}
+
+#[test]
+fn test_sled_store_numbers() {
+    test_store_numbers(Box::pin(async {
         SledActor::from_db(open_database().await).start(1)
     }));
 }
