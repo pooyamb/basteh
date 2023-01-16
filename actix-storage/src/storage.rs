@@ -90,6 +90,29 @@ impl Storage {
             .await
     }
 
+    /// Stores a number on storage
+    ///
+    /// Calling set operations twice on the same key, overwrites it's value and
+    /// clear the expiry on that key(if it exist).
+    /// How the number is represented in storage is decided by the provider, but
+    /// by default its simple le_bytes.
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use actix_storage::Storage;
+    /// # use actix_web::*;
+    /// #
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
+    /// storage.set_number("age", 10).await;
+    /// #     "set"
+    /// # }
+    /// ```
+    pub async fn set_number(&self, key: impl AsRef<[u8]>, value: i64) -> Result<()> {
+        self.store
+            .set_number(self.scope.clone(), key.as_ref().into(), value)
+            .await
+    }
+
     /// Stores a sequence of bytes on storage and sets expiry on the key
     /// It should be prefered over calling set and expire as providers may define
     /// a more optimized way to do both operations at once.
@@ -143,6 +166,24 @@ impl Storage {
     pub async fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Arc<[u8]>>> {
         self.store
             .get(self.scope.clone(), key.as_ref().into())
+            .await
+    }
+
+    /// Gets a number from storage
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use actix_storage::Storage;
+    /// # use actix_web::*;
+    /// #
+    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// let val: i64 = storage.get_number("key").await?;
+    /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
+    /// # }
+    /// ```
+    pub async fn get_number(&self, key: impl AsRef<[u8]>) -> Result<Option<i64>> {
+        self.store
+            .get_number(self.scope.clone(), key.as_ref().into())
             .await
     }
 

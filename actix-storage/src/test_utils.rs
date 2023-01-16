@@ -311,3 +311,29 @@ where
         futures::future::join_all(futures).await;
     });
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////    Numbers and Mutation tests     ////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn test_store_numbers<F, S>(cfg: Pin<Box<F>>)
+where
+    F: 'static + Future<Output = S>,
+    S: 'static + Store,
+{
+    let system = actix::System::new();
+
+    let store = system.block_on(async { cfg.await });
+    let storage = Storage::build().store(store).no_expiry().finish();
+
+    system.block_on(async move {
+        let key = "number_key";
+        let value = 1337;
+
+        assert!(storage.set_number(key, value).await.is_ok());
+
+        let get_res = storage.get_number(key).await;
+        assert!(get_res.is_ok());
+        assert_eq!(get_res.unwrap(), Some(value));
+    });
+}
