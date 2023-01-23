@@ -7,39 +7,27 @@ use actix_storage::{Result, StorageError};
 use crate::inner::SledInner;
 use crate::message::{Message, Request, Response};
 
-/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on sync
-/// actix actors and sled, using delay_queue crate to provide expiration
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) using sled with tokio's blocking
+/// tasksZ
 ///
 /// It stores expiration data as the value's suffix in sled, using byteorder, so to share data this actor
 /// creates with other programs outside of its scope, you need to remove the suffix of it exported as
 /// [`ExpiryFlags`](struct.ExpiryFlags.html), or directly use encode/decode methods provided.
 ///
-/// To construct the actor you can either use the [`ToActorExt::to_actor`](trait.ToActorExt.html#tymethod.to_actor)
-/// on a normal sled Config, or feed the sled db to this actor using [`from_db`](#method.from_db).
-///
 /// ## Example
 /// ```no_run
 /// use actix_storage::Storage;
-/// use actix_storage_sled::{SledConfig, SledBackend};
-/// use actix_web::{App, HttpServer};
+/// use actix_storage_sled::{SledBackend, SledConfig};
 ///
-/// #[actix_web::main]
-/// async fn main() -> std::io::Result<()> {
-///     const THREADS_NUMBER: usize = 4;
+/// const THREADS_NUMBER: usize = 4;
 ///
-///     let db = SledConfig::default().open()?;
-///     let store = SledBackend::from_db(db).start(THREADS_NUMBER);
-///     
-///     let storage = Storage::build().store(store).finish();
-///     let server = HttpServer::new(move || {
-///         App::new()
-///             .app_data(storage.clone())
-///     });
-///     server.bind("localhost:5000")?.run().await
-/// }
+/// # async fn your_main() {
+/// let db = SledConfig::default().open().expect("Couldn't open sled database");
+/// let store = SledBackend::from_db(db).start(THREADS_NUMBER);
+/// let storage = Storage::build().store(store).finish();
+/// # }
 /// ```
 ///
-/// requires ["actor"] feature
 #[derive(Clone)]
 pub struct SledBackend {
     db: Option<sled::Db>,

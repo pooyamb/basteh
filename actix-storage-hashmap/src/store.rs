@@ -24,6 +24,20 @@ impl ExpiryKey {
     }
 }
 
+/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on Arc-Mutex-Hashmap
+/// using tokio's delayqueue for expiration.
+///
+/// ## Example
+/// ```no_run
+/// use actix_storage::Storage;
+/// use actix_storage_hashmap::{HashMapBackend};
+///
+/// # async fn your_main() {
+/// let store = HashMapBackend::start_default();
+/// let storage = Storage::build().store(store).finish();
+/// # }
+/// ```
+///
 #[derive(Clone)]
 pub struct HashMapBackend {
     map: Arc<Mutex<InternalMap>>,

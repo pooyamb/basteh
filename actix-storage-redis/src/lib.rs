@@ -23,34 +23,24 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
 /// ## Example
 /// ```no_run
 /// use actix_storage::Storage;
-/// use actix_storage_redis::{RedisBackend, ConnectionInfo,RedisConnectionInfo, ConnectionAddr};
-/// use actix_web::{App, HttpServer};
+/// use actix_storage_redis::{RedisBackend, ConnectionInfo, RedisConnectionInfo, ConnectionAddr};
 ///
-/// #[actix_web::main]
-/// async fn main() -> std::io::Result<()> {
-///     const THREADS_NUMBER: usize = 4;
-///     let store = RedisBackend::connect_default();
-///     // OR
-///     let connection_info = ConnectionInfo {
-///         addr: ConnectionAddr::Tcp("127.0.0.1".to_string(), 1234).into(),
-///         redis: RedisConnectionInfo{
-///             db: 0,
-///             username: Some("god".to_string()),
-///             password: Some("bless".to_string()),
-///         }
-///     };
-///     let store = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
-///
-///     let storage = Storage::build().store(store).finish();
-///     let server = HttpServer::new(move || {
-///         App::new()
-///             .app_data(storage.clone())
-///     });
-///     server.bind("localhost:5000")?.run().await
-/// }
+/// # async fn your_main() {
+/// let store = RedisBackend::connect_default();
+/// // OR
+/// let connection_info = ConnectionInfo {
+///     addr: ConnectionAddr::Tcp("127.0.0.1".to_string(), 1234).into(),
+///     redis: RedisConnectionInfo{
+///         db: 0,
+///         username: Some("god".to_string()),
+///         password: Some("bless".to_string()),
+///     }
+/// };
+/// let store = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
+/// let storage = Storage::build().store(store).finish();
+/// # }
 /// ```
 ///
-/// requires ["actor"] feature
 #[derive(Clone)]
 pub struct RedisBackend {
     con: ConnectionManager,
