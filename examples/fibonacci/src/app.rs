@@ -1,18 +1,18 @@
+use std::future::Future;
 use std::pin::Pin;
-use std::{convert::TryInto, future::Future};
 
 use actix_storage::Storage;
 use actix_web::{web, App, HttpServer};
 
-fn recr_fibo(input: usize, storage: Storage) -> Pin<Box<dyn Future<Output = usize> + 'static>> {
+fn recr_fibo(input: i64, storage: Storage) -> Pin<Box<dyn Future<Output = i64> + 'static>> {
     if input == 0 {
         Box::pin(async { 0 })
     } else if input == 1 {
         Box::pin(async { 1 })
     } else {
         Box::pin(async move {
-            if let Ok(Some(res)) = storage.get(input.to_le_bytes()).await {
-                return usize::from_le_bytes(res[0..8].try_into().unwrap());
+            if let Ok(Some(res)) = storage.get_number(input.to_le_bytes()).await {
+                res
             } else {
                 let res = recr_fibo(input - 1, storage.clone()).await
                     + recr_fibo(input - 2, storage.clone()).await;
@@ -27,9 +27,11 @@ fn recr_fibo(input: usize, storage: Storage) -> Pin<Box<dyn Future<Output = usiz
 }
 
 #[actix_web::get("/{input}")]
-async fn fibo(input: web::Path<usize>, storage: Storage) -> String {
-    if *input > 93 {
+async fn fibo(input: web::Path<i64>, storage: Storage) -> String {
+    if *input > 92 {
         format!("Maximum supported input is 93")
+    } else if *input < 0 {
+        format!("Number should be positive")
     } else {
         recr_fibo(*input, storage.scope("fibo")).await.to_string()
     }
@@ -37,7 +39,7 @@ async fn fibo(input: web::Path<usize>, storage: Storage) -> String {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = actix_storage_hashmap::HashMapStore::new();
+    let provider = actix_storage_hashmap::HashMapBackend::start_default();
     // OR
     // let provider = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
     // OR

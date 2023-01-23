@@ -69,7 +69,7 @@ async fn index(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = actix_storage_hashmap::HashMapStore::new();
+    let provider = actix_storage_hashmap::HashMapBackend::start_default();
     // OR
     // let provider = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
     // OR

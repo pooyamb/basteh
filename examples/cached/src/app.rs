@@ -18,7 +18,7 @@ struct Response {
 
 async fn get_obj_by_id(id: u64) -> Object {
     // Pretending it's a heavy query by waiting a second
-    actix_web::rt::time::sleep(Duration::from_secs(1)).await;
+    // actix_web::rt::time::sleep(Duration::from_secs(1)).await;
 
     Object {
         id,
@@ -55,7 +55,7 @@ async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = actix_storage_hashmap::HashMapActor::start_default();
+    let provider = actix_storage_hashmap::HashMapBackend::start_default();
     // OR
     // let provider = actix_storage_redis::RedisBackend::connect_default()
     //     .await
