@@ -9,7 +9,7 @@ use super::utils::get_current_timestamp;
 ///
 /// Nonce is used to ignore expiration requests after the value has changed as we don't have direct access to delay-queue
 /// for removing notifications from it.
-#[derive(Debug, Default, FromBytes, AsBytes, Unaligned)]
+#[derive(Debug, Default, FromBytes, AsBytes, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct ExpiryFlags {
     pub nonce: U64<LittleEndian>,

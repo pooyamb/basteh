@@ -167,18 +167,22 @@ impl SledInner {
 
     pub fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
         match open_tree(&self.db, &scope)?.update_and_fetch(key, |existing| {
-            let mut bytes = sled::IVec::from(existing?);
-
-            let (val, exp) = decode_mut(&mut bytes)?;
-            let val = if !exp.expired() {
-                i64::from_le_bytes(val.try_into().unwrap_or_default())
+            let (val, exp) = if let Some((val, exp)) = existing.and_then(decode) {
+                if !exp.expired() {
+                    (i64::from_le_bytes(val.try_into().unwrap_or_default()), *exp)
+                } else {
+                    (
+                        i64::from_le_bytes(val.try_into().unwrap_or_default()),
+                        ExpiryFlags::new_persist(exp.next_nonce()),
+                    )
+                }
             } else {
-                0
+                (0, ExpiryFlags::new_persist(0))
             };
 
-            let value = run_mutations(val, &mutations).to_le_bytes();
+            let value = run_mutations(val, &mutations);
 
-            let val = encode(&value, exp);
+            let val = encode(&value.to_le_bytes(), &exp);
 
             Some(val)
         }) {
