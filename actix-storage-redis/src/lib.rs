@@ -12,20 +12,9 @@ use utils::run_mutations;
 
 mod utils;
 
-#[cfg(not(feature = "v01-compat"))]
 #[inline]
 fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
     [scope.as_ref(), b":", key.as_ref()].concat()
-}
-
-#[cfg(feature = "v01-compat")]
-#[inline]
-fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
-    if scope.as_ref() == &actix_storage::GLOBAL_SCOPE {
-        key.as_ref().to_vec()
-    } else {
-        [scope.as_ref(), b":", key.as_ref()].concat()
-    }
 }
 
 /// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on redis

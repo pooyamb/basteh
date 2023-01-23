@@ -7,13 +7,12 @@ categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of actix-storage based on redis-rs"
 documentation = "https://docs.rs/actix-storage-redis"
 edition = "2018"
-keywords = ["actix", "storage", "web", "async", "redis"]
+keywords = ["storage", "web", "async", "redis"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
 
 [dependencies]
-actix = { version = "0.13", default-features = false }
 actix-storage = "0.3.0"
 async-trait = "0.1"
 redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp", "script"] }
@@ -26,5 +25,3 @@ rand = "0.8"
 
 [features]
 tls = ["redis/tokio-native-tls-comp"]
-# Uses no key prefix for actix-storage's global scope, at the cost of 1 string comparation on every operation
-v01-compat = []
