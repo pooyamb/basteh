@@ -40,13 +40,13 @@ After you picked an implementer:
 
 ```rust
 use actix_storage::{Storage, Format};
-use actix_storage_hashmap::HashMapActor;
+use actix_storage_hashmap::HashMapBackend;
 use actix_web::{App, HttpServer};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
    // Intialize the implementer according to its docs
-   let store = HashMapActor::start_default();
+   let store = HashMapBackend::start_default();
 
    // Give it to the Storage struct
    let storage = Storage::build().store(store).finish();

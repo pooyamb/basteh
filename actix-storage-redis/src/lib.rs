@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::sync::Arc;
 use std::time::Duration;
 

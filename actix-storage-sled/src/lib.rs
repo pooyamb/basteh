@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 mod delayqueue;
 mod flags;
 mod inner;
