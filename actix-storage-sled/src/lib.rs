@@ -1,10 +1,11 @@
-#[cfg(feature = "actor")]
-/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on actix
-/// and sled, requires `["actor"]` feature
-pub mod actor;
-mod basic;
+mod delayqueue;
+mod flags;
+mod inner;
+mod message;
+mod store;
 mod utils;
 
-pub use basic::SledStore;
-
-pub use sled::{Config as SledConfig, Error as SledError};
+pub use flags::ExpiryFlags;
+pub use sled::Config as SledConfig;
+pub use store::SledBackend;
+pub use utils::{decode, decode_mut, encode};
