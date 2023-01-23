@@ -124,6 +124,23 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
     );
 }
 
+/// Testing persist, by setting an expiry for a key and making it persistant later
+pub async fn test_mutate_sould_not_change_expiry(storage: Storage, delay_secs: u64) {
+    let delay = Duration::from_secs(delay_secs);
+    let key = "mutated_key";
+    let value = 1200;
+
+    assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.expire(key, delay).await.is_ok());
+
+    assert!(storage.mutate(key, |m| m.incr(1300)).await.is_ok());
+
+    assert_eq!(storage.get_number(key).await.unwrap(), Some(2500));
+
+    // Check if persistent expiry have changed
+    assert!(storage.expiry(key).await.unwrap().is_some());
+}
+
 /// Testing if calling set after expire, clears expiration from the key
 pub async fn test_expiry_set_clearing(storage: Storage, delay_secs: u64) {
     let delay = Duration::from_secs(delay_secs);
@@ -194,6 +211,10 @@ where
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
         Box::pin(test_expiry_basics(storage.clone(), delay_secs)),
+        Box::pin(test_mutate_sould_not_change_expiry(
+            storage.clone(),
+            delay_secs,
+        )),
         Box::pin(test_expiry_extend(storage.clone(), delay_secs)),
         Box::pin(test_expiry_persist(storage.clone(), delay_secs)),
         Box::pin(test_expiry_set_clearing(storage.clone(), delay_secs)),
@@ -321,12 +342,9 @@ where
     let storage = Storage::build().store(store).no_expiry().finish();
 
     let key = "mutate_number_key";
-    let value = 1500;
 
-    assert!(storage.set_number(key, value).await.is_ok());
-
-    // Increase by 100
-    storage.mutate(key, |m| m.incr(100)).await.ok();
+    // Increase by 1600, key doesn't exist so it should be considered 0
+    storage.mutate(key, |m| m.incr(1600)).await.ok();
 
     let get_res = storage.get_number(key).await;
     assert!(get_res.is_ok());
