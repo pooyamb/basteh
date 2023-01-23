@@ -31,5 +31,4 @@ sled = { version = "0.34", git = "https://github.com/spacejam/sled.git" }
 
 [dev-dependencies]
 actix-storage = { version = "0.3.0", features = ["all", "test_utils"] }
-actix-web = "4.0.0"
 rand = "0.8"

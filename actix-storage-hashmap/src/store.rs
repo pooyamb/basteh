@@ -227,34 +227,29 @@ mod tests {
     use super::*;
     use actix_storage::test_utils::*;
 
-    #[test]
-    fn test_hashmap_store() {
-        test_store(Box::pin(async { HashMapBackend::start_default() }));
+    #[tokio::test]
+    async fn test_hashmap_store() {
+        test_store(HashMapBackend::start_default()).await;
     }
 
-    #[test]
-    fn test_hashmap_store_numbers() {
-        test_store_numbers(Box::pin(async { HashMapBackend::start_default() }));
+    #[tokio::test]
+    async fn test_hashmap_store_numbers() {
+        test_store_numbers(HashMapBackend::start_default()).await;
     }
 
-    #[test]
-    fn test_hashmap_mutate_numbers() {
-        test_mutate_numbers(Box::pin(async { HashMapBackend::start_default() }));
+    #[tokio::test]
+    async fn test_hashmap_mutate_numbers() {
+        test_mutate_numbers(HashMapBackend::start_default()).await;
     }
 
-    #[test]
-    fn test_hashmap_expiry() {
-        test_expiry(
-            Box::pin(async {
-                let store = HashMapBackend::start_default();
-                (store.clone(), store)
-            }),
-            2,
-        );
+    #[tokio::test]
+    async fn test_hashmap_expiry() {
+        let store = HashMapBackend::start_default();
+        test_expiry(store.clone(), store, 2).await;
     }
 
-    #[test]
-    fn test_hashmap_expiry_store() {
-        test_expiry_store(Box::pin(async { HashMapBackend::start_default() }), 2);
+    #[tokio::test]
+    async fn test_hashmap_expiry_store() {
+        test_expiry_store(HashMapBackend::start_default(), 2).await;
     }
 }

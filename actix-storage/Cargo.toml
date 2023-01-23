@@ -4,16 +4,15 @@ version = "0.3.0"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
-description = "General key value storage for actix-web"
+description = "Generic kv storage with replaceable backend"
 documentation = "https://docs.rs/actix-storage"
 edition = "2018"
-keywords = ["actix", "storage", "web", "async"]
+keywords = ["storage", "web", "async"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
 
 [dependencies]
-actix = { version = "0.13", optional = true }
 actix-web = { version = "4.0.0", default-features = false, optional = true }
 
 async-trait = "0.1"
@@ -28,10 +27,9 @@ tokio = { version = "1.20", default-features = false, features = ["macros"], opt
 tokio = { version = "1.20", default-features = false, features = ["macros"] }
 
 [features]
-default = ["actix-web"]
-all = ["actor", "actix-web"]
-test_utils = ["actix", "tokio", "futures"]
-actor = ["actix"]
+default = []
+all = ["actix-web"]
+test_utils = ["tokio", "futures"]
 
 [package.metadata.docs.rs]
 features = ["all"]

@@ -6,40 +6,34 @@ use crate::{dev::*, *};
 ////////////////////////////////////////////////////    Store tests     ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn test_store<F, S>(cfg: Pin<Box<F>>)
+pub async fn test_store<S>(store: S)
 where
-    F: 'static + Future<Output = S>,
     S: 'static + Store,
 {
-    let system = actix::System::new();
-
-    let store = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).no_expiry().finish();
 
-    system.block_on(async move {
-        let key = "store_key";
-        let value = "val";
+    let key = "store_key";
+    let value = "val";
 
-        assert!(storage.set(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
 
-        let get_res = storage.get(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(value.as_bytes().into()));
+    let get_res = storage.get(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(value.as_bytes().into()));
 
-        let contains_res = storage.contains_key(key).await;
-        assert!(contains_res.is_ok());
-        assert!(contains_res.unwrap());
+    let contains_res = storage.contains_key(key).await;
+    assert!(contains_res.is_ok());
+    assert!(contains_res.unwrap());
 
-        assert!(storage.delete(key).await.is_ok());
+    assert!(storage.delete(key).await.is_ok());
 
-        let get_res = storage.get(key).await;
-        assert!(get_res.is_ok());
-        assert!(get_res.unwrap().is_none());
+    let get_res = storage.get(key).await;
+    assert!(get_res.is_ok());
+    assert!(get_res.unwrap().is_none());
 
-        let contains_res = storage.contains_key(key).await;
-        assert!(contains_res.is_ok());
-        assert!(!contains_res.unwrap());
-    });
+    let contains_res = storage.contains_key(key).await;
+    assert!(contains_res.is_ok());
+    assert!(!contains_res.unwrap());
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -191,15 +185,11 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
 // delay_secs is the duration of time we set for expiry and we wait to see
 // the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
-pub fn test_expiry<F, S, E>(cfg: Pin<Box<F>>, delay_secs: u64)
+pub async fn test_expiry<S, E>(store: S, expiry: E, delay_secs: u64)
 where
-    F: 'static + Future<Output = (S, E)>,
     S: 'static + Store,
     E: 'static + Expiry,
 {
-    let system = actix::System::new();
-
-    let (store, expiry) = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).expiry(expiry).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
@@ -211,9 +201,7 @@ where
         Box::pin(test_expiry_override_longer(storage, delay_secs)),
     ];
 
-    system.block_on(async {
-        futures::future::join_all(futures).await;
-    });
+    futures::future::join_all(futures).await;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,14 +276,10 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
 // delay_secs is the duration of time we set for expiry and we wait to see
 // the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
-pub fn test_expiry_store<F, S>(cfg: Pin<Box<F>>, delay_secs: u64)
+pub async fn test_expiry_store<S>(store: S, delay_secs: u64)
 where
-    F: 'static + Future<Output = S>,
     S: 'static + ExpiryStore,
 {
-    let system = actix::System::new();
-
-    let store = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).finish();
 
     let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
@@ -307,129 +291,115 @@ where
         Box::pin(test_expiry_store_override_longer(storage, delay_secs)),
     ];
 
-    system.block_on(async move {
-        futures::future::join_all(futures).await;
-    });
+    futures::future::join_all(futures).await;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////    Numbers and Mutation tests     ////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn test_store_numbers<F, S>(cfg: Pin<Box<F>>)
+pub async fn test_store_numbers<S>(store: S)
 where
-    F: 'static + Future<Output = S>,
     S: 'static + Store,
 {
-    let system = actix::System::new();
-
-    let store = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).no_expiry().finish();
 
-    system.block_on(async move {
-        let key = "number_key";
-        let value = 1337;
+    let key = "number_key";
+    let value = 1337;
 
-        assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.set_number(key, value).await.is_ok());
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(value));
-    });
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(value));
 }
 
-pub fn test_mutate_numbers<F, S>(cfg: Pin<Box<F>>)
+pub async fn test_mutate_numbers<S>(store: S)
 where
-    F: 'static + Future<Output = S>,
     S: 'static + Store,
 {
-    let system = actix::System::new();
-
-    let store = system.block_on(async { cfg.await });
     let storage = Storage::build().store(store).no_expiry().finish();
 
-    system.block_on(async move {
-        let key = "mutate_number_key";
-        let value = 1500;
+    let key = "mutate_number_key";
+    let value = 1500;
 
-        assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.set_number(key, value).await.is_ok());
 
-        // Increase by 100
-        storage.mutate(key, |m| m.incr(100)).await.ok();
+    // Increase by 100
+    storage.mutate(key, |m| m.incr(100)).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(1600));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(1600));
 
-        // Decrease by 200
-        storage.mutate(key, |m| m.decr(200)).await.ok();
+    // Decrease by 200
+    storage.mutate(key, |m| m.decr(200)).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(1400));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(1400));
 
-        // Mutiply by 2
-        storage.mutate(key, |m| m.mul(2)).await.ok();
+    // Mutiply by 2
+    storage.mutate(key, |m| m.mul(2)).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(2800));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(2800));
 
-        // Divide by 4
-        storage.mutate(key, |m| m.div(4)).await.ok();
+    // Divide by 4
+    storage.mutate(key, |m| m.div(4)).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(700));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(700));
 
-        // Set to 100
-        storage.mutate(key, |m| m.set(100)).await.ok();
+    // Set to 100
+    storage.mutate(key, |m| m.set(100)).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(100));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(100));
 
-        // Conditional if
-        storage
-            .mutate(key, |m| m.if_(Ordering::Equal, 100, |m| m.set(200)))
-            .await
-            .ok();
+    // Conditional if
+    storage
+        .mutate(key, |m| m.if_(Ordering::Equal, 100, |m| m.set(200)))
+        .await
+        .ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(200));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(200));
 
-        // Conditional if else
-        storage
-            .mutate(key, |m| {
-                m.if_else(Ordering::Greater, 200, |m| m.decr(100), |m| m.decr(50))
+    // Conditional if else
+    storage
+        .mutate(key, |m| {
+            m.if_else(Ordering::Greater, 200, |m| m.decr(100), |m| m.decr(50))
+        })
+        .await
+        .ok();
+
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(150));
+
+    // Multi level conditionals
+    let mutation = |m: Mutation| {
+        m.if_(Ordering::Greater, 100, |m| {
+            m.if_(Ordering::Less, 200, |m| {
+                m.if_else(Ordering::Greater, 150, |m| m.set(125), |m| m.set(175))
             })
-            .await
-            .ok();
+        })
+    };
+    storage.mutate(key, mutation).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(150));
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(175));
 
-        // Multi level conditionals
-        let mutation = |m: Mutation| {
-            m.if_(Ordering::Greater, 100, |m| {
-                m.if_(Ordering::Less, 200, |m| {
-                    m.if_else(Ordering::Greater, 150, |m| m.set(125), |m| m.set(175))
-                })
-            })
-        };
-        storage.mutate(key, mutation).await.ok();
+    // Multi level conditionals
+    storage.mutate(key, mutation).await.ok();
 
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(175));
-
-        // Multi level conditionals
-        storage.mutate(key, mutation).await.ok();
-
-        let get_res = storage.get_number(key).await;
-        assert!(get_res.is_ok());
-        assert_eq!(get_res.unwrap(), Some(125));
-    });
+    let get_res = storage.get_number(key).await;
+    assert!(get_res.is_ok());
+    assert_eq!(get_res.unwrap(), Some(125));
 }

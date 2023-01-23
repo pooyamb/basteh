@@ -294,44 +294,30 @@ mod tests {
         panic!("Sled can not open the database files")
     }
 
-    #[test]
-    fn test_sled_store() {
-        test_store(Box::pin(async {
-            SledBackend::from_db(open_database().await).start(1)
-        }));
+    #[tokio::test]
+    async fn test_sled_store() {
+        test_store(SledBackend::from_db(open_database().await).start(1)).await;
     }
 
-    #[test]
-    fn test_sled_store_numbers() {
-        test_store_numbers(Box::pin(async {
-            SledBackend::from_db(open_database().await).start(1)
-        }));
+    #[tokio::test]
+    async fn test_sled_store_numbers() {
+        test_store_numbers(SledBackend::from_db(open_database().await).start(1)).await;
     }
 
-    #[test]
-    fn test_sled_mutate_numbers() {
-        test_mutate_numbers(Box::pin(async {
-            SledBackend::from_db(open_database().await).start(1)
-        }));
+    #[tokio::test]
+    async fn test_sled_mutate_numbers() {
+        test_mutate_numbers(SledBackend::from_db(open_database().await).start(1)).await;
     }
 
-    #[test]
-    fn test_sled_expiry() {
-        test_expiry(
-            Box::pin(async {
-                let store = SledBackend::from_db(open_database().await).start(1);
-                (store.clone(), store)
-            }),
-            4,
-        );
+    #[tokio::test]
+    async fn test_sled_expiry() {
+        let store = SledBackend::from_db(open_database().await).start(1);
+        test_expiry(store.clone(), store, 4).await;
     }
 
-    #[test]
-    fn test_sled_expiry_store() {
-        test_expiry_store(
-            Box::pin(async { SledBackend::from_db(open_database().await).start(1) }),
-            4,
-        );
+    #[tokio::test]
+    async fn test_sled_expiry_store() {
+        test_expiry_store(SledBackend::from_db(open_database().await).start(1), 4).await;
     }
 
     #[tokio::test]

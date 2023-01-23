@@ -253,34 +253,29 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_redis_store() {
-        test_store(Box::pin(async { get_connection().await }));
+    #[tokio::test]
+    async fn test_redis_store() {
+        test_store(get_connection().await).await;
     }
 
-    #[test]
-    fn test_redis_store_numbers() {
-        test_store_numbers(Box::pin(async { get_connection().await }));
+    #[tokio::test]
+    async fn test_redis_store_numbers() {
+        test_store_numbers(get_connection().await).await;
     }
 
-    #[test]
-    fn test_redis_mutate_numbers() {
-        test_mutate_numbers(Box::pin(async { get_connection().await }));
+    #[tokio::test]
+    async fn test_redis_mutate_numbers() {
+        test_mutate_numbers(get_connection().await).await;
     }
 
-    #[test]
-    fn test_redis_expiry() {
-        test_expiry(
-            Box::pin(async {
-                let store = get_connection().await;
-                (store.clone(), store)
-            }),
-            5,
-        );
+    #[tokio::test]
+    async fn test_redis_expiry() {
+        let store = get_connection().await;
+        test_expiry(store.clone(), store, 5).await;
     }
 
-    #[test]
-    fn test_redis_expiry_store() {
-        test_expiry_store(Box::pin(async { get_connection().await }), 5);
+    #[tokio::test]
+    async fn test_redis_expiry_store() {
+        test_expiry_store(get_connection().await, 5).await;
     }
 }
