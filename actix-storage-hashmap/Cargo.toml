@@ -7,31 +7,22 @@ categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of actix-storage based on hashmap"
 documentation = "https://docs.rs/actix-storage-hashmap"
 edition = "2018"
-keywords = ["actix", "storage", "web", "async", "hashmap"]
+keywords = ["storage", "web", "async", "hashmap"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/pooyamb/actix-storage/"
 
-[package.metadata.docs.rs]
-features = ["actor"]
-
 [dependencies]
 actix-storage = { version = "0.3.0" }
 async-trait = "0.1"
-log = "0.4"
 thiserror = "1"
 
-# Required for the actor(full) mode
-futures = { version = "0.3", optional = true }
-actix = { version = "0.13", default-features = false, optional = true }
-tokio = { version = "1.13.1", features = ["time", "sync", "macros"], optional = true }
-tokio-stream = { version = "0.1", optional = true }
-tokio-util = { version = "0.7", features = ["time"], optional = true }
+futures = { version = "0.3" }
+tokio = { version = "1.13.1", features = ["time", "sync", "macros"] }
+tokio-util = { version = "0.7", features = ["time"] }
+parking_lot = "0.12.1"
 
 [dev-dependencies]
+tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt"] }
 actix-storage = { version = "0.3.0", features = ["all", "test_utils", "actor"] }
-actix-web = "4.0.0"
 rand = "0.8"
-
-[features]
-actor = ["actix", "tokio", "tokio-util", "tokio-stream", "futures", "actix-storage/actor"]
