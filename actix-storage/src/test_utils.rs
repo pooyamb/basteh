@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, future::Future, pin::Pin, time::Duration};
+use std::{cmp::Ordering, collections::HashSet, future::Future, pin::Pin, time::Duration};
 
 use crate::{dev::*, *};
 
@@ -12,6 +12,15 @@ where
 {
     let storage = Storage::build().store(store).no_expiry().finish();
 
+    let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
+        Box::pin(test_store_methods(storage.clone())),
+        Box::pin(test_store_keys(storage.clone())),
+    ];
+
+    futures::future::join_all(futures).await;
+}
+
+pub async fn test_store_methods(storage: Storage) {
     let key = "store_key";
     let value = "val";
 
@@ -34,6 +43,31 @@ where
     let contains_res = storage.contains_key(key).await;
     assert!(contains_res.is_ok());
     assert!(!contains_res.unwrap());
+}
+
+pub async fn test_store_keys(storage: Storage) {
+    let storage = storage.scope("TEST_SCOPE");
+    let value = "val";
+
+    let mut keys = HashSet::new();
+    keys.insert(String::from("key1"));
+    keys.insert(String::from("key2"));
+    keys.insert(String::from("key3"));
+    keys.insert(String::from("key4"));
+    keys.insert(String::from("key5"));
+    keys.insert(String::from("key6"));
+
+    for key in keys.iter() {
+        assert!(storage.set(&key, value).await.is_ok());
+    }
+    let retrieved_keys = storage
+        .keys()
+        .await
+        .unwrap()
+        .map(|v| String::from_utf8(v.to_vec()).unwrap())
+        .collect::<HashSet<_>>();
+
+    assert_eq!(retrieved_keys, keys);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

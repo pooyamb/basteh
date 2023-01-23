@@ -118,6 +118,10 @@ mod private {
         S: Send + Sync + Store,
         E: Send + Sync + Expiry,
     {
+        async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+            self.0.keys(scope).await
+        }
+
         async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
             self.0.set(scope, key.clone(), value).await?;
             self.1.set_called(key).await;
@@ -218,6 +222,10 @@ mod private {
     where
         S: Send + Sync + Store,
     {
+        async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+            self.0.keys(scope).await
+        }
+
         async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
             self.0.set(scope, key.clone(), value).await
         }
@@ -292,6 +300,9 @@ mod test {
 
     #[async_trait::async_trait]
     impl Store for SampleStore {
+        async fn keys(&self, _: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+            Ok(Box::new(Vec::new().into_iter()))
+        }
         async fn set(&self, _: Arc<[u8]>, _: Arc<[u8]>, _: Arc<[u8]>) -> Result<()> {
             Ok(())
         }

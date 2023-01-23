@@ -104,6 +104,13 @@ impl SledBackend {
 
 #[async_trait::async_trait]
 impl Store for SledBackend {
+    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+        match self.msg(Request::Keys(scope)).await? {
+            Response::Iterator(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
     async fn set(
         &self,
         scope: Arc<[u8]>,

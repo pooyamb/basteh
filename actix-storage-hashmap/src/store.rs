@@ -71,6 +71,19 @@ impl HashMapBackend {
 
 #[async_trait::async_trait]
 impl Store for HashMapBackend {
+    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+        Ok(Box::new(
+            self.map
+                .lock()
+                .entry(scope.clone())
+                .or_default()
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_iter(),
+        ))
+    }
+
     async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
         if self
             .map

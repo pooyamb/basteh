@@ -8,6 +8,9 @@ use super::Mutation;
 #[async_trait::async_trait]
 pub trait Store: Send + Sync {
     /// Set a key-value pair, if the key already exist, value should be overwritten
+    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>>;
+
+    /// Set a key-value pair, if the key already exist, value should be overwritten
     async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()>;
 
     /// Set a key-value pair with a numeric value, if the key already exist, value should be overwritten.

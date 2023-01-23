@@ -64,6 +64,22 @@ impl RedisBackend {
 
 #[async_trait::async_trait]
 impl Store for RedisBackend {
+    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+        let keys = self
+            .con
+            .clone()
+            .keys::<_, Vec<Vec<u8>>>([scope.as_ref(), b":*"].concat())
+            .await
+            .map_err(StorageError::custom)?
+            .into_iter()
+            .map(move |k| {
+                let ignored = scope.len() + 1;
+                k[ignored..].to_vec()
+            })
+            .map(|v| v.into());
+        Ok(Box::new(keys))
+    }
+
     async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con

@@ -7,8 +7,8 @@ type Scope = Arc<[u8]>;
 type Key = Arc<[u8]>;
 type Value = Arc<[u8]>;
 
-#[derive(Debug)]
 pub enum Request {
+    Keys(Scope),
     Get(Scope, Key),
     GetNumber(Scope, Key),
     Set(Scope, Key, Value),
@@ -24,8 +24,8 @@ pub enum Request {
     GetExpiring(Scope, Key),
 }
 
-#[derive(Debug)]
 pub enum Response {
+    Iterator(Box<dyn Iterator<Item = Arc<[u8]>> + Send + Sync>),
     Value(Option<Value>),
     Number(Option<i64>),
     Duration(Option<Duration>),
@@ -34,7 +34,6 @@ pub enum Response {
     Empty(()),
 }
 
-#[derive(Debug)]
 pub struct Message {
     pub req: Request,
     pub tx: oneshot::Sender<Result<Response>>,

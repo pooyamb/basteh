@@ -80,6 +80,26 @@ impl Storage {
     /// #     "set"
     /// # }
     /// ```
+    pub async fn keys(&self) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+        self.store.keys(self.scope.clone()).await
+    }
+
+    /// Stores a sequence of bytes on storage
+    ///
+    /// Calling set operations twice on the same key, overwrites it's value and
+    /// clear the expiry on that key(if it exist).
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use actix_storage::Storage;
+    /// # use actix_web::*;
+    /// #
+    /// # async fn index<'a>(storage: Storage) -> &'a str {
+    /// storage.set("age", vec![10]).await;
+    /// storage.set("name", "Violet".as_bytes()).await;
+    /// #     "set"
+    /// # }
+    /// ```
     pub async fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.store
             .set(

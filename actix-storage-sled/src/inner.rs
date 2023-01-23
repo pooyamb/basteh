@@ -114,6 +114,15 @@ impl SledInner {
 
 /// Store methods
 impl SledInner {
+    pub fn keys(&self, scope: Arc<[u8]>) -> Result<impl Iterator<Item = Arc<[u8]>> + Send + Sync> {
+        let tree = open_tree(&self.db, &scope)?;
+        Ok(Box::new(
+            tree.iter()
+                .filter(|v| v.is_ok())
+                .map(|item| item.unwrap().0.as_ref().into()),
+        ))
+    }
+
     pub fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
         tree.update_and_fetch(&key, |bytes| {
@@ -357,6 +366,10 @@ impl SledInner {
         while let Ok(Message { req, tx }) = rx.recv() {
             match req {
                 // Store methods
+                Request::Keys(scope) => {
+                    tx.send(self.keys(scope).map(|v| Response::Iterator(Box::new(v))))
+                        .ok();
+                }
                 Request::Get(scope, key) => {
                     tx.send(self.get(scope, key).map(Response::Value)).ok();
                 }
