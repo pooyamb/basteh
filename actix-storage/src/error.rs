@@ -1,6 +1,5 @@
 use std::error::Error;
 
-use actix_web::{http::StatusCode, ResponseError};
 use thiserror::Error;
 
 /// Error type that will be returned from all fallible methods of actix_storage.
@@ -29,30 +28,4 @@ impl StorageError {
     }
 }
 
-impl ResponseError for StorageError {
-    fn status_code(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-}
-
 pub type Result<T> = std::result::Result<T, StorageError>;
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use thiserror::Error;
-
-    #[derive(Debug, Error)]
-    #[error("My error")]
-    struct MyError;
-
-    #[test]
-    fn test_error() {
-        let e = MyError;
-        let s = StorageError::custom(e);
-        assert!(s.status_code() == StatusCode::INTERNAL_SERVER_ERROR);
-        if let StorageError::Custom(err) = s {
-            assert!(format!("{}", err) == "My error");
-        }
-    }
-}

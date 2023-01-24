@@ -32,7 +32,8 @@ async fn index(
 
     let person = if let Some(Ok(mut person)) = storage
         .get(&name)
-        .await?
+        .await
+        .unwrap()
         .map(|person| serde_json::from_slice::<Person>(&person))
     {
         new = false;
@@ -55,7 +56,8 @@ async fn index(
     // Setting back the data to storage
     storage
         .set(&name, &serde_json::to_vec(&person).unwrap())
-        .await?;
+        .await
+        .unwrap();
 
     let out = PersonOut {
         name: person.name,
