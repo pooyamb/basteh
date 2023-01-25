@@ -17,14 +17,12 @@ use crate::error::Result;
 /// ## Example
 ///
 /// ```rust
-/// use actix_storage::Storage;
-/// use actix_web::*;
+/// use actix_storage::{Storage, StorageError};
 ///
-/// async fn index(storage: Storage) -> Result<String, Error>{
+/// async fn index(storage: Storage) -> Result<String, StorageError>{
 ///     storage.set("key", "value").await;
 ///     let val = storage.get("key").await?.unwrap();
-///     Ok(std::str::from_utf8(&val)
-///         .map_err(|err| error::ErrorInternalServerError("Storage error"))?.to_string())
+///     Ok(String::from_utf8(val.to_vec()).unwrap())
 /// }
 /// ```
 ///
@@ -175,10 +173,10 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use actix_storage::{Storage, StorageError};
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let val = storage.get("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
     /// # }
@@ -193,10 +191,9 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
+    /// # use actix_storage::{Storage, StorageError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let val: Option<i64> = storage.get_number("key").await?;
     /// #     Ok(val.unwrap_or(0).to_string())
     /// # }
@@ -211,10 +208,10 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use actix_storage::{Storage, StorageError};
     /// # use actix_web::*;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let val = storage.get_expiring("key").await?;
     /// #     Ok(std::str::from_utf8(&val.unwrap().0).unwrap_or_default().to_owned())
     /// # }
@@ -263,10 +260,9 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
+    /// # use actix_storage::{Storage, StorageError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// storage.delete("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
@@ -281,10 +277,9 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
+    /// # use actix_storage::{Storage, StorageError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let exist = storage.contains_key("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
@@ -302,11 +297,10 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
+    /// # use actix_storage::{Storage, StorageError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// storage.expire("key", Duration::from_secs(10)).await?;
     /// #     Ok("deleted".to_string())
     /// # }
@@ -324,11 +318,10 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
+    /// # use actix_storage::{Storage, StorageError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let exp = storage.expiry("key").await?;
     /// if let Some(exp) = exp{
     ///     println!("Key will expire in {} seconds", exp.as_secs());
@@ -350,11 +343,10 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
-    /// # use actix_web::*;
+    /// # use actix_storage::{Storage, StorageError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// storage.expire("key", Duration::from_secs(5)).await?;
     /// storage.extend("key", Duration::from_secs(5)).await?; // ket will expire in ~10 seconds
     /// #     Ok("deleted".to_string())
@@ -372,11 +364,11 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use actix_storage::{Storage, StorageError};
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, Error> {
+    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// storage.persist("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
