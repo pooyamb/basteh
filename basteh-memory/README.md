@@ -1,4 +1,4 @@
-# basteh-hashmap
+# basteh-memory
 
 This crate provides implementations for basteh based on std lib's hashmap.
 

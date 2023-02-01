@@ -4,8 +4,8 @@ version = "0.4.0-alpha.1"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
-description = "An implementation of basteh based on hashmap"
-documentation = "https://docs.rs/basteh-hashmap"
+description = "An implementation of basteh based on hashmap(in memory)"
+documentation = "https://docs.rs/basteh-memory"
 edition = "2018"
 keywords = ["storage", "web", "async", "hashmap"]
 license = "MIT OR Apache-2.0"
