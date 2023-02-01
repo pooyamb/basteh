@@ -1,8 +1,8 @@
-# actix-storage-hashmap
+# basteh-hashmap
 
-This crate provides implementations for actix-storage based on std lib's hashmap.
+This crate provides implementations for basteh based on std lib's hashmap.
 
-> Please refer to actix-storage crate documentations for full details about usage and use cases.
+> Please refer to basteh crate documentations for full details about usage and use cases.
 
 ### Implementation details
 
@@ -11,7 +11,7 @@ This crate provides implementations for actix-storage based on std lib's hashmap
 It is possible to specify the size for the underlying channel between tokio's `delayqueue` and the actor.
 
 ```rust,no_run
-use actix_storage_hashmap::HashMapBackend;
+use basteh_memory::HashMapBackend;
 
 let store = HashMapBackend::start(2048);
 // OR

@@ -1,15 +1,15 @@
-# actix-storage-redis
+# basteh-redis
 
-This crate provides an implementation for actix-storage based on `redis`.
+This crate provides an implementation for basteh based on `redis`.
 
-> Please refer to actix-storage crate documentations for full details about usage and use cases.
+> Please refer to basteh crate documentations for full details about usage and use cases.
 
 ## RedisBackend
 
 `RedisBackend` is a full store with expiration implementation.
 
 ```rust,no_run
-use actix_storage_redis::{RedisBackend, ConnectionInfo, RedisConnectionInfo, ConnectionAddr};
+use basteh_redis::{RedisBackend, ConnectionInfo, RedisConnectionInfo, ConnectionAddr};
 
 async fn my_main() {
     // Connecting to the redis instance on localhost without username/password(for dev env)

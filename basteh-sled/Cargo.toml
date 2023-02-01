@@ -1,18 +1,18 @@
 [package]
-name = "actix-storage-sled"
+name = "basteh-sled"
 version = "0.3.0"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
-description = "An implementation of actix-storage based on sled"
-documentation = "https://docs.rs/actix-storage-sled"
+description = "An implementation of basteh based on sled"
+documentation = "https://docs.rs/basteh-sled"
 edition = "2018"
 keywords = ["storage", "web", "async", "sled"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/pooyamb/actix-storage/"
+repository = "https://github.com/pooyamb/basteh/"
 
 [dependencies]
-actix-storage = "0.3.0"
+basteh = "0.3.0"
 async-trait = "0.1"
 log = "0.4"
 thiserror = "1"
@@ -30,5 +30,5 @@ zerocopy = { version = "0.6" }
 sled = { version = "0.34", git = "https://github.com/spacejam/sled.git" }
 
 [dev-dependencies]
-actix-storage = { version = "0.3.0", features = ["all", "test_utils"] }
+basteh = { version = "0.3.0", features = ["all", "test_utils"] }
 rand = "0.8"

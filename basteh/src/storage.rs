@@ -17,7 +17,7 @@ use crate::error::Result;
 /// ## Example
 ///
 /// ```rust
-/// use actix_storage::{Storage, StorageError};
+/// use basteh::{Storage, StorageError};
 ///
 /// async fn index(storage: Storage) -> Result<String, StorageError>{
 ///     storage.set("key", "value").await;
@@ -46,7 +46,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use basteh::Storage;
     /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
@@ -69,7 +69,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use basteh::Storage;
     /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
@@ -89,7 +89,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use basteh::Storage;
     /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
@@ -117,7 +117,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use basteh::Storage;
     /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
@@ -140,7 +140,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use basteh::Storage;
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
@@ -173,7 +173,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
@@ -191,7 +191,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let val: Option<i64> = storage.get_number("key").await?;
@@ -208,7 +208,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
@@ -235,7 +235,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::Storage;
+    /// # use basteh::Storage;
     /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
@@ -260,7 +260,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// storage.delete("key").await?;
@@ -277,7 +277,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let exist = storage.contains_key("key").await?;
@@ -297,7 +297,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// # use std::time::Duration;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
@@ -318,7 +318,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// # use std::time::Duration;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
@@ -343,7 +343,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// # use std::time::Duration;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
@@ -364,7 +364,7 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use actix_storage::{Storage, StorageError};
+    /// # use basteh::{Storage, StorageError};
     /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #

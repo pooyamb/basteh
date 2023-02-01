@@ -1,18 +1,18 @@
-<h1 align="center">Actix-storage</h1>
+<h1 align="center">basteh</h1>
 <br />
 
 <div align="center">
-  <a href="https://crates.io/crates/actix-storage">
-    <img src="https://img.shields.io/crates/v/actix-storage.svg?style=flat-square"
+  <a href="https://crates.io/crates/basteh">
+    <img src="https://img.shields.io/crates/v/basteh.svg?style=flat-square"
     alt="Crates.io version" />
   </a>
-  <a href="https://docs.rs/actix-storage">
+  <a href="https://docs.rs/basteh">
     <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
   </a>
-  <img src="https://img.shields.io/github/actions/workflow/status/pooyamb/actix-storage/storage.yml?style=flat-square" alt="actions status" />
-  <img alt="Codecov" src="https://img.shields.io/codecov/c/github/pooyamb/actix-storage?style=flat-square">
-  <img alt="Crates.io" src="https://img.shields.io/crates/l/actix-storage?style=flat-square">
+  <img src="https://img.shields.io/github/actions/workflow/status/pooyamb/basteh/storage.yml?style=flat-square" alt="actions status" />
+  <img alt="Codecov" src="https://img.shields.io/codecov/c/github/pooyamb/basteh?style=flat-square">
+  <img alt="Crates.io" src="https://img.shields.io/crates/l/basteh?style=flat-square">
 </div>
 
 <br>
@@ -21,23 +21,22 @@ Actix storage is a simple wrapper around some key-value storages to provide basi
 
 ## Install
 
-Actix-storage is meant to be used alongside one the implementer crates, ex:
+basteh is meant to be used alongside one the implementer crates, ex:
 
 ```toml
 # Cargo.toml
 [dependencies]
-actix-storage = "0.3.0"
-actix-storage-hashmap = "0.3.0"
+basteh = "0.3.0"
+basteh-hashmap = "0.3.0"
 ```
-
 
 ## Usage
 
 After you picked an implementer:
 
 ```rust
-use actix_storage::{Storage, Format};
-use actix_storage_hashmap::HashMapActor;
+use basteh::{Storage, Format};
+use basteh_memory::HashMapActor;
 use actix_web::{App, HttpServer};
 
 #[actix_web::main]
@@ -79,20 +78,20 @@ async fn index(storage: Storage) -> Result<String, Error>{
 
 ## Implementations
 
-actix-storage-hashmap
-<a href="https://docs.rs/actix-storage-hashmap">
+basteh-hashmap
+<a href="https://docs.rs/basteh-hashmap">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
 
-actix-storage-sled
-<a href="https://docs.rs/actix-storage-sled">
+basteh-sled
+<a href="https://docs.rs/basteh-sled">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
 
-actix-storage-redis
-<a href="https://docs.rs/actix-storage-redis">
+basteh-redis
+<a href="https://docs.rs/basteh-redis">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
@@ -108,7 +107,7 @@ It can be usefull when:
 
 ## Why not?
 
-If you really care about every drop of your application performance then actix-storage may not be for you, as it uses dynamic dispatching internally.
+If you really care about every drop of your application performance then basteh may not be for you, as it uses dynamic dispatching internally.
 
 ## Examples
 

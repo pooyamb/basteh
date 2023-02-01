@@ -1,6 +1,6 @@
 use std::{collections::HashMap, convert::TryInto, sync::Arc, time::Duration};
 
-use actix_storage::{
+use basteh::{
     dev::{Expiry, ExpiryStore, Mutation, Store},
     Result, StorageError,
 };
@@ -24,13 +24,13 @@ impl ExpiryKey {
     }
 }
 
-/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on Arc-Mutex-Hashmap
+/// An implementation of [`ExpiryStore`](basteh::dev::ExpiryStore) based on Arc-Mutex-Hashmap
 /// using tokio's delayqueue for expiration.
 ///
 /// ## Example
 /// ```no_run
-/// use actix_storage::Storage;
-/// use actix_storage_hashmap::{HashMapBackend};
+/// use basteh::Storage;
+/// use basteh_memory::{HashMapBackend};
 ///
 /// # async fn your_main() {
 /// let store = HashMapBackend::start_default();
@@ -252,7 +252,7 @@ impl ExpiryStore for HashMapBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_storage::test_utils::*;
+    use basteh::test_utils::*;
 
     #[tokio::test]
     async fn test_hashmap_store() {

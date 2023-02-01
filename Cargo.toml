@@ -1,11 +1,11 @@
 [workspace]
-members = ["actix-storage", "actix-storage-hashmap", "actix-storage-sled", "actix-storage-redis", "examples/*"]
+members = ["basteh", "basteh-memory", "basteh-sled", "basteh-redis", "examples/*"]
 
 [patch.crates-io]
-actix-storage = { path = "./actix-storage/" }
-actix-storage-hashmap = { path = "./actix-storage-hashmap/" }
-actix-storage-sled = { path = "./actix-storage-sled/" }
-actix-storage-redis = { path = "./actix-storage-redis/" }
+basteh = { path = "./basteh/" }
+basteh-memory = { path = "./basteh-memory/" }
+basteh-sled = { path = "./basteh-sled/" }
+basteh-redis = { path = "./basteh-redis/" }
 
 [profile.release]
 lto = true

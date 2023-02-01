@@ -1,18 +1,18 @@
-<h1 align="center">Actix-storage</h1>
+<h1 align="center">Basteh</h1>
 <br />
 
 <div align="center">
-  <a href="https://crates.io/crates/actix-storage">
-    <img src="https://img.shields.io/crates/v/actix-storage.svg?style=flat-square"
+  <a href="https://crates.io/crates/basteh">
+    <img src="https://img.shields.io/crates/v/basteh.svg?style=flat-square"
     alt="Crates.io version" />
   </a>
-  <a href="https://docs.rs/actix-storage">
+  <a href="https://docs.rs/basteh">
     <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
   </a>
-  <img src="https://img.shields.io/github/actions/workflow/status/pooyamb/actix-storage/storage.yml?style=flat-square" alt="actions status" />
-  <img alt="Codecov" src="https://img.shields.io/codecov/c/github/pooyamb/actix-storage?style=flat-square">
-  <img alt="Crates.io" src="https://img.shields.io/crates/l/actix-storage?style=flat-square">
+  <img src="https://img.shields.io/github/actions/workflow/status/pooyamb/basteh/storage.yml?style=flat-square" alt="actions status" />
+  <img alt="Codecov" src="https://img.shields.io/codecov/c/github/pooyamb/basteh?style=flat-square">
+  <img alt="Crates.io" src="https://img.shields.io/crates/l/basteh?style=flat-square">
 </div>
 
 <br>
@@ -21,17 +21,17 @@
 
 <br>
 
-Actix storage is a simple wrapper around some key-value storages to provide basic operations without knowing the backend in advance.
+Basteh(previously actix-storage) is a type erased wrapper around some key-value storages to provide basic operations.
 
 ## Install
 
-Actix-storage is meant to be used alongside one the implementer crates, ex:
+Basteh is meant to be used alongside one the implementer crates, ex:
 
 ```toml
 # Cargo.toml
 [dependencies]
-actix-storage = "0.3.0"
-actix-storage-hashmap = "0.3.0"
+basteh = "0.3.0"
+basteh-memory = "0.3.0"
 ```
 
 ## Usage
@@ -39,14 +39,14 @@ actix-storage-hashmap = "0.3.0"
 After you picked an implementer:
 
 ```rust
-use actix_storage::{Storage, Format};
-use actix_storage_hashmap::HashMapBackend;
+use basteh::{Storage, Format};
+use basteh_memory::MemoryBackend;
 use actix_web::{App, HttpServer};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
    // Intialize the implementer according to its docs
-   let store = HashMapBackend::start_default();
+   let store = MemoryBackend::start_default();
 
    // Give it to the Storage struct
    let storage = Storage::build().store(store).finish();
@@ -83,36 +83,32 @@ async fn index(storage: Storage) -> Result<String, Error>{
 
 ## Implementations
 
-actix-storage-hashmap
-<a href="https://docs.rs/actix-storage-hashmap">
+basteh-memory
+<a href="https://docs.rs/basteh-memory">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
 
-actix-storage-sled
-<a href="https://docs.rs/actix-storage-sled">
+basteh-sled
+<a href="https://docs.rs/basteh-sled">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
 
-actix-storage-redis
-<a href="https://docs.rs/actix-storage-redis">
+basteh-redis
+<a href="https://docs.rs/basteh-redis">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
 
-## Why?
+## Use cases
 
 It can be usefull when:
 
 1. You don't know which key-value database you'll need later.
 2. You can't afford the long time compilation of some dbs while developing.
-   - hashmap store compiles pretty fast
-3. You're writing an actix-web extension library and need to support multiple storage backends.
-
-## Why not?
-
-If you really care about every drop of your application performance then actix-storage may not be for you, as it uses dynamic dispatching internally.
+   - memory store compiles pretty fast
+3. You're writing an extension library and need to support multiple storage backends.
 
 ## Examples
 

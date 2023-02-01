@@ -1,16 +1,16 @@
 [package]
-name = "actix-storage"
+name = "basteh"
 version = "0.3.0"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "Generic kv storage with replaceable backend"
-documentation = "https://docs.rs/actix-storage"
+documentation = "https://docs.rs/baste"
 edition = "2018"
 keywords = ["storage", "web", "async"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/pooyamb/actix-storage/"
+repository = "https://github.com/pooyamb/baste/"
 
 [dependencies]
 actix-web = { version = "4.0.0", default-features = false, optional = true }

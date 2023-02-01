@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use actix_storage::{dev::Mutation, Result};
+use basteh::{dev::Mutation, Result};
 use tokio::sync::oneshot;
 
 type Scope = Arc<[u8]>;

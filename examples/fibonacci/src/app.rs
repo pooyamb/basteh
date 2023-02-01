@@ -1,8 +1,8 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use actix_storage::Storage;
 use actix_web::{web, App, HttpServer};
+use basteh::Storage;
 
 fn recr_fibo(input: i64, storage: Storage) -> Pin<Box<dyn Future<Output = i64> + 'static>> {
     if input == 0 {
@@ -39,12 +39,12 @@ async fn fibo(input: web::Path<i64>, storage: Storage) -> String {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = actix_storage_hashmap::HashMapBackend::start_default();
+    let provider = basteh_memory::HashMapBackend::start_default();
     // OR
-    // let provider = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
+    // let provider = basteh_redis::RedisBackend::connect_default().await.unwrap();
     // OR
-    // let provider = actix_storage_sled::SledStore::from_db(
-    //     actix_storage_sled::SledConfig::default()
+    // let provider = basteh_sled::SledStore::from_db(
+    //     basteh_sled::SledConfig::default()
     //         .temporary(true)
     //         .open()?,
     // );

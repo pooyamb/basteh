@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
-use actix_storage::Storage;
 use actix_web::{web, App, HttpServer};
+use basteh::Storage;
 
 #[derive(Serialize, Deserialize)]
 struct Object {
@@ -55,14 +55,14 @@ async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = actix_storage_hashmap::HashMapBackend::start_default();
+    let provider = basteh_memory::HashMapBackend::start_default();
     // OR
-    // let provider = actix_storage_redis::RedisBackend::connect_default()
+    // let provider = basteh_redis::RedisBackend::connect_default()
     //     .await
     //     .unwrap();
     // OR
-    // let provider = actix_storage_sled::actor::SledActor::from_db(
-    //     actix_storage_sled::SledConfig::default()
+    // let provider = basteh_sled::actor::SledActor::from_db(
+    //     basteh_sled::SledConfig::default()
     //         .temporary(true)
     //         .open()?,
     // )

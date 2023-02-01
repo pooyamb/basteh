@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix_storage::{
+use basteh::{
     dev::{Action, Expiry, ExpiryStore, Mutation, Store},
     Result, StorageError,
 };
@@ -19,13 +19,13 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
     [scope.as_ref(), b":", key.as_ref()].concat()
 }
 
-/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) based on redis
+/// An implementation of [`ExpiryStore`](basteh::dev::ExpiryStore) based on redis
 /// using redis-rs async runtime
 ///
 /// ## Example
 /// ```no_run
-/// use actix_storage::Storage;
-/// use actix_storage_redis::{RedisBackend, ConnectionInfo, RedisConnectionInfo, ConnectionAddr};
+/// use basteh::Storage;
+/// use basteh_redis::{RedisBackend, ConnectionInfo, RedisConnectionInfo, ConnectionAddr};
 ///
 /// # async fn your_main() {
 /// let store = RedisBackend::connect_default();
@@ -242,7 +242,7 @@ impl ExpiryStore for RedisBackend {
 #[cfg(test)]
 mod test {
     use super::*;
-    use actix_storage::test_utils::*;
+    use basteh::test_utils::*;
     use std::sync::Once;
 
     static INIT: Once = Once::new();

@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use actix_storage::dev::{Action, Mutation};
+use basteh::dev::{Action, Mutation};
 use zerocopy::{AsBytes, LayoutVerified};
 
 use crate::flags::ExpiryFlags;

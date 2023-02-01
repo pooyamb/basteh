@@ -5,8 +5,8 @@ name = "fibonacci"
 version = "0.1.0"
 
 [dependencies]
-actix-storage = "0.3.0"
-actix-storage-hashmap = "0.3.0"
+basteh = "0.3.0"
+basteh-memory = "0.3.0"
 actix-web = "4.0.0"
 
 [[example]]

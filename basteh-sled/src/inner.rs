@@ -1,8 +1,8 @@
 use std::time::Duration;
 use std::{convert::TryInto, sync::Arc};
 
-use actix_storage::dev::Mutation;
-use actix_storage::StorageError;
+use basteh::dev::Mutation;
+use basteh::StorageError;
 
 use crate::utils::run_mutations;
 

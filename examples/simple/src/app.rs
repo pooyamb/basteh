@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use actix_storage::Storage;
 use actix_web::{web, App, Error, HttpServer};
+use basteh::Storage;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -71,12 +71,12 @@ async fn index(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = actix_storage_hashmap::HashMapBackend::start_default();
+    let provider = basteh_memory::HashMapBackend::start_default();
     // OR
-    // let provider = actix_storage_redis::RedisBackend::connect_default().await.unwrap();
+    // let provider = basteh_redis::RedisBackend::connect_default().await.unwrap();
     // OR
-    // let provider = actix_storage_sled::SledStore::from_db(
-    //     actix_storage_sled::SledConfig::default()
+    // let provider = basteh_sled::SledStore::from_db(
+    //     basteh_sled::SledConfig::default()
     //         .temporary(true)
     //         .open()?,
     // );

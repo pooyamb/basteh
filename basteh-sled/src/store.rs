@@ -1,13 +1,13 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix_storage::dev::{Expiry, ExpiryStore, Store};
-use actix_storage::{Result, StorageError};
+use basteh::dev::{Expiry, ExpiryStore, Store};
+use basteh::{Result, StorageError};
 
 use crate::inner::SledInner;
 use crate::message::{Message, Request, Response};
 
-/// An implementation of [`ExpiryStore`](actix_storage::dev::ExpiryStore) using sled with tokio's blocking
+/// An implementation of [`ExpiryStore`](basteh::dev::ExpiryStore) using sled with tokio's blocking
 /// tasksZ
 ///
 /// It stores expiration data as the value's suffix in sled, using byteorder, so to share data this actor
@@ -16,8 +16,8 @@ use crate::message::{Message, Request, Response};
 ///
 /// ## Example
 /// ```no_run
-/// use actix_storage::Storage;
-/// use actix_storage_sled::{SledBackend, SledConfig};
+/// use basteh::Storage;
+/// use basteh_sled::{SledBackend, SledConfig};
 ///
 /// const THREADS_NUMBER: usize = 4;
 ///
@@ -111,46 +111,28 @@ impl Store for SledBackend {
         }
     }
 
-    async fn set(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: Arc<[u8]>,
-    ) -> actix_storage::Result<()> {
+    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> basteh::Result<()> {
         match self.msg(Request::Set(scope, key, value)).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn set_number(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: i64,
-    ) -> actix_storage::Result<()> {
+    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> basteh::Result<()> {
         match self.msg(Request::SetNumber(scope, key, value)).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn get(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> actix_storage::Result<Option<Arc<[u8]>>> {
+    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<Option<Arc<[u8]>>> {
         match self.msg(Request::Get(scope, key)).await? {
             Response::Value(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn get_number(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> actix_storage::Result<Option<i64>> {
+    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<Option<i64>> {
         match self.msg(Request::GetNumber(scope, key)).await? {
             Response::Number(r) => Ok(r),
             _ => unreachable!(),
@@ -161,8 +143,8 @@ impl Store for SledBackend {
         &self,
         scope: Arc<[u8]>,
         key: Arc<[u8]>,
-        mutations: actix_storage::dev::Mutation,
-    ) -> actix_storage::Result<()> {
+        mutations: basteh::dev::Mutation,
+    ) -> basteh::Result<()> {
         match self
             .msg(Request::MutateNumber(scope, key, mutations))
             .await?
@@ -172,14 +154,14 @@ impl Store for SledBackend {
         }
     }
 
-    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> actix_storage::Result<()> {
+    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<()> {
         match self.msg(Request::Delete(scope, key)).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> actix_storage::Result<bool> {
+    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<bool> {
         match self.msg(Request::Contains(scope, key)).await? {
             Response::Bool(r) => Ok(r),
             _ => unreachable!(),
@@ -189,7 +171,7 @@ impl Store for SledBackend {
 
 #[async_trait::async_trait]
 impl Expiry for SledBackend {
-    async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> actix_storage::Result<()> {
+    async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<()> {
         match self.msg(Request::Persist(scope, key)).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
@@ -201,18 +183,14 @@ impl Expiry for SledBackend {
         scope: Arc<[u8]>,
         key: Arc<[u8]>,
         expire_in: Duration,
-    ) -> actix_storage::Result<()> {
+    ) -> basteh::Result<()> {
         match self.msg(Request::Expire(scope, key, expire_in)).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn expiry(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> actix_storage::Result<Option<Duration>> {
+    async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<Option<Duration>> {
         match self.msg(Request::Expiry(scope, key)).await? {
             Response::Duration(r) => Ok(r),
             _ => unreachable!(),
@@ -235,7 +213,7 @@ impl ExpiryStore for SledBackend {
         key: Arc<[u8]>,
         value: Arc<[u8]>,
         expire_in: Duration,
-    ) -> actix_storage::Result<()> {
+    ) -> basteh::Result<()> {
         match self
             .msg(Request::SetExpiring(scope, key, value, expire_in))
             .await?
@@ -249,7 +227,7 @@ impl ExpiryStore for SledBackend {
         &self,
         scope: Arc<[u8]>,
         key: Arc<[u8]>,
-    ) -> actix_storage::Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+    ) -> basteh::Result<Option<(Arc<[u8]>, Option<Duration>)>> {
         match self.msg(Request::GetExpiring(scope, key)).await? {
             Response::ValueDuration(r) => Ok(r),
             _ => unreachable!(),
@@ -262,7 +240,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    use actix_storage::test_utils::*;
+    use basteh::test_utils::*;
     use zerocopy::{U16, U64};
 
     use super::SledBackend;

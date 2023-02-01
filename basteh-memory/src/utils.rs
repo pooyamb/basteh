@@ -1,4 +1,4 @@
-use actix_storage::dev::{Action, Mutation};
+use basteh::dev::{Action, Mutation};
 
 pub(crate) fn run_mutations(mut value: i64, mutations: Mutation) -> Option<i64> {
     for act in mutations.into_iter() {

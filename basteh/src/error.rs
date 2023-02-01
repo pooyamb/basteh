@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-/// Error type that will be returned from all fallible methods of actix_storage.
+/// Error type that will be returned from all fallible methods of basteh.
 ///
 /// implementers should generally use Custom variant for their own errors.
 #[derive(Debug, Error)]

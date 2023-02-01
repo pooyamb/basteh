@@ -15,12 +15,12 @@ impl FromRequest for Storage {
             ready(Ok(st.clone()))
         } else {
             log::debug!(
-                "Failed to construct Storage(actix-storage). \
+                "Failed to construct Storage(basteh). \
                  Request path: {:?}",
                 req.path(),
             );
             ready(Err(ErrorInternalServerError(
-                "Storage is not configured, please refer to actix-storage documentation\
+                "Storage is not configured, please refer to basteh documentation\
                 for more information.",
             )))
         }

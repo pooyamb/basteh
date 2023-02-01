@@ -1,29 +1,25 @@
 [package]
-name = "actix-storage-redis"
+name = "basteh-redis"
 version = "0.3.0"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
-description = "An implementation of actix-storage based on redis-rs"
-documentation = "https://docs.rs/actix-storage-redis"
+description = "An implementation of basteh based on redis-rs"
+documentation = "https://docs.rs/basteh-redis"
 edition = "2018"
 keywords = ["storage", "web", "async", "redis"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/pooyamb/actix-storage/"
+repository = "https://github.com/pooyamb/basteh/"
 
 [dependencies]
-actix-storage = "0.3.0"
+basteh = "0.3.0"
 async-trait = "0.1"
-redis = { version = "0.22", default-features = false, features = [
-    "connection-manager",
-    "tokio-comp",
-    "script"
-] }
+redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp", "script"] }
 thiserror = "1"
 
 [dev-dependencies]
 tokio = { version = "1.13.1", features = ["macros", "rt"] }
-actix-storage = { version = "0.3.0", features = ["all", "test_utils"] }
+basteh = { version = "0.3.0", features = ["all", "test_utils"] }
 rand = "0.8"
 
 [features]
