@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet, future::Future, pin::Pin, time::Duration};
+use std::{cmp::Ordering, collections::HashSet, time::Duration};
 
 use crate::{dev::*, *};
 
@@ -12,12 +12,10 @@ where
 {
     let storage = Storage::build().store(store).no_expiry().finish();
 
-    let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
-        Box::pin(test_store_methods(storage.clone())),
-        Box::pin(test_store_keys(storage.clone())),
-    ];
-
-    futures::future::join_all(futures).await;
+    tokio::join!(
+        test_store_methods(storage.clone()),
+        test_store_keys(storage.clone())
+    );
 }
 
 pub async fn test_store_methods(storage: Storage) {
@@ -243,20 +241,15 @@ where
 {
     let storage = Storage::build().store(store).expiry(expiry).finish();
 
-    let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
-        Box::pin(test_expiry_basics(storage.clone(), delay_secs)),
-        Box::pin(test_mutate_sould_not_change_expiry(
-            storage.clone(),
-            delay_secs,
-        )),
-        Box::pin(test_expiry_extend(storage.clone(), delay_secs)),
-        Box::pin(test_expiry_persist(storage.clone(), delay_secs)),
-        Box::pin(test_expiry_set_clearing(storage.clone(), delay_secs)),
-        Box::pin(test_expiry_override_shorter(storage.clone(), delay_secs)),
-        Box::pin(test_expiry_override_longer(storage, delay_secs)),
-    ];
-
-    futures::future::join_all(futures).await;
+    tokio::join!(
+        test_expiry_basics(storage.clone(), delay_secs),
+        test_mutate_sould_not_change_expiry(storage.clone(), delay_secs,),
+        test_expiry_extend(storage.clone(), delay_secs),
+        test_expiry_persist(storage.clone(), delay_secs),
+        test_expiry_set_clearing(storage.clone(), delay_secs),
+        test_expiry_override_shorter(storage.clone(), delay_secs),
+        test_expiry_override_longer(storage, delay_secs)
+    );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -337,16 +330,11 @@ where
 {
     let storage = Storage::build().store(store).finish();
 
-    let futures: Vec<Pin<Box<dyn Future<Output = ()>>>> = vec![
-        Box::pin(test_expiry_store_basics(storage.clone(), delay_secs)),
-        Box::pin(test_expiry_store_override_shorter(
-            storage.clone(),
-            delay_secs,
-        )),
-        Box::pin(test_expiry_store_override_longer(storage, delay_secs)),
-    ];
-
-    futures::future::join_all(futures).await;
+    tokio::join!(
+        test_expiry_store_basics(storage.clone(), delay_secs),
+        test_expiry_store_override_shorter(storage.clone(), delay_secs,),
+        test_expiry_store_override_longer(storage, delay_secs)
+    );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

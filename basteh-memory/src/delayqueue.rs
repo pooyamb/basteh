@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::time::Duration;
 
-use futures::StreamExt;
+use futures_util::StreamExt;
 use tokio::{
     sync::{mpsc, oneshot},
     time::Instant,

@@ -17,12 +17,12 @@ basteh = "0.4.0-alpha.2"
 async-trait = "0.1"
 thiserror = "1"
 
-futures = { version = "0.3" }
-tokio = { version = "1.13.1", features = ["time", "sync", "macros"] }
+futures-util = { version = "0.3", default-features = false }
+tokio = { version = "1.13.1", features = ["time", "macros", "rt"] }
 tokio-util = { version = "0.7", features = ["time"] }
 parking_lot = "0.12.1"
 
 [dev-dependencies]
-tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt"] }
+tokio = { version = "1.13.1", features = ["time", "macros", "rt"] }
 basteh = { version = "0.4.0-alpha.2", features = ["all", "test_utils"] }
 rand = "0.8"

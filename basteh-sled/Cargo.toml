@@ -17,7 +17,7 @@ async-trait = "0.1"
 log = "0.4"
 thiserror = "1"
 
-tokio = { version = "1.13.1", features = ["time", "sync", "macros"] }
+tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt"] }
 delay-queue = { version = "0.2" }
 crossbeam-channel = "0.5"
 parking_lot = "0.12"
@@ -30,6 +30,6 @@ zerocopy = { version = "0.6" }
 sled = { version = "0.34", git = "https://github.com/spacejam/sled.git" }
 
 [dev-dependencies]
-tokio = { version = "1.13.1", features = ["time", "macros", "rt"] }
+tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt"] }
 basteh = { version = "0.4.0-alpha.2", features = ["all", "test_utils"] }
 rand = "0.8"
