@@ -13,9 +13,6 @@ pub mod dev {
     pub use crate::provider::*;
 }
 
-#[cfg(feature = "actix-web")]
-mod actix_web;
-
 #[doc(hidden)]
 #[cfg(feature = "test_utils")]
 pub mod test_utils;
