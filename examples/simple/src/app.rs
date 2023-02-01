@@ -71,15 +71,15 @@ async fn index(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let provider = basteh_memory::HashMapBackend::start_default();
+    let provider = basteh_memory::MemoryBackend::start_default();
     // OR
     // let provider = basteh_redis::RedisBackend::connect_default().await.unwrap();
     // OR
-    // let provider = basteh_sled::SledStore::from_db(
+    // let provider = basteh_sled::SledBackend::from_db(
     //     basteh_sled::SledConfig::default()
     //         .temporary(true)
     //         .open()?,
-    // );
+    // ).start(1);
 
     let storage = Storage::build().store(provider).no_expiry().finish();
 

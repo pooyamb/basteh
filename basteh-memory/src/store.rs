@@ -30,23 +30,23 @@ impl ExpiryKey {
 /// ## Example
 /// ```no_run
 /// use basteh::Storage;
-/// use basteh_memory::{HashMapBackend};
+/// use basteh_memory::{MemoryBackend};
 ///
 /// # async fn your_main() {
-/// let store = HashMapBackend::start_default();
+/// let store = MemoryBackend::start_default();
 /// let storage = Storage::build().store(store).finish();
 /// # }
 /// ```
 ///
 #[derive(Clone)]
-pub struct HashMapBackend {
+pub struct MemoryBackend {
     map: Arc<Mutex<InternalMap>>,
 
     // Send part of the channel used to send commands to delayqueue
     dq_tx: DelayQueueSender<ExpiryKey>,
 }
 
-impl HashMapBackend {
+impl MemoryBackend {
     pub fn start(buffer_size: usize) -> Self {
         let (dq_tx, mut dq_rx) = delayqueue::<ExpiryKey>(buffer_size, buffer_size);
         let map = Arc::new(Mutex::new(InternalMap::new()));
@@ -70,7 +70,7 @@ impl HashMapBackend {
 }
 
 #[async_trait::async_trait]
-impl Store for HashMapBackend {
+impl Store for MemoryBackend {
     async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
         Ok(Box::new(
             self.map
@@ -175,7 +175,7 @@ impl Store for HashMapBackend {
 }
 
 #[async_trait::async_trait]
-impl Expiry for HashMapBackend {
+impl Expiry for MemoryBackend {
     async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
         self.dq_tx
             .remove(ExpiryKey::new(scope, key))
@@ -206,7 +206,7 @@ impl Expiry for HashMapBackend {
 }
 
 #[async_trait::async_trait]
-impl ExpiryStore for HashMapBackend {
+impl ExpiryStore for MemoryBackend {
     async fn set_expiring(
         &self,
         scope: Arc<[u8]>,
@@ -256,27 +256,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_hashmap_store() {
-        test_store(HashMapBackend::start_default()).await;
+        test_store(MemoryBackend::start_default()).await;
     }
 
     #[tokio::test]
     async fn test_hashmap_store_numbers() {
-        test_store_numbers(HashMapBackend::start_default()).await;
+        test_store_numbers(MemoryBackend::start_default()).await;
     }
 
     #[tokio::test]
     async fn test_hashmap_mutate_numbers() {
-        test_mutate_numbers(HashMapBackend::start_default()).await;
+        test_mutate_numbers(MemoryBackend::start_default()).await;
     }
 
     #[tokio::test]
     async fn test_hashmap_expiry() {
-        let store = HashMapBackend::start_default();
+        let store = MemoryBackend::start_default();
         test_expiry(store.clone(), store, 2).await;
     }
 
     #[tokio::test]
     async fn test_hashmap_expiry_store() {
-        test_expiry_store(HashMapBackend::start_default(), 2).await;
+        test_expiry_store(MemoryBackend::start_default(), 2).await;
     }
 }

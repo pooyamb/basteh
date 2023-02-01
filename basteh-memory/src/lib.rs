@@ -4,4 +4,4 @@ mod delayqueue;
 mod store;
 mod utils;
 
-pub use store::HashMapBackend;
+pub use store::MemoryBackend;
