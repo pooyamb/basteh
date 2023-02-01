@@ -1,6 +1,8 @@
 [workspace]
 members = ["basteh", "basteh-memory", "basteh-sled", "basteh-redis", "examples/*"]
 
+resolver = "2"
+
 [patch.crates-io]
 basteh = { path = "./basteh/" }
 basteh-memory = { path = "./basteh-memory/" }
