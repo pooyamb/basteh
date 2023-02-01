@@ -24,7 +24,7 @@ struct PersonOut {
 #[actix_web::get("/{name}/{lesson}/{point}")]
 async fn index(
     path: web::Path<(String, String, u16)>,
-    storage: Storage,
+    storage: web::Data<Storage>,
 ) -> Result<web::Json<PersonOut>, Error> {
     let new: bool;
     let (name, lesson, point) = path.into_inner();
@@ -82,6 +82,7 @@ async fn main() -> std::io::Result<()> {
     // ).start(1);
 
     let storage = Storage::build().store(provider).no_expiry().finish();
+    let storage = web::Data::new(storage);
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(index));
     server.bind("localhost:5000")?.run().await

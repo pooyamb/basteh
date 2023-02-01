@@ -27,7 +27,7 @@ fn recr_fibo(input: i64, storage: Storage) -> Pin<Box<dyn Future<Output = i64> +
 }
 
 #[actix_web::get("/{input}")]
-async fn fibo(input: web::Path<i64>, storage: Storage) -> String {
+async fn fibo(input: web::Path<i64>, storage: web::Data<Storage>) -> String {
     if *input > 92 {
         format!("Maximum supported input is 93")
     } else if *input < 0 {
@@ -50,6 +50,7 @@ async fn main() -> std::io::Result<()> {
     // ).start(1);
 
     let storage = Storage::build().store(provider).no_expiry().finish();
+    let storage = web::Data::new(storage);
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(fibo));
     server.bind("localhost:5000")?.run().await

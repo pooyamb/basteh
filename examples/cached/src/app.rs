@@ -27,7 +27,7 @@ async fn get_obj_by_id(id: u64) -> Object {
 }
 
 #[actix_web::get("/{obj_id}")]
-async fn get_obj(obj_id: web::Path<u64>, storage: Storage) -> web::Json<Response> {
+async fn get_obj(obj_id: web::Path<u64>, storage: web::Data<Storage>) -> web::Json<Response> {
     let resp = if let Ok(Some(resp)) = storage.get(obj_id.to_string()).await {
         serde_json::from_slice(&resp).unwrap()
     } else {
@@ -69,6 +69,7 @@ async fn main() -> std::io::Result<()> {
     // .start(1);
 
     let storage = Storage::build().store(provider).finish();
+    let storage = web::Data::new(storage);
 
     let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(get_obj));
     server.bind("localhost:5000")?.run().await
