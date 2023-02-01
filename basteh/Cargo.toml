@@ -17,8 +17,6 @@ async-trait = "0.1"
 log = "0.4"
 thiserror = "1"
 
-actix-web = { version = "4.0.0", default-features = false, optional = true }
-
 # For tests
 futures = { version = "0.3", optional = true }
 tokio = { version = "1.20", default-features = false, features = ["macros"], optional = true }
@@ -28,7 +26,7 @@ tokio = { version = "1.20", default-features = false, features = ["macros"] }
 
 [features]
 default = []
-all = ["actix-web"]
+all = []
 test_utils = ["tokio", "futures"]
 
 [package.metadata.docs.rs]

@@ -7,9 +7,8 @@ use crate::error::Result;
 
 /// Takes the underlying backend and provides common methods for it
 ///
-/// It can be stored in actix_web's Data and be used from handlers
-/// without specifying the backend itself and provides all the common methods from underlying
-/// store and expiry.
+/// As it is type erased, it's suitable to be stored in a web framework's state or extensions.
+///
 /// The backend this struct holds should implement [`ExpiryStore`](dev/trait.ExpiryStore.html)
 /// either directly, or by depending on the default polyfill.
 /// Look [`StorageBuilder`](dev/struct.StorageBuilder.html) for more details.
@@ -47,7 +46,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::Storage;
-    /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// let cache = storage.scope("cache");
@@ -70,7 +68,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::Storage;
-    /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set("age", vec![10]).await;
@@ -90,7 +87,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::Storage;
-    /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set("age", vec![10]).await;
@@ -112,13 +108,11 @@ impl Storage {
     ///
     /// Calling set operations twice on the same key, overwrites it's value and
     /// clear the expiry on that key(if it exist).
-    /// How the number is represented in storage is decided by the provider, but
-    /// by default its simple le_bytes.
+    /// How the number is represented in storage is decided by the backend.
     ///
     /// ## Example
     /// ```rust
     /// # use basteh::Storage;
-    /// # use actix_web::*;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set_number("age", 10).await;
@@ -132,7 +126,7 @@ impl Storage {
     }
 
     /// Stores a sequence of bytes on storage and sets expiry on the key
-    /// It should be prefered over calling set and expire as providers may define
+    /// It should be prefered over calling set and expire as backends may define
     /// a more optimized way to do both operations at once.
     ///
     /// Calling set operations twice on the same key, overwrites it's value and
@@ -141,7 +135,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::Storage;
-    /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
@@ -152,7 +145,7 @@ impl Storage {
     ///
     /// ## Errors
     /// Beside the normal errors caused by the storage itself, it will result in error if
-    /// expiry provider is not set.
+    /// expiry provider is not set.(no_expiry is called on builder)
     pub async fn set_expiring(
         &self,
         key: impl AsRef<[u8]>,
@@ -174,7 +167,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::{Storage, StorageError};
-    /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let val = storage.get("key").await?;
@@ -209,7 +201,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::{Storage, StorageError};
-    /// # use actix_web::*;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
     /// let val = storage.get_expiring("key").await?;
@@ -236,10 +227,12 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::Storage;
-    /// # use actix_web::*;
+    /// # use std::cmp::Ordering;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.mutate("age", |v| v.incr(5)).await;
+    /// // Or conditionally set it to 100
+    /// storage.mutate("age", |v| v.if_(Ordering::Greater, 100, |m| m.set(100))).await;
     /// #     "set"
     /// # }
     /// ```
@@ -365,7 +358,6 @@ impl Storage {
     /// ## Example
     /// ```rust
     /// # use basteh::{Storage, StorageError};
-    /// # use actix_web::*;
     /// # use std::time::Duration;
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {

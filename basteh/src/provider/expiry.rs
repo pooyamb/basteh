@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::Result;
 
-/// Set of method for expiry providers to implement.
+/// Set of methods for expiry providers to implement.
 ///
 /// The expiry itself should guarantee that it's working on the correct storage
 /// and provide a hint that it's persistant or temprorary.

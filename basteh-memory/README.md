@@ -6,14 +6,14 @@ This crate provides implementations for basteh based on std lib's hashmap.
 
 ### Implementation details
 
-`HashMapBackend` uses tokio's `delayqueue` internally for expiration notifications.
+`MemoryBackend` tokio's `delayqueue` internally for expiration notifications.
 
 It is possible to specify the size for the underlying channel between tokio's `delayqueue` and the actor.
 
 ```rust,no_run
-use basteh_memory::HashMapBackend;
+use basteh_memory::MemoryBackend;
 
-let store = HashMapBackend::start(2048);
+let store = MemoryBackend::start(2048);
 // OR
-let store = HashMapBackend::start_default();
+let store = MemoryBackend::start_default();
 ```

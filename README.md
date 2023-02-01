@@ -21,7 +21,7 @@
 
 <br>
 
-Basteh(previously actix-storage) is a type erased wrapper around some key-value storages to provide basic operations.
+Basteh(previously actix-storage) is a type erased wrapper around some key-value storages to provide common operations.
 
 ## Install
 
@@ -30,21 +30,19 @@ Basteh is meant to be used alongside one the implementer crates, ex:
 ```toml
 # Cargo.toml
 [dependencies]
-basteh = "0.3.0"
-basteh-memory = "0.3.0"
+basteh = "0.4.0-alpha.1"
+basteh-memory = "0.4.0-alpha.1"
 ```
 
 ## Usage
 
-After you picked an implementer:
+After you picked a backend:
 
-```rust
+```rust,ignore
 use basteh::{Storage, Format};
 use basteh_memory::MemoryBackend;
-use actix_web::{App, HttpServer};
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn make_storage() -> Storage {
    // Intialize the implementer according to its docs
    let store = MemoryBackend::start_default();
 
@@ -58,26 +56,8 @@ async fn main() -> std::io::Result<()> {
    // It is also possible to feed a seprate expiry,
    // as long as it works on the same storage backend
    let storage = Storage::build().store(store).expiry(expiry).finish();
-
-
-   // Store it in you application state with actix_web::App.app_data
-   let server = HttpServer::new(move || {
-      App::new()
-            .app_data(storage.clone())
-   });
-   server.bind("localhost:5000")?.run().await
-}
-```
-
-And later in your handlers
-
-```rust
-async fn index(storage: Storage) -> Result<String, Error>{
-   storage.set("key", b"value").await;
-   let val = storage.get(b"key").await?.unwrap_or_default();
-
-   Ok(std::str::from_utf8(&val)
-      .map_err(|err| error::ErrorInternalServerError("Storage error"))?.to_string())
+   
+   storage
 }
 ```
 
