@@ -1,3 +1,7 @@
+## Version 0.4
+- Update to basteh 0.4
+- Added support for numbers and mutations
+
 ## Version 0.3
 - Update to actix 4 and tokio 1
 

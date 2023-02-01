@@ -1,3 +1,16 @@
+## Version 0.4
+- Updated to basteh 0.4
+- Removed the actix dependency
+- Removed the actor version completely
+- Removed the basic store implementation
+- Added a new full store, using crossbeam channels and tokio's spawn_blocking
+
+## Version 0.3 (Not released because of a dependency problem)
+- Updated to actix 4.0 and tokio 1.0
+
+## Version 0.2 (Not released because of a dependency problem)
+- Updated to basteh 0.2
+
 ## Version 0.2-alpha.3
 - Restructured the code
 - Bug fixes
