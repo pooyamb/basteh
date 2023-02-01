@@ -1,5 +1,8 @@
-## Version 0.4
-- Update to basteh 0.4
+## Version 0.4 Alpha.2
+- Updated to basteh 0.4.0-alpha.2
+
+## Version 0.4 Alpha.1 (Not released)
+- Updated to basteh 0.4.0-alpha.1
 - Added support for numbers and mutations
 
 ## Version 0.3

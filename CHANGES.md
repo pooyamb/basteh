@@ -1,4 +1,7 @@
-## Version 0.4
+## Version 0.4 Alpha.2
+- Fix doc/repo links in crate
+
+## Version 0.4 Alpha.1
 - Renamed the package to `basteh` since we don't rely on actix anymore and actix-storage is missleading
 - Removed `actix` actors support
 - Removed formats and de/serialization support

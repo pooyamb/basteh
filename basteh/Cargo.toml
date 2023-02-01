@@ -1,16 +1,16 @@
 [package]
 name = "basteh"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "Generic kv storage with replaceable backend"
-documentation = "https://docs.rs/baste"
+documentation = "https://docs.rs/basteh"
 edition = "2018"
 keywords = ["storage", "web", "async"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/pooyamb/baste/"
+repository = "https://github.com/pooyamb/basteh/"
 
 [dependencies]
 async-trait = "0.1"
