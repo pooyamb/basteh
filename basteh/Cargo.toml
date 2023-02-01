@@ -1,6 +1,6 @@
 [package]
 name = "basteh"
-version = "0.3.0"
+version = "0.4.0-alpha.1"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
@@ -13,11 +13,11 @@ readme = "README.md"
 repository = "https://github.com/pooyamb/baste/"
 
 [dependencies]
-actix-web = { version = "4.0.0", default-features = false, optional = true }
-
 async-trait = "0.1"
 log = "0.4"
 thiserror = "1"
+
+actix-web = { version = "4.0.0", default-features = false, optional = true }
 
 # For tests
 futures = { version = "0.3", optional = true }

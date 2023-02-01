@@ -1,6 +1,6 @@
 [package]
 name = "basteh-redis"
-version = "0.3.0"
+version = "0.4.0-alpha.1"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of basteh based on redis-rs"
@@ -12,14 +12,14 @@ readme = "README.md"
 repository = "https://github.com/pooyamb/basteh/"
 
 [dependencies]
-basteh = "0.3.0"
+basteh = "0.4.0-alpha.1"
 async-trait = "0.1"
 redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp", "script"] }
 thiserror = "1"
 
 [dev-dependencies]
 tokio = { version = "1.13.1", features = ["macros", "rt"] }
-basteh = { version = "0.3.0", features = ["all", "test_utils"] }
+basteh = { version = "0.4.0-alpha.1", features = ["all", "test_utils"] }
 rand = "0.8"
 
 [features]
