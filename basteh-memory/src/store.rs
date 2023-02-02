@@ -85,16 +85,19 @@ impl Store for MemoryBackend {
     }
 
     async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
+        let scope: Arc<str> = scope.into();
+        let key: Arc<[u8]> = key.into();
+
         if self
             .map
             .lock()
-            .entry(scope.into())
+            .entry(scope.clone())
             .or_default()
-            .insert(key.into(), value.into())
+            .insert(key.clone(), value.into())
             .is_some()
         {
             self.dq_tx
-                .remove(ExpiryKey::new(scope.into(), key.into()))
+                .remove(ExpiryKey::new(scope, key))
                 .await
                 .map_err(StorageError::custom)?;
         }
@@ -110,7 +113,7 @@ impl Store for MemoryBackend {
             .map
             .lock()
             .get(scope)
-            .and_then(|scope_map| scope_map.get(key.into()))
+            .and_then(|scope_map| scope_map.get(key))
             .map(|value| value.to_vec()))
     }
 
@@ -129,7 +132,7 @@ impl Store for MemoryBackend {
         let mut guard = self.map.lock();
         let scope_map = guard.entry(scope.into()).or_default();
 
-        let value = if let Some(val) = scope_map.get(key.into()) {
+        let value = if let Some(val) = scope_map.get(key) {
             let num = val
                 .as_ref()
                 .try_into()
@@ -154,8 +157,8 @@ impl Store for MemoryBackend {
         if self
             .map
             .lock()
-            .get_mut(scope.into())
-            .and_then(|scope_map| scope_map.remove(key.into()))
+            .get_mut(scope)
+            .and_then(|scope_map| scope_map.remove(key))
             .is_some()
         {
             self.dq_tx
@@ -170,8 +173,8 @@ impl Store for MemoryBackend {
         Ok(self
             .map
             .lock()
-            .get(scope.into())
-            .map(|scope_map| scope_map.contains_key(key.into()))
+            .get(scope)
+            .map(|scope_map| scope_map.contains_key(key))
             .unwrap_or(false))
     }
 }
@@ -216,13 +219,16 @@ impl ExpiryStore for MemoryBackend {
         value: &[u8],
         expire_in: Duration,
     ) -> Result<()> {
+        let scope: Arc<str> = scope.into();
+        let key: Arc<[u8]> = key.into();
+
         self.map
             .lock()
-            .entry(scope.into())
+            .entry(scope.clone())
             .or_default()
-            .insert(key.into(), value.into());
+            .insert(key.clone(), value.into());
         self.dq_tx
-            .insert_or_update(ExpiryKey::new(scope.into(), key.into()), expire_in)
+            .insert_or_update(ExpiryKey::new(scope, key), expire_in)
             .await
             .map_err(|e| StorageError::custom(e))
     }
@@ -235,8 +241,8 @@ impl ExpiryStore for MemoryBackend {
         let val = self
             .map
             .lock()
-            .get(scope.into())
-            .and_then(|scope_map| scope_map.get(key.into()))
+            .get(scope)
+            .and_then(|scope_map| scope_map.get(key))
             .cloned();
         if let Some(val) = val {
             let exp = self
@@ -244,7 +250,7 @@ impl ExpiryStore for MemoryBackend {
                 .get(ExpiryKey::new(scope.into(), key.into()))
                 .await
                 .map_err(|e| StorageError::custom(e))?;
-            Ok(Some((val.as_ref().to_vec(), exp)))
+            Ok(Some((val.to_vec(), exp)))
         } else {
             Ok(None)
         }
