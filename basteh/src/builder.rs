@@ -259,114 +259,114 @@ mod private {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use std::{sync::Arc, time::Duration};
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
 
-//     use crate::{
-//         dev::{Expiry, Mutation, Store},
-//         Result, Storage,
-//     };
+    use crate::{
+        dev::{Expiry, Mutation, Store},
+        Result, Storage,
+    };
 
-//     #[derive(Clone)]
-//     struct SampleStore;
+    #[derive(Clone)]
+    struct SampleStore;
 
-//     #[async_trait::async_trait]
-//     impl Store for SampleStore {
-//         async fn keys(&self, _: &[u8]) -> Result<Box<dyn Iterator<Item = &[u8]>>> {
-//             Ok(Box::new(Vec::new().into_iter()))
-//         }
-//         async fn set(&self, _: &[u8], _: &[u8], _: &[u8]) -> Result<()> {
-//             Ok(())
-//         }
-//         async fn set_number(&self, _: &[u8], _: &[u8], _: i64) -> Result<()> {
-//             Ok(())
-//         }
-//         async fn get(&self, _: &[u8], _: &[u8]) -> Result<Option<&[u8]>> {
-//             Ok(Some("v".as_bytes().into()))
-//         }
-//         async fn get_number(&self, _: &[u8], _: &[u8]) -> Result<Option<i64>> {
-//             Ok(Some(123))
-//         }
-//         async fn contains_key(&self, _: &[u8], _: &[u8]) -> Result<bool> {
-//             Ok(false)
-//         }
-//         async fn delete(&self, _: &[u8], _: &[u8]) -> Result<()> {
-//             Ok(())
-//         }
-//         async fn mutate(&self, _: &[u8], _: &[u8], _: Mutation) -> Result<()> {
-//             Ok(())
-//         }
-//     }
+    #[async_trait::async_trait]
+    impl Store for SampleStore {
+        async fn keys(&self, _: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+            Ok(Box::new(Vec::new().into_iter()))
+        }
+        async fn set(&self, _: &str, _: &[u8], _: &[u8]) -> Result<()> {
+            Ok(())
+        }
+        async fn set_number(&self, _: &str, _: &[u8], _: i64) -> Result<()> {
+            Ok(())
+        }
+        async fn get(&self, _: &str, _: &[u8]) -> Result<Option<Vec<u8>>> {
+            Ok(Some("v".as_bytes().into()))
+        }
+        async fn get_number(&self, _: &str, _: &[u8]) -> Result<Option<i64>> {
+            Ok(Some(123))
+        }
+        async fn contains_key(&self, _: &str, _: &[u8]) -> Result<bool> {
+            Ok(false)
+        }
+        async fn delete(&self, _: &str, _: &[u8]) -> Result<()> {
+            Ok(())
+        }
+        async fn mutate(&self, _: &str, _: &[u8], _: Mutation) -> Result<()> {
+            Ok(())
+        }
+    }
 
-//     #[async_trait::async_trait]
-//     impl Expiry for SampleStore {
-//         async fn expire(&self, _: &[u8], _: &[u8], _: Duration) -> Result<()> {
-//             Ok(())
-//         }
-//         async fn expiry(&self, _: &[u8], _: &[u8]) -> Result<Option<Duration>> {
-//             Ok(Some(Duration::from_secs(1)))
-//         }
-//         async fn extend(&self, _: &[u8], _: &[u8], _: Duration) -> Result<()> {
-//             Ok(())
-//         }
-//         async fn persist(&self, _: &[u8], _: &[u8]) -> Result<()> {
-//             Ok(())
-//         }
-//     }
+    #[async_trait::async_trait]
+    impl Expiry for SampleStore {
+        async fn expire(&self, _: &str, _: &[u8], _: Duration) -> Result<()> {
+            Ok(())
+        }
+        async fn expiry(&self, _: &str, _: &[u8]) -> Result<Option<Duration>> {
+            Ok(Some(Duration::from_secs(1)))
+        }
+        async fn extend(&self, _: &str, _: &[u8], _: Duration) -> Result<()> {
+            Ok(())
+        }
+        async fn persist(&self, _: &str, _: &[u8]) -> Result<()> {
+            Ok(())
+        }
+    }
 
-//     #[tokio::test]
-//     async fn test_no_expiry() {
-//         struct OnlyStore;
-//         let storage = Storage::build().store(SampleStore).no_expiry().finish();
+    #[tokio::test]
+    async fn test_no_expiry() {
+        struct OnlyStore;
+        let storage = Storage::build().store(SampleStore).no_expiry().finish();
 
-//         let k = "key";
-//         let v = "value".as_bytes();
-//         let d = Duration::from_secs(1);
+        let k = "key";
+        let v = "value".as_bytes();
+        let d = Duration::from_secs(1);
 
-//         // These checks should all result in error as we didn't set any expiry
-//         assert!(storage.expire(k, d).await.is_err());
-//         assert!(storage.expiry(k).await.is_err());
-//         assert!(storage.extend(k, d).await.is_err());
-//         assert!(storage.persist(k).await.is_err());
-//         assert!(storage.set_expiring(k, v, d).await.is_err());
-//         assert!(storage.get_expiring(k).await.is_err());
+        // These checks should all result in error as we didn't set any expiry
+        assert!(storage.expire(k, d).await.is_err());
+        assert!(storage.expiry(k).await.is_err());
+        assert!(storage.extend(k, d).await.is_err());
+        assert!(storage.persist(k).await.is_err());
+        assert!(storage.set_expiring(k, v, d).await.is_err());
+        assert!(storage.get_expiring(k).await.is_err());
 
-//         // These tests should all succeed
-//         assert!(storage.set(k, v).await.is_ok());
-//         assert!(storage.get(k).await.is_ok());
-//         assert!(storage.delete(k).await.is_ok());
-//         assert!(storage.contains_key(k).await.is_ok());
-//     }
+        // These tests should all succeed
+        assert!(storage.set(k, v).await.is_ok());
+        assert!(storage.get(k).await.is_ok());
+        assert!(storage.delete(k).await.is_ok());
+        assert!(storage.contains_key(k).await.is_ok());
+    }
 
-//     #[tokio::test]
-//     async fn test_expiry_store_polyfill() {
-//         let k = "key";
-//         let v = "value".as_bytes();
-//         let d = Duration::from_secs(1);
+    #[tokio::test]
+    async fn test_expiry_store_polyfill() {
+        let k = "key";
+        let v = "value".as_bytes();
+        let d = Duration::from_secs(1);
 
-//         let store = SampleStore;
-//         let storage = Storage::build().store(store.clone()).expiry(store).finish();
-//         assert!(storage
-//             .set_expiring("key", "value", Duration::from_secs(1))
-//             .await
-//             .is_ok());
+        let store = SampleStore;
+        let storage = Storage::build().store(store.clone()).expiry(store).finish();
+        assert!(storage
+            .set_expiring("key", "value", Duration::from_secs(1))
+            .await
+            .is_ok());
 
-//         // These tests should all succeed
-//         assert!(storage.expire(k, d).await.is_ok());
-//         assert!(storage.expiry(k).await.is_ok());
-//         assert!(storage.extend(k, d).await.is_ok());
-//         assert!(storage.persist(k).await.is_ok());
-//         assert!(storage.set_expiring(k, v, d).await.is_ok());
-//         assert!(storage.get_expiring(k).await.is_ok());
-//         assert!(storage.set(k, v).await.is_ok());
-//         assert!(storage.get(k).await.is_ok());
-//         assert!(storage.delete(k).await.is_ok());
-//         assert!(storage.contains_key(k).await.is_ok());
+        // These tests should all succeed
+        assert!(storage.expire(k, d).await.is_ok());
+        assert!(storage.expiry(k).await.is_ok());
+        assert!(storage.extend(k, d).await.is_ok());
+        assert!(storage.persist(k).await.is_ok());
+        assert!(storage.set_expiring(k, v, d).await.is_ok());
+        assert!(storage.get_expiring(k).await.is_ok());
+        assert!(storage.set(k, v).await.is_ok());
+        assert!(storage.get(k).await.is_ok());
+        assert!(storage.delete(k).await.is_ok());
+        assert!(storage.contains_key(k).await.is_ok());
 
-//         // values should match
-//         let res = storage.get_expiring("key").await;
-//         assert!(res.is_ok());
-//         assert!(res.unwrap() == Some(("v".as_bytes().into(), Some(Duration::from_secs(1)))));
-//     }
-// }
+        // values should match
+        let res = storage.get_expiring("key").await;
+        assert!(res.is_ok());
+        assert!(res.unwrap() == Some(("v".as_bytes().into(), Some(Duration::from_secs(1)))));
+    }
+}
