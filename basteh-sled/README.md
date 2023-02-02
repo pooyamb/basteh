@@ -2,6 +2,7 @@
 
 This crate provides implementations for basteh based on `sled` database.
 
+> This crate is not released and is not updated yet, you shouldn't rely on its stablity
 > Please refer to basteh crate documentations for full details about usage and use cases.
 
 ### Implementation details
