@@ -75,8 +75,8 @@ impl Storage {
     /// #     "set"
     /// # }
     /// ```
-    pub async fn keys(&self) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
-        self.store.keys(self.scope.clone()).await
+    pub async fn keys(&self) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+        self.store.keys(self.scope.as_ref()).await
     }
 
     /// Stores a sequence of bytes on storage
@@ -97,7 +97,7 @@ impl Storage {
     pub async fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.store
             .set(
-                self.scope.clone(),
+                self.scope.as_ref(),
                 key.as_ref().into(),
                 value.as_ref().into(),
             )
@@ -121,7 +121,7 @@ impl Storage {
     /// ```
     pub async fn set_number(&self, key: impl AsRef<[u8]>, value: i64) -> Result<()> {
         self.store
-            .set_number(self.scope.clone(), key.as_ref().into(), value)
+            .set_number(self.scope.as_ref(), key.as_ref().into(), value)
             .await
     }
 
@@ -154,7 +154,7 @@ impl Storage {
     ) -> Result<()> {
         self.store
             .set_expiring(
-                self.scope.clone(),
+                self.scope.as_ref(),
                 key.as_ref().into(),
                 value.as_ref().into(),
                 expires_in,
@@ -173,9 +173,9 @@ impl Storage {
     /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
     /// # }
     /// ```
-    pub async fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    pub async fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         self.store
-            .get(self.scope.clone(), key.as_ref().into())
+            .get(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 
@@ -192,7 +192,7 @@ impl Storage {
     /// ```
     pub async fn get_number(&self, key: impl AsRef<[u8]>) -> Result<Option<i64>> {
         self.store
-            .get_number(self.scope.clone(), key.as_ref().into())
+            .get_number(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 
@@ -210,10 +210,10 @@ impl Storage {
     pub async fn get_expiring(
         &self,
         key: impl AsRef<[u8]>,
-    ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
         if let Some((val, expiry)) = self
             .store
-            .get_expiring(self.scope.clone(), key.as_ref().into())
+            .get_expiring(self.scope.as_ref(), key.as_ref().into())
             .await?
         {
             Ok(Some((val, expiry)))
@@ -242,7 +242,7 @@ impl Storage {
     {
         self.store
             .mutate(
-                self.scope.clone(),
+                self.scope.as_ref(),
                 key.as_ref().into(),
                 mutate_f(Mutation::new()),
             )
@@ -262,7 +262,7 @@ impl Storage {
     /// ```
     pub async fn delete(&self, key: impl AsRef<[u8]>) -> Result<()> {
         self.store
-            .delete(self.scope.clone(), key.as_ref().into())
+            .delete(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 
@@ -279,7 +279,7 @@ impl Storage {
     /// ```
     pub async fn contains_key(&self, key: impl AsRef<[u8]>) -> Result<bool> {
         self.store
-            .contains_key(self.scope.clone(), key.as_ref().into())
+            .contains_key(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 
@@ -300,7 +300,7 @@ impl Storage {
     /// ```
     pub async fn expire(&self, key: impl AsRef<[u8]>, expire_in: Duration) -> Result<()> {
         self.store
-            .expire(self.scope.clone(), key.as_ref().into(), expire_in)
+            .expire(self.scope.as_ref(), key.as_ref().into(), expire_in)
             .await
     }
 
@@ -326,7 +326,7 @@ impl Storage {
     /// ```
     pub async fn expiry(&self, key: impl AsRef<[u8]>) -> Result<Option<Duration>> {
         self.store
-            .expiry(self.scope.clone(), key.as_ref().into())
+            .expiry(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 
@@ -347,7 +347,7 @@ impl Storage {
     /// ```
     pub async fn extend(&self, key: impl AsRef<[u8]>, expire_in: Duration) -> Result<()> {
         self.store
-            .extend(self.scope.clone(), key.as_ref().into(), expire_in)
+            .extend(self.scope.as_ref(), key.as_ref().into(), expire_in)
             .await
     }
 
@@ -367,7 +367,7 @@ impl Storage {
     /// ```
     pub async fn persist(&self, key: impl AsRef<[u8]>) -> Result<()> {
         self.store
-            .persist(self.scope.clone(), key.as_ref().into())
+            .persist(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 }

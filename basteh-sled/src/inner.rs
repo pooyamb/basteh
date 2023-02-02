@@ -1,8 +1,9 @@
+use std::convert::TryInto;
 use std::time::Duration;
-use std::{convert::TryInto, sync::Arc};
 
 use basteh::dev::Mutation;
 use basteh::StorageError;
+use sled::IVec;
 
 use crate::utils::run_mutations;
 
@@ -114,7 +115,7 @@ impl SledInner {
 
 /// Store methods
 impl SledInner {
-    pub fn keys(&self, scope: Arc<[u8]>) -> Result<impl Iterator<Item = Arc<[u8]>> + Send + Sync> {
+    pub fn keys(&self, scope: IVec) -> Result<impl Iterator<Item = Vec<u8>> + Send + Sync> {
         let tree = open_tree(&self.db, &scope)?;
         Ok(Box::new(
             tree.iter()
@@ -123,7 +124,7 @@ impl SledInner {
         ))
     }
 
-    pub fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+    pub fn set(&self, scope: IVec, key: IVec, value: IVec) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
         tree.update_and_fetch(&key, |bytes| {
             let nonce = if let Some(bytes) = bytes {
@@ -143,11 +144,11 @@ impl SledInner {
         Ok(())
     }
 
-    pub fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
-        self.set(scope, key, Arc::new(value.to_le_bytes()))
+    pub fn set_number(&self, scope: IVec, key: IVec, value: i64) -> Result<()> {
+        self.set(scope, key, IVec::from(&value.to_le_bytes()))
     }
 
-    pub fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    pub fn get(&self, scope: IVec, key: IVec) -> Result<Option<IVec>> {
         let tree = open_tree(&self.db, &scope)?;
         tree.get(&key)
             .map(|val| {
@@ -163,7 +164,7 @@ impl SledInner {
             .map_err(StorageError::custom)
     }
 
-    pub fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+    pub fn get_number(&self, scope: IVec, key: IVec) -> Result<Option<i64>> {
         self.get(scope, key)?
             .map(|v| {
                 v.as_ref()
@@ -174,7 +175,7 @@ impl SledInner {
             .transpose()
     }
 
-    pub fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+    pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<()> {
         match open_tree(&self.db, &scope)?.update_and_fetch(key, |existing| {
             let (val, exp) = if let Some((val, exp)) = existing.and_then(decode) {
                 if !exp.expired() {
@@ -200,12 +201,12 @@ impl SledInner {
         }
     }
 
-    pub fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+    pub fn delete(&self, scope: IVec, key: IVec) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
         tree.remove(&key).map(|_| ()).map_err(StorageError::custom)
     }
 
-    pub fn contains(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+    pub fn contains(&self, scope: IVec, key: IVec) -> Result<bool> {
         let tree = open_tree(&self.db, &scope)?;
         tree.contains_key(&key).map_err(StorageError::custom)
     }
@@ -213,12 +214,7 @@ impl SledInner {
 
 /// Expiry methods
 impl SledInner {
-    pub fn set_expiry(
-        &mut self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        duration: Duration,
-    ) -> Result<()> {
+    pub fn set_expiry(&mut self, scope: IVec, key: IVec, duration: Duration) -> Result<()> {
         let mut nonce = 0;
         let tree = open_tree(&self.db, &scope)?;
         let val = tree
@@ -247,7 +243,7 @@ impl SledInner {
         Ok(())
     }
 
-    pub fn get_expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
+    pub fn get_expiry(&self, scope: IVec, key: IVec) -> Result<Option<Duration>> {
         let tree = open_tree(&self.db, &scope)?;
         tree.get(&key)
             .map(|val| {
@@ -259,7 +255,7 @@ impl SledInner {
             .map_err(StorageError::custom)
     }
 
-    pub fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+    pub fn persist(&self, scope: IVec, key: IVec) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
         tree.update_and_fetch(&key, |existing| {
             let mut bytes = sled::IVec::from(existing?);
@@ -272,12 +268,7 @@ impl SledInner {
         Ok(())
     }
 
-    pub fn extend_expiry(
-        &mut self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        duration: Duration,
-    ) -> Result<()> {
+    pub fn extend_expiry(&mut self, scope: IVec, key: IVec, duration: Duration) -> Result<()> {
         let mut nonce = 0;
         let mut total_duration = None;
         let tree = open_tree(&self.db, &scope)?;
@@ -313,9 +304,9 @@ impl SledInner {
 impl SledInner {
     pub fn set_expiring(
         &mut self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: Arc<[u8]>,
+        scope: IVec,
+        key: IVec,
+        value: IVec,
         duration: Duration,
     ) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
@@ -343,11 +334,7 @@ impl SledInner {
         Ok(())
     }
 
-    pub fn get_expiring(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+    pub fn get_expiring(&self, scope: IVec, key: IVec) -> Result<Option<(IVec, Option<Duration>)>> {
         let tree = open_tree(&self.db, &scope)?;
         let val = tree.get(&key).map_err(StorageError::custom)?;
         Ok(val.and_then(|bytes| {

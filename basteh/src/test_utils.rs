@@ -265,7 +265,7 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     assert!(storage.set_expiring(key, value, delay).await.is_ok());
 
     let (v, e) = storage.get_expiring(key).await.unwrap().unwrap();
-    assert_eq!(v.as_ref(), value.as_bytes());
+    assert_eq!(&v, value.as_bytes());
     assert!(e.unwrap().as_secs() > 0);
     assert!(e.unwrap().as_secs() <= delay_secs);
 

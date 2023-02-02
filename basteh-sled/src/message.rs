@@ -1,11 +1,12 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use basteh::{dev::Mutation, Result};
+use sled::IVec;
 use tokio::sync::oneshot;
 
-type Scope = Arc<[u8]>;
-type Key = Arc<[u8]>;
-type Value = Arc<[u8]>;
+type Scope = IVec;
+type Key = IVec;
+type Value = IVec;
 
 pub enum Request {
     Keys(Scope),
@@ -25,7 +26,7 @@ pub enum Request {
 }
 
 pub enum Response {
-    Iterator(Box<dyn Iterator<Item = Arc<[u8]>> + Send + Sync>),
+    Iterator(Box<dyn Iterator<Item = Vec<u8>> + Send + Sync>),
     Value(Option<Value>),
     Number(Option<i64>),
     Duration(Option<Duration>),

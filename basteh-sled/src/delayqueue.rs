@@ -8,6 +8,7 @@ use std::{
 };
 
 use parking_lot::{Condvar, Mutex};
+use sled::IVec;
 
 #[derive(Default)]
 pub(crate) struct DelayQueueInner {
@@ -94,14 +95,14 @@ impl DelayQueue {
 
 #[derive(Debug)]
 pub(crate) struct DelayedIem {
-    pub scope: Arc<[u8]>,
-    pub key: Arc<[u8]>,
+    pub scope: IVec,
+    pub key: IVec,
     pub until: Instant,
     pub nonce: u64,
 }
 
 impl DelayedIem {
-    pub fn new(scope: Arc<[u8]>, key: Arc<[u8]>, nonce: u64, duration: Duration) -> Self {
+    pub fn new(scope: IVec, key: IVec, nonce: u64, duration: Duration) -> Self {
         Self {
             scope,
             key,

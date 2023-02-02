@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use basteh::dev::{Expiry, ExpiryStore, Store};
@@ -104,49 +103,16 @@ impl SledBackend {
 
 #[async_trait::async_trait]
 impl Store for SledBackend {
-    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
-        match self.msg(Request::Keys(scope)).await? {
+    async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+        match self.msg(Request::Keys(scope.into())).await? {
             Response::Iterator(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> basteh::Result<()> {
-        match self.msg(Request::Set(scope, key, value)).await? {
-            Response::Empty(r) => Ok(r),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> basteh::Result<()> {
-        match self.msg(Request::SetNumber(scope, key, value)).await? {
-            Response::Empty(r) => Ok(r),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<Option<Arc<[u8]>>> {
-        match self.msg(Request::Get(scope, key)).await? {
-            Response::Value(r) => Ok(r),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<Option<i64>> {
-        match self.msg(Request::GetNumber(scope, key)).await? {
-            Response::Number(r) => Ok(r),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn mutate(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        mutations: basteh::dev::Mutation,
-    ) -> basteh::Result<()> {
+    async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> basteh::Result<()> {
         match self
-            .msg(Request::MutateNumber(scope, key, mutations))
+            .msg(Request::Set(scope.into(), key.into(), value.into()))
             .await?
         {
             Response::Empty(r) => Ok(r),
@@ -154,15 +120,60 @@ impl Store for SledBackend {
         }
     }
 
-    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<()> {
-        match self.msg(Request::Delete(scope, key)).await? {
+    async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> basteh::Result<()> {
+        match self
+            .msg(Request::SetNumber(scope.into(), key.into(), value.into()))
+            .await?
+        {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<bool> {
-        match self.msg(Request::Contains(scope, key)).await? {
+    async fn get(&self, scope: &[u8], key: &[u8]) -> basteh::Result<Option<Vec<u8>>> {
+        match self.msg(Request::Get(scope.into(), key.into())).await? {
+            Response::Value(r) => Ok(r.map(|v| v.to_vec())),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn get_number(&self, scope: &[u8], key: &[u8]) -> basteh::Result<Option<i64>> {
+        match self
+            .msg(Request::GetNumber(scope.into(), key.into()))
+            .await?
+        {
+            Response::Number(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn mutate(
+        &self,
+        scope: &[u8],
+        key: &[u8],
+        mutations: basteh::dev::Mutation,
+    ) -> basteh::Result<()> {
+        match self
+            .msg(Request::MutateNumber(scope.into(), key.into(), mutations))
+            .await?
+        {
+            Response::Empty(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn delete(&self, scope: &[u8], key: &[u8]) -> basteh::Result<()> {
+        match self.msg(Request::Delete(scope.into(), key.into())).await? {
+            Response::Empty(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn contains_key(&self, scope: &[u8], key: &[u8]) -> basteh::Result<bool> {
+        match self
+            .msg(Request::Contains(scope.into(), key.into()))
+            .await?
+        {
             Response::Bool(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -171,34 +182,35 @@ impl Store for SledBackend {
 
 #[async_trait::async_trait]
 impl Expiry for SledBackend {
-    async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<()> {
-        match self.msg(Request::Persist(scope, key)).await? {
+    async fn persist(&self, scope: &[u8], key: &[u8]) -> basteh::Result<()> {
+        match self.msg(Request::Persist(scope.into(), key.into())).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn expire(
-        &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        expire_in: Duration,
-    ) -> basteh::Result<()> {
-        match self.msg(Request::Expire(scope, key, expire_in)).await? {
+    async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> basteh::Result<()> {
+        match self
+            .msg(Request::Expire(scope.into(), key.into(), expire_in))
+            .await?
+        {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> basteh::Result<Option<Duration>> {
-        match self.msg(Request::Expiry(scope, key)).await? {
+    async fn expiry(&self, scope: &[u8], key: &[u8]) -> basteh::Result<Option<Duration>> {
+        match self.msg(Request::Expiry(scope.into(), key.into())).await? {
             Response::Duration(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn extend(&self, scope: Arc<[u8]>, key: Arc<[u8]>, duration: Duration) -> Result<()> {
-        match self.msg(Request::Extend(scope, key, duration)).await? {
+    async fn extend(&self, scope: &[u8], key: &[u8], duration: Duration) -> Result<()> {
+        match self
+            .msg(Request::Extend(scope.into(), key.into(), duration))
+            .await?
+        {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -209,13 +221,18 @@ impl Expiry for SledBackend {
 impl ExpiryStore for SledBackend {
     async fn set_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: Arc<[u8]>,
+        scope: &[u8],
+        key: &[u8],
+        value: &[u8],
         expire_in: Duration,
     ) -> basteh::Result<()> {
         match self
-            .msg(Request::SetExpiring(scope, key, value, expire_in))
+            .msg(Request::SetExpiring(
+                scope.into(),
+                key.into(),
+                value.into(),
+                expire_in,
+            ))
             .await?
         {
             Response::Empty(r) => Ok(r),
@@ -225,11 +242,14 @@ impl ExpiryStore for SledBackend {
 
     async fn get_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> basteh::Result<Option<(Arc<[u8]>, Option<Duration>)>> {
-        match self.msg(Request::GetExpiring(scope, key)).await? {
-            Response::ValueDuration(r) => Ok(r),
+        scope: &[u8],
+        key: &[u8],
+    ) -> basteh::Result<Option<(Vec<u8>, Option<Duration>)>> {
+        match self
+            .msg(Request::GetExpiring(scope.into(), key.into()))
+            .await?
+        {
+            Response::ValueDuration(r) => Ok(r.map(|(v, d)| (v.to_vec(), d))),
             _ => unreachable!(),
         }
     }
@@ -237,10 +257,10 @@ impl ExpiryStore for SledBackend {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::time::Duration;
 
     use basteh::test_utils::*;
+    use sled::IVec;
     use zerocopy::{U16, U64};
 
     use super::SledBackend;
@@ -295,8 +315,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_sled_perform_deletion() {
-        let scope: Arc<[u8]> = "prefix".as_bytes().into();
-        let key: Arc<[u8]> = "key".as_bytes().into();
+        let scope: IVec = "prefix".as_bytes().into();
+        let key: IVec = "key".as_bytes().into();
         let value = "val".as_bytes().into();
         let db = open_database().await;
         let dur = Duration::from_secs(1);

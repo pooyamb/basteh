@@ -71,66 +71,65 @@ impl MemoryBackend {
 
 #[async_trait::async_trait]
 impl Store for MemoryBackend {
-    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+    async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         Ok(Box::new(
             self.map
                 .lock()
-                .entry(scope.clone())
+                .entry(scope.into())
                 .or_default()
                 .keys()
-                .cloned()
+                .map(|k| k.to_vec())
                 .collect::<Vec<_>>()
                 .into_iter(),
         ))
     }
 
-    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+    async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
         if self
             .map
             .lock()
-            .entry(scope.clone())
+            .entry(scope.into())
             .or_default()
-            .insert(key.clone(), value)
+            .insert(key.into(), value.into())
             .is_some()
         {
             self.dq_tx
-                .remove(ExpiryKey::new(scope, key))
+                .remove(ExpiryKey::new(scope.into(), key.into()))
                 .await
                 .map_err(StorageError::custom)?;
         }
         Ok(())
     }
 
-    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
-        self.set(scope, key, Arc::new(value.to_le_bytes())).await
+    async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> Result<()> {
+        self.set(scope, key, &value.to_le_bytes()).await
     }
 
-    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    async fn get(&self, scope: &[u8], key: &[u8]) -> Result<Option<Vec<u8>>> {
         Ok(self
             .map
             .lock()
-            .get(&scope)
-            .and_then(|scope_map| scope_map.get(&key))
-            .cloned())
+            .get(scope.as_ref())
+            .and_then(|scope_map| scope_map.get(key.into()))
+            .map(|value| value.to_vec()))
     }
 
-    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+    async fn get_number(&self, scope: &[u8], key: &[u8]) -> Result<Option<i64>> {
         self.get(scope, key)
             .await?
             .map(|val| {
-                val.as_ref()
-                    .try_into()
+                val.try_into()
                     .map_err(|_| StorageError::InvalidNumber)
                     .map(i64::from_le_bytes)
             })
             .transpose()
     }
 
-    async fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+    async fn mutate(&self, scope: &[u8], key: &[u8], mutations: Mutation) -> Result<()> {
         let mut guard = self.map.lock();
-        let scope_map = guard.entry(scope.clone()).or_default();
+        let scope_map = guard.entry(scope.into()).or_default();
 
-        let value = if let Some(val) = scope_map.get(&key) {
+        let value = if let Some(val) = scope_map.get(key.into()) {
             let num = val
                 .as_ref()
                 .try_into()
@@ -144,62 +143,65 @@ impl Store for MemoryBackend {
         let value = run_mutations(value, mutations);
 
         if let Some(value) = value {
-            scope_map.insert(key, Arc::new(value.to_le_bytes()));
+            scope_map.insert(key.into(), Arc::new(value.to_le_bytes()));
             Ok(())
         } else {
             Err(StorageError::InvalidNumber)
         }
     }
 
-    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+    async fn delete(&self, scope: &[u8], key: &[u8]) -> Result<()> {
         if self
             .map
             .lock()
-            .get_mut(&scope)
-            .and_then(|scope_map| scope_map.remove(&key))
+            .get_mut(scope.into())
+            .and_then(|scope_map| scope_map.remove(key.into()))
             .is_some()
         {
-            self.dq_tx.remove(ExpiryKey::new(scope, key)).await.ok();
+            self.dq_tx
+                .remove(ExpiryKey::new(scope.into(), key.into()))
+                .await
+                .ok();
         }
         Ok(())
     }
 
-    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+    async fn contains_key(&self, scope: &[u8], key: &[u8]) -> Result<bool> {
         Ok(self
             .map
             .lock()
-            .get(&scope)
-            .map(|scope_map| scope_map.contains_key(&key))
+            .get(scope.into())
+            .map(|scope_map| scope_map.contains_key(key.into()))
             .unwrap_or(false))
     }
 }
 
 #[async_trait::async_trait]
 impl Expiry for MemoryBackend {
-    async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+    async fn persist(&self, scope: &[u8], key: &[u8]) -> Result<()> {
         self.dq_tx
-            .remove(ExpiryKey::new(scope, key))
+            .remove(ExpiryKey::new(scope.into(), key.into()))
             .await
             .map_err(StorageError::custom)
     }
 
-    async fn expire(&self, scope: Arc<[u8]>, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
+    async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> Result<()> {
         self.dq_tx
-            .insert_or_update(ExpiryKey::new(scope, key), expire_in)
+            .insert_or_update(ExpiryKey::new(scope.into(), key.into()), expire_in)
             .await
             .map_err(StorageError::custom)
     }
 
-    async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
+    async fn expiry(&self, scope: &[u8], key: &[u8]) -> Result<Option<Duration>> {
         self.dq_tx
-            .get(ExpiryKey::new(scope, key))
+            .get(ExpiryKey::new(scope.into(), key.into()))
             .await
             .map_err(StorageError::custom)
     }
 
-    async fn extend(&self, scope: Arc<[u8]>, key: Arc<[u8]>, duration: Duration) -> Result<()> {
+    async fn extend(&self, scope: &[u8], key: &[u8], duration: Duration) -> Result<()> {
         self.dq_tx
-            .extend(ExpiryKey::new(scope, key), duration)
+            .extend(ExpiryKey::new(scope.into(), key.into()), duration)
             .await
             .map_err(|e| StorageError::custom(e))
     }
@@ -209,40 +211,40 @@ impl Expiry for MemoryBackend {
 impl ExpiryStore for MemoryBackend {
     async fn set_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: Arc<[u8]>,
+        scope: &[u8],
+        key: &[u8],
+        value: &[u8],
         expire_in: Duration,
     ) -> Result<()> {
         self.map
             .lock()
-            .entry(scope.clone())
+            .entry(scope.into())
             .or_default()
-            .insert(key.clone(), value);
+            .insert(key.into(), value.into());
         self.dq_tx
-            .insert_or_update(ExpiryKey::new(scope, key), expire_in)
+            .insert_or_update(ExpiryKey::new(scope.into(), key.into()), expire_in)
             .await
             .map_err(|e| StorageError::custom(e))
     }
 
     async fn get_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+        scope: &[u8],
+        key: &[u8],
+    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
         let val = self
             .map
             .lock()
-            .get(&scope)
-            .and_then(|scope_map| scope_map.get(&key))
+            .get(scope.into())
+            .and_then(|scope_map| scope_map.get(key.into()))
             .cloned();
         if let Some(val) = val {
             let exp = self
                 .dq_tx
-                .get(ExpiryKey::new(scope, key))
+                .get(ExpiryKey::new(scope.into(), key.into()))
                 .await
                 .map_err(|e| StorageError::custom(e))?;
-            Ok(Some((val, exp)))
+            Ok(Some((val.as_ref().to_vec(), exp)))
         } else {
             Ok(None)
         }

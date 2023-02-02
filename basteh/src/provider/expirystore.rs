@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use super::{Expiry, Store};
@@ -13,9 +12,9 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
     /// both the value and the expiry for that key.
     async fn set_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: Arc<[u8]>,
+        scope: &[u8],
+        key: &[u8],
+        value: &[u8],
         expire_in: Duration,
     ) -> Result<()> {
         self.set(scope.clone(), key.clone(), value).await?;
@@ -26,9 +25,9 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
     /// or return None for the expiry if the key is persistent.
     async fn get_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-    ) -> Result<Option<(Arc<[u8]>, Option<Duration>)>> {
+        scope: &[u8],
+        key: &[u8],
+    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
         let val = self.get(scope.clone(), key.clone()).await?;
         match val {
             Some(val) => {

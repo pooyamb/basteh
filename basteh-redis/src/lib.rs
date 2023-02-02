@@ -1,6 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use basteh::{
@@ -64,11 +63,11 @@ impl RedisBackend {
 
 #[async_trait::async_trait]
 impl Store for RedisBackend {
-    async fn keys(&self, scope: Arc<[u8]>) -> Result<Box<dyn Iterator<Item = Arc<[u8]>>>> {
+    async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         let keys = self
             .con
             .clone()
-            .keys::<_, Vec<Vec<u8>>>([scope.as_ref(), b":*"].concat())
+            .keys::<_, Vec<Vec<u8>>>([scope, b":*"].concat())
             .await
             .map_err(StorageError::custom)?
             .into_iter()
@@ -76,11 +75,11 @@ impl Store for RedisBackend {
                 let ignored = scope.len() + 1;
                 k[ignored..].to_vec()
             })
-            .map(|v| v.into());
-        Ok(Box::new(keys))
+            .collect::<Vec<_>>();
+        Ok(Box::new(keys.into_iter()))
     }
 
-    async fn set(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: Arc<[u8]>) -> Result<()> {
+    async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -90,7 +89,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn set_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>, value: i64) -> Result<()> {
+    async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -100,7 +99,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn get(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Arc<[u8]>>> {
+    async fn get(&self, scope: &[u8], key: &[u8]) -> Result<Option<Vec<u8>>> {
         let full_key = get_full_key(scope, key);
         let res: Option<Vec<u8>> = self
             .con
@@ -112,7 +111,7 @@ impl Store for RedisBackend {
     }
 
     /// Get a value for specified key, it should result in None if the value does not exist
-    async fn get_number(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<i64>> {
+    async fn get_number(&self, scope: &[u8], key: &[u8]) -> Result<Option<i64>> {
         let full_key = get_full_key(scope, key);
         let res: Option<Vec<u8>> = self
             .con
@@ -128,7 +127,7 @@ impl Store for RedisBackend {
         .transpose()
     }
 
-    async fn mutate(&self, scope: Arc<[u8]>, key: Arc<[u8]>, mutations: Mutation) -> Result<()> {
+    async fn mutate(&self, scope: &[u8], key: &[u8], mutations: Mutation) -> Result<()> {
         if mutations.len() == 0 {
             return Ok(());
         }
@@ -160,7 +159,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn delete(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+    async fn delete(&self, scope: &[u8], key: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -170,7 +169,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn contains_key(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<bool> {
+    async fn contains_key(&self, scope: &[u8], key: &[u8]) -> Result<bool> {
         let full_key = get_full_key(scope, key);
         let res: u8 = self
             .con
@@ -184,7 +183,7 @@ impl Store for RedisBackend {
 
 #[async_trait::async_trait]
 impl Expiry for RedisBackend {
-    async fn persist(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<()> {
+    async fn persist(&self, scope: &[u8], key: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -194,7 +193,7 @@ impl Expiry for RedisBackend {
         Ok(())
     }
 
-    async fn expiry(&self, scope: Arc<[u8]>, key: Arc<[u8]>) -> Result<Option<Duration>> {
+    async fn expiry(&self, scope: &[u8], key: &[u8]) -> Result<Option<Duration>> {
         let full_key = get_full_key(scope, key);
         let res: i32 = self
             .con
@@ -209,7 +208,7 @@ impl Expiry for RedisBackend {
         })
     }
 
-    async fn expire(&self, scope: Arc<[u8]>, key: Arc<[u8]>, expire_in: Duration) -> Result<()> {
+    async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -224,9 +223,9 @@ impl Expiry for RedisBackend {
 impl ExpiryStore for RedisBackend {
     async fn set_expiring(
         &self,
-        scope: Arc<[u8]>,
-        key: Arc<[u8]>,
-        value: Arc<[u8]>,
+        scope: &[u8],
+        key: &[u8],
+        value: &[u8],
         expire_in: Duration,
     ) -> Result<()> {
         let full_key = get_full_key(scope, key);
