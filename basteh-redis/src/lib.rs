@@ -63,11 +63,11 @@ impl RedisBackend {
 
 #[async_trait::async_trait]
 impl Store for RedisBackend {
-    async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+    async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         let keys = self
             .con
             .clone()
-            .keys::<_, Vec<Vec<u8>>>([scope, b":*"].concat())
+            .keys::<_, Vec<Vec<u8>>>([scope, ":*"].concat())
             .await
             .map_err(StorageError::custom)?
             .into_iter()
@@ -79,7 +79,7 @@ impl Store for RedisBackend {
         Ok(Box::new(keys.into_iter()))
     }
 
-    async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -89,7 +89,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> Result<()> {
+    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -99,7 +99,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn get(&self, scope: &[u8], key: &[u8]) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let full_key = get_full_key(scope, key);
         let res: Option<Vec<u8>> = self
             .con
@@ -111,7 +111,7 @@ impl Store for RedisBackend {
     }
 
     /// Get a value for specified key, it should result in None if the value does not exist
-    async fn get_number(&self, scope: &[u8], key: &[u8]) -> Result<Option<i64>> {
+    async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
         let full_key = get_full_key(scope, key);
         let res: Option<Vec<u8>> = self
             .con
@@ -127,7 +127,7 @@ impl Store for RedisBackend {
         .transpose()
     }
 
-    async fn mutate(&self, scope: &[u8], key: &[u8], mutations: Mutation) -> Result<()> {
+    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
         if mutations.len() == 0 {
             return Ok(());
         }
@@ -159,7 +159,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn delete(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+    async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -169,7 +169,7 @@ impl Store for RedisBackend {
         Ok(())
     }
 
-    async fn contains_key(&self, scope: &[u8], key: &[u8]) -> Result<bool> {
+    async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool> {
         let full_key = get_full_key(scope, key);
         let res: u8 = self
             .con
@@ -183,7 +183,7 @@ impl Store for RedisBackend {
 
 #[async_trait::async_trait]
 impl Expiry for RedisBackend {
-    async fn persist(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+    async fn persist(&self, scope: &str, key: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -193,7 +193,7 @@ impl Expiry for RedisBackend {
         Ok(())
     }
 
-    async fn expiry(&self, scope: &[u8], key: &[u8]) -> Result<Option<Duration>> {
+    async fn expiry(&self, scope: &str, key: &[u8]) -> Result<Option<Duration>> {
         let full_key = get_full_key(scope, key);
         let res: i32 = self
             .con
@@ -208,7 +208,7 @@ impl Expiry for RedisBackend {
         })
     }
 
-    async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> Result<()> {
+    async fn expire(&self, scope: &str, key: &[u8], expire_in: Duration) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
@@ -223,7 +223,7 @@ impl Expiry for RedisBackend {
 impl ExpiryStore for RedisBackend {
     async fn set_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
         value: &[u8],
         expire_in: Duration,

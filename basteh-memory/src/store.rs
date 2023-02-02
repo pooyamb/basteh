@@ -10,16 +10,16 @@ use crate::delayqueue::{delayqueue, DelayQueueSender};
 use crate::utils::run_mutations;
 
 type ScopeMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
-type InternalMap = HashMap<Arc<[u8]>, ScopeMap>;
+type InternalMap = HashMap<Arc<str>, ScopeMap>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 struct ExpiryKey {
-    pub(crate) scope: Arc<[u8]>,
+    pub(crate) scope: Arc<str>,
     pub(crate) key: Arc<[u8]>,
 }
 
 impl ExpiryKey {
-    pub fn new(scope: Arc<[u8]>, key: Arc<[u8]>) -> Self {
+    pub fn new(scope: Arc<str>, key: Arc<[u8]>) -> Self {
         Self { scope, key }
     }
 }
@@ -71,7 +71,7 @@ impl MemoryBackend {
 
 #[async_trait::async_trait]
 impl Store for MemoryBackend {
-    async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+    async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         Ok(Box::new(
             self.map
                 .lock()
@@ -84,7 +84,7 @@ impl Store for MemoryBackend {
         ))
     }
 
-    async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
         if self
             .map
             .lock()
@@ -101,20 +101,20 @@ impl Store for MemoryBackend {
         Ok(())
     }
 
-    async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> Result<()> {
+    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
         self.set(scope, key, &value.to_le_bytes()).await
     }
 
-    async fn get(&self, scope: &[u8], key: &[u8]) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
         Ok(self
             .map
             .lock()
-            .get(scope.as_ref())
+            .get(scope)
             .and_then(|scope_map| scope_map.get(key.into()))
             .map(|value| value.to_vec()))
     }
 
-    async fn get_number(&self, scope: &[u8], key: &[u8]) -> Result<Option<i64>> {
+    async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
         self.get(scope, key)
             .await?
             .map(|val| {
@@ -125,7 +125,7 @@ impl Store for MemoryBackend {
             .transpose()
     }
 
-    async fn mutate(&self, scope: &[u8], key: &[u8], mutations: Mutation) -> Result<()> {
+    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
         let mut guard = self.map.lock();
         let scope_map = guard.entry(scope.into()).or_default();
 
@@ -150,7 +150,7 @@ impl Store for MemoryBackend {
         }
     }
 
-    async fn delete(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+    async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
         if self
             .map
             .lock()
@@ -166,7 +166,7 @@ impl Store for MemoryBackend {
         Ok(())
     }
 
-    async fn contains_key(&self, scope: &[u8], key: &[u8]) -> Result<bool> {
+    async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool> {
         Ok(self
             .map
             .lock()
@@ -178,28 +178,28 @@ impl Store for MemoryBackend {
 
 #[async_trait::async_trait]
 impl Expiry for MemoryBackend {
-    async fn persist(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+    async fn persist(&self, scope: &str, key: &[u8]) -> Result<()> {
         self.dq_tx
             .remove(ExpiryKey::new(scope.into(), key.into()))
             .await
             .map_err(StorageError::custom)
     }
 
-    async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> Result<()> {
+    async fn expire(&self, scope: &str, key: &[u8], expire_in: Duration) -> Result<()> {
         self.dq_tx
             .insert_or_update(ExpiryKey::new(scope.into(), key.into()), expire_in)
             .await
             .map_err(StorageError::custom)
     }
 
-    async fn expiry(&self, scope: &[u8], key: &[u8]) -> Result<Option<Duration>> {
+    async fn expiry(&self, scope: &str, key: &[u8]) -> Result<Option<Duration>> {
         self.dq_tx
             .get(ExpiryKey::new(scope.into(), key.into()))
             .await
             .map_err(StorageError::custom)
     }
 
-    async fn extend(&self, scope: &[u8], key: &[u8], duration: Duration) -> Result<()> {
+    async fn extend(&self, scope: &str, key: &[u8], duration: Duration) -> Result<()> {
         self.dq_tx
             .extend(ExpiryKey::new(scope.into(), key.into()), duration)
             .await
@@ -211,7 +211,7 @@ impl Expiry for MemoryBackend {
 impl ExpiryStore for MemoryBackend {
     async fn set_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
         value: &[u8],
         expire_in: Duration,
@@ -229,7 +229,7 @@ impl ExpiryStore for MemoryBackend {
 
     async fn get_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
     ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
         let val = self

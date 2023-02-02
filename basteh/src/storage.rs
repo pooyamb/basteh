@@ -28,7 +28,7 @@ use crate::error::Result;
 ///
 #[derive(Clone)]
 pub struct Storage {
-    pub(crate) scope: Arc<[u8]>,
+    pub(crate) scope: Arc<str>,
     pub(crate) store: Arc<dyn ExpiryStore>,
 }
 
@@ -53,9 +53,9 @@ impl Storage {
     /// #     "set"
     /// # }
     /// ```
-    pub fn scope(&self, scope: impl AsRef<[u8]>) -> Storage {
+    pub fn scope(&self, scope: &str) -> Storage {
         Storage {
-            scope: scope.as_ref().into(),
+            scope: scope.into(),
             store: self.store.clone(),
         }
     }

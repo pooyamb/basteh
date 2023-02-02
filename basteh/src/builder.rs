@@ -5,7 +5,7 @@ use crate::{
     Storage,
 };
 
-pub const GLOBAL_SCOPE: [u8; 20] = *b"STORAGE_GLOBAL_SCOPE";
+pub const GLOBAL_SCOPE: &str = "STORAGE_GLOBAL_SCOPE";
 
 /// Builder struct for [`Storage`](../struct.Storage.html)
 ///
@@ -58,7 +58,7 @@ impl<S: ExpiryStore + 'static> StorageBuilder<S> {
     /// Build the Storage
     pub fn finish(self) -> Storage {
         Storage {
-            scope: Arc::new(GLOBAL_SCOPE),
+            scope: GLOBAL_SCOPE.into(),
             store: Arc::new(self.store.unwrap()),
         }
     }
@@ -83,19 +83,19 @@ mod private {
         S: Send + Sync,
         E: Send + Sync + Expiry,
     {
-        async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> Result<()> {
+        async fn expire(&self, scope: &str, key: &[u8], expire_in: Duration) -> Result<()> {
             self.1.expire(scope, key, expire_in).await
         }
 
-        async fn expiry(&self, scope: &[u8], key: &[u8]) -> Result<Option<Duration>> {
+        async fn expiry(&self, scope: &str, key: &[u8]) -> Result<Option<Duration>> {
             self.1.expiry(scope, key).await
         }
 
-        async fn extend(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> Result<()> {
+        async fn extend(&self, scope: &str, key: &[u8], expire_in: Duration) -> Result<()> {
             self.1.extend(scope, key, expire_in).await
         }
 
-        async fn persist(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+        async fn persist(&self, scope: &str, key: &[u8]) -> Result<()> {
             self.1.persist(scope, key).await
         }
     }
@@ -107,39 +107,39 @@ mod private {
         S: Send + Sync + Store,
         E: Send + Sync + Expiry,
     {
-        async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+        async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
             self.0.keys(scope).await
         }
 
-        async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
+        async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
             self.0.set(scope, key.clone(), value).await?;
             self.1.set_called(key).await;
             Ok(())
         }
 
-        async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> Result<()> {
+        async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
             self.0.set_number(scope, key.clone(), value).await?;
             self.1.set_called(key).await;
             Ok(())
         }
 
-        async fn get(&self, scope: &[u8], key: &[u8]) -> Result<Option<Vec<u8>>> {
+        async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
             self.0.get(scope, key).await
         }
 
-        async fn get_number(&self, scope: &[u8], key: &[u8]) -> Result<Option<i64>> {
+        async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
             self.0.get_number(scope, key).await
         }
 
-        async fn delete(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+        async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
             self.0.delete(scope, key).await
         }
 
-        async fn contains_key(&self, scope: &[u8], key: &[u8]) -> Result<bool> {
+        async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool> {
             self.0.contains_key(scope, key).await
         }
 
-        async fn mutate(&self, scope: &[u8], key: &[u8], mutations: Mutation) -> Result<()> {
+        async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
             self.0.mutate(scope, key, mutations).await
         }
     }
@@ -153,7 +153,7 @@ mod private {
     {
         async fn set_expiring(
             &self,
-            scope: &[u8],
+            scope: &str,
             key: &[u8],
             value: &[u8],
             expire_in: Duration,
@@ -164,7 +164,7 @@ mod private {
 
         async fn get_expiring(
             &self,
-            scope: &[u8],
+            scope: &str,
             key: &[u8],
         ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
             let val = self.0.get(scope.clone(), key.clone()).await?;
@@ -183,19 +183,19 @@ mod private {
     where
         S: Send + Sync,
     {
-        async fn expire(&self, _: &[u8], _: &[u8], _: Duration) -> Result<()> {
+        async fn expire(&self, _: &str, _: &[u8], _: Duration) -> Result<()> {
             Err(StorageError::MethodNotSupported)
         }
 
-        async fn expiry(&self, _: &[u8], _: &[u8]) -> Result<Option<Duration>> {
+        async fn expiry(&self, _: &str, _: &[u8]) -> Result<Option<Duration>> {
             Err(StorageError::MethodNotSupported)
         }
 
-        async fn extend(&self, _: &[u8], _: &[u8], _: Duration) -> Result<()> {
+        async fn extend(&self, _: &str, _: &[u8], _: Duration) -> Result<()> {
             Err(StorageError::MethodNotSupported)
         }
 
-        async fn persist(&self, _: &[u8], _: &[u8]) -> Result<()> {
+        async fn persist(&self, _: &str, _: &[u8]) -> Result<()> {
             Err(StorageError::MethodNotSupported)
         }
     }
@@ -206,35 +206,35 @@ mod private {
     where
         S: Send + Sync + Store,
     {
-        async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+        async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
             self.0.keys(scope).await
         }
 
-        async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
+        async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
             self.0.set(scope, key.clone(), value).await
         }
 
-        async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> Result<()> {
+        async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
             self.0.set_number(scope, key.clone(), value).await
         }
 
-        async fn get(&self, scope: &[u8], key: &[u8]) -> Result<Option<Vec<u8>>> {
+        async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
             self.0.get(scope, key).await
         }
 
-        async fn get_number(&self, scope: &[u8], key: &[u8]) -> Result<Option<i64>> {
+        async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
             self.0.get_number(scope, key).await
         }
 
-        async fn delete(&self, scope: &[u8], key: &[u8]) -> Result<()> {
+        async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
             self.0.delete(scope, key).await
         }
 
-        async fn contains_key(&self, scope: &[u8], key: &[u8]) -> Result<bool> {
+        async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool> {
             self.0.contains_key(scope, key).await
         }
 
-        async fn mutate(&self, scope: &[u8], key: &[u8], mutations: Mutation) -> Result<()> {
+        async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
             self.0.mutate(scope, key, mutations).await
         }
     }
@@ -245,13 +245,13 @@ mod private {
     where
         S: Send + Sync + Store,
     {
-        async fn set_expiring(&self, _: &[u8], _: &[u8], _: &[u8], _: Duration) -> Result<()> {
+        async fn set_expiring(&self, _: &str, _: &[u8], _: &[u8], _: Duration) -> Result<()> {
             Err(StorageError::MethodNotSupported)
         }
 
         async fn get_expiring(
             &self,
-            _: &[u8],
+            _: &str,
             _: &[u8],
         ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
             Err(StorageError::MethodNotSupported)

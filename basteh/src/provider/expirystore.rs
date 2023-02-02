@@ -12,7 +12,7 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
     /// both the value and the expiry for that key.
     async fn set_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
         value: &[u8],
         expire_in: Duration,
@@ -25,7 +25,7 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
     /// or return None for the expiry if the key is persistent.
     async fn get_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
     ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
         let val = self.get(scope.clone(), key.clone()).await?;

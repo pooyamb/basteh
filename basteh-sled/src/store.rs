@@ -103,14 +103,14 @@ impl SledBackend {
 
 #[async_trait::async_trait]
 impl Store for SledBackend {
-    async fn keys(&self, scope: &[u8]) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
+    async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         match self.msg(Request::Keys(scope.into())).await? {
             Response::Iterator(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn set(&self, scope: &[u8], key: &[u8], value: &[u8]) -> basteh::Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> basteh::Result<()> {
         match self
             .msg(Request::Set(scope.into(), key.into(), value.into()))
             .await?
@@ -120,7 +120,7 @@ impl Store for SledBackend {
         }
     }
 
-    async fn set_number(&self, scope: &[u8], key: &[u8], value: i64) -> basteh::Result<()> {
+    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> basteh::Result<()> {
         match self
             .msg(Request::SetNumber(scope.into(), key.into(), value.into()))
             .await?
@@ -130,14 +130,14 @@ impl Store for SledBackend {
         }
     }
 
-    async fn get(&self, scope: &[u8], key: &[u8]) -> basteh::Result<Option<Vec<u8>>> {
+    async fn get(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<Vec<u8>>> {
         match self.msg(Request::Get(scope.into(), key.into())).await? {
             Response::Value(r) => Ok(r.map(|v| v.to_vec())),
             _ => unreachable!(),
         }
     }
 
-    async fn get_number(&self, scope: &[u8], key: &[u8]) -> basteh::Result<Option<i64>> {
+    async fn get_number(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<i64>> {
         match self
             .msg(Request::GetNumber(scope.into(), key.into()))
             .await?
@@ -149,7 +149,7 @@ impl Store for SledBackend {
 
     async fn mutate(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
         mutations: basteh::dev::Mutation,
     ) -> basteh::Result<()> {
@@ -162,14 +162,14 @@ impl Store for SledBackend {
         }
     }
 
-    async fn delete(&self, scope: &[u8], key: &[u8]) -> basteh::Result<()> {
+    async fn delete(&self, scope: &str, key: &[u8]) -> basteh::Result<()> {
         match self.msg(Request::Delete(scope.into(), key.into())).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn contains_key(&self, scope: &[u8], key: &[u8]) -> basteh::Result<bool> {
+    async fn contains_key(&self, scope: &str, key: &[u8]) -> basteh::Result<bool> {
         match self
             .msg(Request::Contains(scope.into(), key.into()))
             .await?
@@ -182,14 +182,14 @@ impl Store for SledBackend {
 
 #[async_trait::async_trait]
 impl Expiry for SledBackend {
-    async fn persist(&self, scope: &[u8], key: &[u8]) -> basteh::Result<()> {
+    async fn persist(&self, scope: &str, key: &[u8]) -> basteh::Result<()> {
         match self.msg(Request::Persist(scope.into(), key.into())).await? {
             Response::Empty(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn expire(&self, scope: &[u8], key: &[u8], expire_in: Duration) -> basteh::Result<()> {
+    async fn expire(&self, scope: &str, key: &[u8], expire_in: Duration) -> basteh::Result<()> {
         match self
             .msg(Request::Expire(scope.into(), key.into(), expire_in))
             .await?
@@ -199,14 +199,14 @@ impl Expiry for SledBackend {
         }
     }
 
-    async fn expiry(&self, scope: &[u8], key: &[u8]) -> basteh::Result<Option<Duration>> {
+    async fn expiry(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<Duration>> {
         match self.msg(Request::Expiry(scope.into(), key.into())).await? {
             Response::Duration(r) => Ok(r),
             _ => unreachable!(),
         }
     }
 
-    async fn extend(&self, scope: &[u8], key: &[u8], duration: Duration) -> Result<()> {
+    async fn extend(&self, scope: &str, key: &[u8], duration: Duration) -> Result<()> {
         match self
             .msg(Request::Extend(scope.into(), key.into(), duration))
             .await?
@@ -221,7 +221,7 @@ impl Expiry for SledBackend {
 impl ExpiryStore for SledBackend {
     async fn set_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
         value: &[u8],
         expire_in: Duration,
@@ -242,7 +242,7 @@ impl ExpiryStore for SledBackend {
 
     async fn get_expiring(
         &self,
-        scope: &[u8],
+        scope: &str,
         key: &[u8],
     ) -> basteh::Result<Option<(Vec<u8>, Option<Duration>)>> {
         match self
