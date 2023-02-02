@@ -83,7 +83,7 @@ impl Store for RedisBackend {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
-            .set(full_key, value.as_ref())
+            .set(full_key, value)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
@@ -101,30 +101,23 @@ impl Store for RedisBackend {
 
     async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let full_key = get_full_key(scope, key);
-        let res: Option<Vec<u8>> = self
-            .con
+        self.con
             .clone()
             .get(full_key)
             .await
-            .map_err(StorageError::custom)?;
-        Ok(res.map(|val| val.into()))
+            .map_err(StorageError::custom)
     }
 
     /// Get a value for specified key, it should result in None if the value does not exist
     async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
-        let full_key = get_full_key(scope, key);
-        let res: Option<Vec<u8>> = self
-            .con
-            .clone()
-            .get(full_key)
-            .await
-            .map_err(StorageError::custom)?;
-        res.map(|val| {
-            String::from_utf8_lossy(&val)
-                .parse()
-                .map_err(|_| StorageError::InvalidNumber)
-        })
-        .transpose()
+        self.get(scope, key)
+            .await?
+            .map(|val| {
+                String::from_utf8_lossy(&val)
+                    .parse()
+                    .map_err(|_| StorageError::InvalidNumber)
+            })
+            .transpose()
     }
 
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
@@ -231,7 +224,7 @@ impl ExpiryStore for RedisBackend {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
-            .set_ex(full_key, value.as_ref(), expire_in.as_secs() as usize)
+            .set_ex(full_key, value, expire_in.as_secs() as usize)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
