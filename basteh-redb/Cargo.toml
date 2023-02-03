@@ -1,0 +1,28 @@
+[package]
+name = "basteh-redb"
+version = "0.4.0-alpha.2"
+authors = ["Pouya M. B. <pooyamb@gmail.com>"]
+categories = ["asynchronous", "caching", "web-programming::http-server"]
+description = "An implementation of basteh based on redb"
+documentation = "https://docs.rs/basteh-redb"
+edition = "2018"
+keywords = ["storage", "web", "async", "redb"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/pooyamb/basteh/"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+basteh = "0.4.0-alpha.2"
+async-trait = "0.1"
+redb = "0.12"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+priority-queue = "1.3"
+
+tokio = { version = "1.13.1", features = ["sync", "macros", "rt"] }
+
+[dev-dependencies]
+tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt", "parking_lot"] }
+basteh = { version = "0.4.0-alpha.2", features = ["all", "test_utils"] }

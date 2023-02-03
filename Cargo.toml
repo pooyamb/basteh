@@ -1,5 +1,5 @@
 [workspace]
-members = ["basteh", "basteh-memory", "basteh-sled", "basteh-redis", "examples/*"]
+members = ["basteh", "basteh-memory", "basteh-sled", "basteh-redis", "basteh-redb", "examples/*"]
 
 resolver = "2"
 
@@ -8,6 +8,7 @@ basteh = { path = "./basteh/" }
 basteh-memory = { path = "./basteh-memory/" }
 basteh-sled = { path = "./basteh-sled/" }
 basteh-redis = { path = "./basteh-redis/" }
+basteh-redb = { path = "./basteh-redb/" }
 
 [profile.release]
 lto = true
