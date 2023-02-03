@@ -1,4 +1,4 @@
-# basteh-sled
+# basteh-redb
 
 This crate provides implementations for basteh based on `redb` database.
 
