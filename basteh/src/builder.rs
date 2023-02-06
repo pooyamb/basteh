@@ -68,9 +68,10 @@ mod private {
     use std::time::Duration;
 
     use crate::{
-        dev::Mutation,
+        dev::{Mutation, OwnedValue},
         error::Result,
         provider::{Expiry, ExpiryStore, Store},
+        value::Value,
         StorageError,
     };
 
@@ -111,24 +112,14 @@ mod private {
             self.0.keys(scope).await
         }
 
-        async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
+        async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
             self.0.set(scope, key.clone(), value).await?;
             self.1.set_called(key).await;
             Ok(())
         }
 
-        async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
-            self.0.set_number(scope, key.clone(), value).await?;
-            self.1.set_called(key).await;
-            Ok(())
-        }
-
-        async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
             self.0.get(scope, key).await
-        }
-
-        async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
-            self.0.get_number(scope, key).await
         }
 
         async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
@@ -155,7 +146,7 @@ mod private {
             &self,
             scope: &str,
             key: &[u8],
-            value: &[u8],
+            value: Value<'_>,
             expire_in: Duration,
         ) -> Result<()> {
             self.0.set(scope.clone(), key.clone(), value).await?;
@@ -166,7 +157,7 @@ mod private {
             &self,
             scope: &str,
             key: &[u8],
-        ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
+        ) -> Result<Option<(OwnedValue, Option<Duration>)>> {
             let val = self.0.get(scope.clone(), key.clone()).await?;
             if let Some(val) = val {
                 let expiry = self.1.expiry(scope, key).await?;
@@ -210,20 +201,12 @@ mod private {
             self.0.keys(scope).await
         }
 
-        async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
+        async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
             self.0.set(scope, key.clone(), value).await
         }
 
-        async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
-            self.0.set_number(scope, key.clone(), value).await
-        }
-
-        async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
             self.0.get(scope, key).await
-        }
-
-        async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
-            self.0.get_number(scope, key).await
         }
 
         async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
@@ -245,7 +228,7 @@ mod private {
     where
         S: Send + Sync + Store,
     {
-        async fn set_expiring(&self, _: &str, _: &[u8], _: &[u8], _: Duration) -> Result<()> {
+        async fn set_expiring(&self, _: &str, _: &[u8], _: Value<'_>, _: Duration) -> Result<()> {
             Err(StorageError::MethodNotSupported)
         }
 
@@ -253,7 +236,7 @@ mod private {
             &self,
             _: &str,
             _: &[u8],
-        ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
+        ) -> Result<Option<(OwnedValue, Option<Duration>)>> {
             Err(StorageError::MethodNotSupported)
         }
     }
@@ -264,7 +247,8 @@ mod test {
     use std::time::Duration;
 
     use crate::{
-        dev::{Expiry, Mutation, Store},
+        dev::{Expiry, Mutation, OwnedValue, Store},
+        value::Value,
         Result, Storage,
     };
 
@@ -276,17 +260,11 @@ mod test {
         async fn keys(&self, _: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
             Ok(Box::new(Vec::new().into_iter()))
         }
-        async fn set(&self, _: &str, _: &[u8], _: &[u8]) -> Result<()> {
+        async fn set(&self, _: &str, _: &[u8], _: Value<'_>) -> Result<()> {
             Ok(())
         }
-        async fn set_number(&self, _: &str, _: &[u8], _: i64) -> Result<()> {
-            Ok(())
-        }
-        async fn get(&self, _: &str, _: &[u8]) -> Result<Option<Vec<u8>>> {
-            Ok(Some("v".as_bytes().into()))
-        }
-        async fn get_number(&self, _: &str, _: &[u8]) -> Result<Option<i64>> {
-            Ok(Some(123))
+        async fn get(&self, _: &str, _: &[u8]) -> Result<Option<OwnedValue>> {
+            Ok(Some(Value::<'_>::from("v").into_owned()))
         }
         async fn contains_key(&self, _: &str, _: &[u8]) -> Result<bool> {
             Ok(false)
@@ -330,11 +308,11 @@ mod test {
         assert!(storage.extend(k, d).await.is_err());
         assert!(storage.persist(k).await.is_err());
         assert!(storage.set_expiring(k, v, d).await.is_err());
-        assert!(storage.get_expiring(k).await.is_err());
+        assert!(storage.get_expiring::<String>(k).await.is_err());
 
         // These tests should all succeed
         assert!(storage.set(k, v).await.is_ok());
-        assert!(storage.get(k).await.is_ok());
+        assert!(storage.get::<Vec<u8>>(k).await.is_ok());
         assert!(storage.delete(k).await.is_ok());
         assert!(storage.contains_key(k).await.is_ok());
     }
@@ -358,15 +336,15 @@ mod test {
         assert!(storage.extend(k, d).await.is_ok());
         assert!(storage.persist(k).await.is_ok());
         assert!(storage.set_expiring(k, v, d).await.is_ok());
-        assert!(storage.get_expiring(k).await.is_ok());
+        assert!(storage.get_expiring::<String>(k).await.is_ok());
         assert!(storage.set(k, v).await.is_ok());
-        assert!(storage.get(k).await.is_ok());
+        assert!(storage.get::<Vec<u8>>(k).await.is_ok());
         assert!(storage.delete(k).await.is_ok());
         assert!(storage.contains_key(k).await.is_ok());
 
         // values should match
-        let res = storage.get_expiring("key").await;
+        let res = storage.get_expiring::<String>("key").await;
         assert!(res.is_ok());
-        assert!(res.unwrap() == Some(("v".as_bytes().into(), Some(Duration::from_secs(1)))));
+        assert!(res.unwrap() == Some(("v".to_owned(), Some(Duration::from_secs(1)))));
     }
 }

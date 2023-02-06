@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::{dev::OwnedValue, error::Result, value::Value};
 
 use super::Mutation;
 
@@ -9,16 +9,10 @@ pub trait Store: Send + Sync {
     async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>>;
 
     /// Set a key-value pair, if the key already exist, value should be overwritten
-    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()>;
-
-    /// Set a key-value pair with a numeric value, if the key already exist, value should be overwritten.
-    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()>;
+    async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()>;
 
     /// Get a value for specified key, it should result in None if the value does not exist
-    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>>;
-
-    /// Get a numeric value for specified key, it should result in None if the value does not exist
-    async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>>;
+    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>>;
 
     /// Get a value for specified key, it should result in None if the value does not exist
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()>;

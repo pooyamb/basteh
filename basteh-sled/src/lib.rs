@@ -6,8 +6,9 @@ mod inner;
 mod message;
 mod store;
 mod utils;
+mod value;
 
 pub use flags::ExpiryFlags;
 pub use sled::Config as SledConfig;
 pub use store::SledBackend;
-pub use utils::{decode, decode_mut, encode};
+pub use utils::{decode, encode};

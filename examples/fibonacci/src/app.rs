@@ -11,15 +11,12 @@ fn recr_fibo(input: i64, storage: Storage) -> Pin<Box<dyn Future<Output = i64> +
         Box::pin(async { 1 })
     } else {
         Box::pin(async move {
-            if let Ok(Some(res)) = storage.get_number(input.to_le_bytes()).await {
+            if let Ok(Some(res)) = storage.get(input.to_le_bytes()).await {
                 res
             } else {
                 let res = recr_fibo(input - 1, storage.clone()).await
                     + recr_fibo(input - 2, storage.clone()).await;
-                storage
-                    .set(input.to_le_bytes(), res.to_le_bytes())
-                    .await
-                    .unwrap();
+                storage.set(input.to_le_bytes(), res).await.unwrap();
                 res
             }
         })

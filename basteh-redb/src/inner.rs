@@ -5,7 +5,7 @@ use std::{
 };
 
 use basteh::{
-    dev::{Action, Mutation},
+    dev::{Action, Mutation, OwnedValue},
     StorageError,
 };
 use redb::{Error, ReadableTable, TableDefinition};
@@ -14,11 +14,12 @@ use crate::{
     delayqueue::DelayQueue,
     flags::ExpiryFlags,
     message::{Message, Request, Response},
+    value::OwnedValueWrapper,
 };
 
 macro_rules! table_def {
     ($var_name:ident, $name:expr) => {
-        let $var_name = TableDefinition::<&[u8], &[u8]>::new($name);
+        let $var_name = TableDefinition::<&[u8], OwnedValueWrapper>::new($name);
     };
 }
 
@@ -142,7 +143,7 @@ impl RedbInner {
         }
     }
 
-    fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<(), Error> {
+    fn set(&self, scope: &str, key: &[u8], value: OwnedValue) -> Result<(), Error> {
         table_def!(table, scope);
         exp_table_def!(exp_table, scope, &self.exp_table);
 
@@ -157,11 +158,7 @@ impl RedbInner {
         Ok(())
     }
 
-    fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<(), Error> {
-        self.set(scope, key, &value.to_le_bytes())
-    }
-
-    fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+    fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>, Error> {
         table_def!(table, scope);
         exp_table_def!(exp_table, scope, &self.exp_table);
 
@@ -172,29 +169,7 @@ impl RedbInner {
         };
 
         match self.db.begin_read()?.open_table(table) {
-            Ok(r) => Ok(r.get(key)?.map(|v| v.value().to_vec())),
-            Err(e) => match e {
-                Error::TableDoesNotExist(_) => Ok(None),
-                e => Err(e),
-            },
-        }
-    }
-
-    fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>, Error> {
-        table_def!(table, scope);
-        exp_table_def!(exp_table, scope, &self.exp_table);
-
-        if let Ok(r) = self.db.begin_read()?.open_table(exp_table) {
-            if let Some(true) = r.get(key)?.map(|v| v.value().expired()) {
-                return Ok(None);
-            }
-        };
-
-        match self.db.begin_read()?.open_table(table) {
-            Ok(r) => Ok(r
-                .get(key)?
-                .and_then(|v| v.value().try_into().ok())
-                .map(|v| i64::from_le_bytes(v))),
+            Ok(r) => Ok(r.get(key)?.map(|v| v.value())),
             Err(e) => match e {
                 Error::TableDoesNotExist(_) => Ok(None),
                 e => Err(e),
@@ -230,14 +205,11 @@ impl RedbInner {
             let current = if expired {
                 None
             } else {
-                table
-                    .remove(key)?
-                    .and_then(|v| v.value().try_into().ok())
-                    .map(|v| i64::from_le_bytes(v))
+                table.remove(key)?.and_then(|v| v.value().try_into().ok())
             };
             let value = run_mutations(current.unwrap_or(0), &mutations);
 
-            table.insert(key, value.to_le_bytes().as_ref())?;
+            table.insert(key, OwnedValue::Number(value))?;
         }
         txn.commit()
     }
@@ -349,7 +321,7 @@ impl RedbInner {
         &mut self,
         scope: &str,
         key: &[u8],
-        value: &[u8],
+        value: OwnedValue,
         duration: Duration,
     ) -> Result<(), Error> {
         table_def!(table, scope);
@@ -371,7 +343,7 @@ impl RedbInner {
         &self,
         scope: &str,
         key: &[u8],
-    ) -> Result<Option<(Vec<u8>, Option<Duration>)>, Error> {
+    ) -> Result<Option<(OwnedValue, Option<Duration>)>, Error> {
         table_def!(table, scope);
         exp_table_def!(exp_table, scope, &self.exp_table);
 
@@ -390,7 +362,7 @@ impl RedbInner {
         }
 
         let value = match self.db.begin_read()?.open_table(table) {
-            Ok(r) => r.get(key)?.map(|v| v.value().to_vec()),
+            Ok(r) => r.get(key)?.map(|v| v.value()),
             Err(e) => match e {
                 Error::TableDoesNotExist(_) => None,
                 e => return Err(e),
@@ -457,25 +429,9 @@ impl RedbInner {
                     )
                     .ok();
                 }
-                Request::GetNumber(scope, key) => {
-                    tx.send(
-                        self.get_number(&scope, &key)
-                            .map_err(StorageError::custom)
-                            .map(Response::Number),
-                    )
-                    .ok();
-                }
                 Request::Set(scope, key, value) => {
                     tx.send(
-                        self.set(&scope, &key, &value)
-                            .map_err(StorageError::custom)
-                            .map(Response::Empty),
-                    )
-                    .ok();
-                }
-                Request::SetNumber(scope, key, value) => {
-                    tx.send(
-                        self.set_number(&scope, &key, value)
+                        self.set(&scope, &key, value)
                             .map_err(StorageError::custom)
                             .map(Response::Empty),
                     )
@@ -541,7 +497,7 @@ impl RedbInner {
                 // ExpiryStore methods
                 Request::SetExpiring(scope, key, value, dur) => {
                     tx.send(
-                        self.set_expiring(&scope, &key, &value, dur)
+                        self.set_expiring(&scope, &key, value, dur)
                             .map_err(StorageError::custom)
                             .map(Response::Empty),
                     )
@@ -590,18 +546,26 @@ mod tests {
     #[tokio::test]
     async fn test_redb_perform_deletion() {
         let dur = Duration::from_secs(1);
-        let table = TableDefinition::<&[u8], &[u8]>::new("some_scope");
+        let table = TableDefinition::<&[u8], OwnedValueWrapper>::new("some_scope");
         let db = Arc::new(open_database("/tmp/redb.perform_deletion.db"));
 
         let mut store = RedbInner::from_arc_db(db.clone());
         store.spawn_expiry_thread();
 
         store
-            .set_expiring("some_scope", b"key", b"value", dur)
+            .set_expiring(
+                "some_scope",
+                b"key",
+                OwnedValue::Bytes(b"value".to_vec()),
+                dur,
+            )
             .unwrap();
 
         assert_eq!(
-            store.get("some_scope", b"key").unwrap(),
+            store
+                .get("some_scope", b"key")
+                .unwrap()
+                .map(|v| TryInto::<Vec<u8>>::try_into(v).unwrap()),
             Some(b"value".to_vec())
         );
         assert_eq!(
@@ -613,7 +577,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .value(),
-            b"value".as_ref()
+            OwnedValue::Bytes(b"value".to_vec())
         );
 
         tokio::time::sleep(dur * 2).await;
@@ -631,8 +595,8 @@ mod tests {
     #[tokio::test]
     async fn test_redb_scan_db() {
         let dur = Duration::from_secs(1);
-        let table = TableDefinition::<&[u8], &[u8]>::new("some_scope");
-        let table2 = TableDefinition::<&[u8], &[u8]>::new("some_scope2");
+        let table = TableDefinition::<&[u8], OwnedValueWrapper>::new("some_scope");
+        let table2 = TableDefinition::<&[u8], OwnedValueWrapper>::new("some_scope2");
         let db = Arc::new(open_database("/tmp/redb.scan_db.db"));
 
         {
@@ -642,11 +606,11 @@ mod tests {
             let txn = db.begin_write().unwrap();
             txn.open_table(table)
                 .unwrap()
-                .insert(b"key".as_ref(), b"value".as_ref())
+                .insert(b"key".as_ref(), OwnedValue::Bytes(b"value".to_vec()))
                 .unwrap();
             txn.open_table(table2)
                 .unwrap()
-                .insert(b"key2".as_ref(), b"value2".as_ref())
+                .insert(b"key2".as_ref(), OwnedValue::Bytes(b"value".to_vec()))
                 .unwrap();
 
             txn.open_table(exp_table)
@@ -681,7 +645,7 @@ mod tests {
             .unwrap()
             .get(b"key".as_ref())
             .unwrap()
-            .map(|v| v.value().to_vec())
+            .map(|v| v.value())
             .is_none());
 
         assert!(db
@@ -691,7 +655,7 @@ mod tests {
             .unwrap()
             .get(b"key2".as_ref())
             .unwrap()
-            .map(|v| v.value().to_vec())
+            .map(|v| v.value())
             .is_none());
     }
 }

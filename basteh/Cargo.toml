@@ -18,10 +18,10 @@ log = "0.4"
 thiserror = "1"
 
 # For tests
-tokio = { version = "1.20", default-features = false, features = ["macros", "time"], optional = true }
+tokio = { version = "1.20", default-features = false, features = ["macros", "time", "rt"], optional = true }
 
 [dev-dependencies]
-tokio = { version = "1.20", default-features = false, features = ["macros", "time"] }
+tokio = { version = "1.20", default-features = false, features = ["macros", "time", "rt"] }
 
 [features]
 default = []

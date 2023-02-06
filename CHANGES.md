@@ -1,5 +1,7 @@
 ## Version 0.4 Alpha.3
-- Add test for mutation after expiration
+- Changed get/set methods to accept bytes/strings/numbers
+- Removed set_number and get_number methods
+- Added test for mutation after expiration
 
 ## Version 0.4 Alpha.2
 - Changed Arc scope/key/values to refrences, backends can use Arc as they wish

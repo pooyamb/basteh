@@ -24,9 +24,9 @@ pub async fn test_store_methods(storage: Storage) {
 
     assert!(storage.set(key, value).await.is_ok());
 
-    let get_res = storage.get(key).await;
+    let get_res = storage.get::<String>(key).await;
     assert!(get_res.is_ok());
-    assert_eq!(get_res.unwrap(), Some(value.as_bytes().into()));
+    assert_eq!(get_res.unwrap(), Some(value.to_owned()));
 
     let contains_res = storage.contains_key(key).await;
     assert!(contains_res.is_ok());
@@ -34,7 +34,7 @@ pub async fn test_store_methods(storage: Storage) {
 
     assert!(storage.delete(key).await.is_ok());
 
-    let get_res = storage.get(key).await;
+    let get_res = storage.get::<String>(key).await;
     assert!(get_res.is_ok());
     assert!(get_res.unwrap().is_none());
 
@@ -85,8 +85,8 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
     assert_eq!(
-        storage.get(key).await.unwrap(),
-        Some(value.as_bytes().into())
+        storage.get::<String>(key).await.unwrap(),
+        Some(value.to_owned())
     );
 
     // The exact duration depends on the implementation
@@ -98,7 +98,7 @@ pub async fn test_expiry_basics(storage: Storage, delay_secs: u64) {
     tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
-    assert_eq!(storage.get(key).await.unwrap(), None);
+    assert_eq!(storage.get::<String>(key).await.unwrap(), None);
 }
 
 /// Testing extending functionality by setting an expiry and extending it later,
@@ -125,15 +125,15 @@ pub async fn test_expiry_extend(storage: Storage, delay_secs: u64) {
 
     // Check if extended item still exist
     assert_eq!(
-        storage.get(key).await.unwrap(),
-        Some(value.as_bytes().into())
+        storage.get::<String>(key).await.unwrap(),
+        Some(value.to_owned())
     );
 
     // Adding some error to the delay, for the implementers sake
     tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if extended item has been expired
-    assert_eq!(storage.get(key).await.unwrap(), None);
+    assert_eq!(storage.get::<String>(key).await.unwrap(), None);
 }
 
 /// Testing persist, by setting an expiry for a key and making it persistant later
@@ -151,8 +151,8 @@ pub async fn test_expiry_persist(storage: Storage, delay_secs: u64) {
 
     // Check if persistent key is still there
     assert_eq!(
-        storage.get(key).await.unwrap(),
-        Some(value.as_bytes().into())
+        storage.get::<String>(key).await.unwrap(),
+        Some(value.to_owned())
     );
 }
 
@@ -162,12 +162,12 @@ pub async fn test_mutate_sould_not_change_expiry(storage: Storage, delay_secs: u
     let key = "mutated_key";
     let value = 1200;
 
-    assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
 
     assert!(storage.mutate(key, |m| m.incr(1300)).await.is_ok());
 
-    assert_eq!(storage.get_number(key).await.unwrap(), Some(2500));
+    assert_eq!(storage.get::<i64>(key).await.unwrap(), Some(2500));
 
     // Check if persistent expiry have changed
     assert!(storage.expiry(key).await.unwrap().is_some());
@@ -187,8 +187,8 @@ pub async fn test_expiry_set_clearing(storage: Storage, delay_secs: u64) {
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
-        storage.get(key).await.unwrap(),
-        Some(value.as_bytes().into())
+        storage.get::<String>(key).await.unwrap(),
+        Some(value.to_owned())
     );
 }
 
@@ -207,7 +207,7 @@ pub async fn test_expiry_override_shorter(storage: Storage, delay_secs: u64) {
     tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if calling set twice cleaerd the expire
-    assert_eq!(storage.get(key).await.unwrap(), None);
+    assert_eq!(storage.get::<String>(key).await.unwrap(), None);
 }
 
 /// Testing if second call to expire overrides the first one
@@ -226,8 +226,8 @@ pub async fn test_expiry_override_longer(storage: Storage, delay_secs: u64) {
 
     // Check if calling set twice cleaerd the expire
     assert_eq!(
-        storage.get(key).await.unwrap(),
-        Some(value.as_bytes().into())
+        storage.get::<String>(key).await.unwrap(),
+        Some(value.to_owned())
     );
 }
 
@@ -264,8 +264,8 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     // Test set and get expiring
     assert!(storage.set_expiring(key, value, delay).await.is_ok());
 
-    let (v, e) = storage.get_expiring(key).await.unwrap().unwrap();
-    assert_eq!(&v, value.as_bytes());
+    let (v, e) = storage.get_expiring::<String>(key).await.unwrap().unwrap();
+    assert_eq!(&v, &value);
     assert!(e.unwrap().as_secs() > 0);
     assert!(e.unwrap().as_secs() <= delay_secs);
 
@@ -273,7 +273,7 @@ pub async fn test_expiry_store_basics(storage: Storage, delay_secs: u64) {
     tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if first item expired as expected
-    assert_eq!(storage.get_expiring(key).await.unwrap(), None);
+    assert_eq!(storage.get_expiring::<String>(key).await.unwrap(), None);
 }
 
 /// Testing if second call to expire overrides the first one
@@ -295,8 +295,8 @@ pub async fn test_expiry_store_override_shorter(storage: Storage, delay_secs: u6
 
     // Check if the second call to set overwrites expiry
     assert_eq!(
-        storage.get(key).await.unwrap(),
-        Some(value.as_bytes().into())
+        storage.get::<String>(key).await.unwrap(),
+        Some(value.to_owned())
     );
 }
 
@@ -318,7 +318,7 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
 
     // Check if the second call to set overwrites expiry
-    assert_eq!(storage.get(key).await.unwrap(), None);
+    assert_eq!(storage.get::<String>(key).await.unwrap(), None);
 }
 
 /// Testing if mutation after expiry works as expected
@@ -328,7 +328,7 @@ pub async fn test_expiry_store_mutate_after_expiry(storage: Storage, delay_secs:
     let value = 1000;
 
     // Set a number and set expiry for it
-    assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
     assert!(storage.expire(key, delay).await.is_ok());
 
     // Adding some error to the delay, for the implementers sake
@@ -336,7 +336,7 @@ pub async fn test_expiry_store_mutate_after_expiry(storage: Storage, delay_secs:
 
     // Mutate the number
     storage.mutate(key, |m| m.incr(100)).await.unwrap();
-    assert_eq!(storage.get_number(key).await.unwrap(), Some(100))
+    assert_eq!(storage.get::<i64>(key).await.unwrap(), Some(100))
 }
 
 // delay_secs is the duration of time we set for expiry and we wait to see
@@ -369,9 +369,9 @@ where
     let key = "number_key";
     let value = 1337;
 
-    assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.set(key, value).await.is_ok());
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(value));
 }
@@ -387,35 +387,35 @@ where
     // Increase by 1600, key doesn't exist so it should be considered 0
     storage.mutate(key, |m| m.incr(1600)).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(1600));
 
     // Decrease by 200
     storage.mutate(key, |m| m.decr(200)).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(1400));
 
     // Mutiply by 2
     storage.mutate(key, |m| m.mul(2)).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(2800));
 
     // Divide by 4
     storage.mutate(key, |m| m.div(4)).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(700));
 
     // Set to 100
     storage.mutate(key, |m| m.set(100)).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(100));
 
@@ -425,7 +425,7 @@ where
         .await
         .ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(200));
 
@@ -437,7 +437,7 @@ where
         .await
         .ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(150));
 
@@ -451,14 +451,14 @@ where
     };
     storage.mutate(key, mutation).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(175));
 
     // Multi level conditionals
     storage.mutate(key, mutation).await.ok();
 
-    let get_res = storage.get_number(key).await;
+    let get_res = storage.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(125));
 }

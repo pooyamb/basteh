@@ -1,9 +1,9 @@
 use std::time::SystemTime;
 
-use basteh::dev::{Action, Mutation};
+use basteh::dev::{Action, Mutation, Value};
 use zerocopy::{AsBytes, LayoutVerified};
 
-use crate::flags::ExpiryFlags;
+use crate::{flags::ExpiryFlags, value::SledValue};
 
 pub(crate) fn get_current_timestamp() -> u64 {
     SystemTime::now()
@@ -15,27 +15,27 @@ pub(crate) fn get_current_timestamp() -> u64 {
 /// Takes an IVec and returns value bytes with its expiry flags as mutable
 #[allow(clippy::type_complexity)]
 #[inline]
-pub fn decode_mut(bytes: &mut [u8]) -> Option<(&mut [u8], &mut ExpiryFlags)> {
+pub(crate) fn decode_mut(bytes: &mut [u8]) -> Option<(Value<'_>, &mut ExpiryFlags)> {
     let (val, exp): (&mut [u8], LayoutVerified<&mut [u8], ExpiryFlags>) =
         LayoutVerified::new_unaligned_from_suffix(bytes.as_mut())?;
-    Some((val, exp.into_mut()))
+    Some((SledValue::from_bytes(val)?.0, exp.into_mut()))
 }
 
 /// Takes an IVec and returns value bytes with its expiry flags
 #[allow(clippy::type_complexity)]
 #[inline]
-pub fn decode(bytes: &[u8]) -> Option<(&[u8], &ExpiryFlags)> {
+pub fn decode(bytes: &[u8]) -> Option<(Value<'_>, &ExpiryFlags)> {
     let (val, exp): (&[u8], LayoutVerified<&[u8], ExpiryFlags>) =
         LayoutVerified::new_unaligned_from_suffix(bytes.as_ref())?;
-    Some((val, exp.into_ref()))
+    Some((SledValue::from_bytes(val)?.0, exp.into_ref()))
 }
 
 /// Takes a value as bytes and an ExpiryFlags and turns them into bytes
 #[allow(clippy::type_complexity)]
 #[inline]
-pub fn encode(value: &[u8], exp: &ExpiryFlags) -> Vec<u8> {
+pub fn encode(value: Value<'_>, exp: &ExpiryFlags) -> Vec<u8> {
     let mut buff = vec![];
-    buff.extend_from_slice(value);
+    buff.extend_from_slice(&SledValue(value).to_bytes());
     buff.extend_from_slice(exp.as_bytes());
     buff
 }

@@ -1,15 +1,14 @@
-use std::convert::TryInto;
 use std::time::Duration;
 
-use basteh::dev::Mutation;
+use basteh::dev::{Mutation, OwnedValue, Value};
 use basteh::StorageError;
 use sled::IVec;
 
-use crate::utils::run_mutations;
+use crate::decode;
+use crate::utils::{decode_mut, run_mutations};
 
 use super::message::{Message, Request, Response};
 use crate::{
-    decode, decode_mut,
     delayqueue::{DelayQueue, DelayedIem},
     encode, ExpiryFlags,
 };
@@ -92,8 +91,8 @@ impl SledInner {
                 };
 
                 let res = tree.get(&item.key).and_then(|val| {
-                    if let Some(mut bytes) = val {
-                        if let Some((_, exp)) = decode_mut(&mut bytes) {
+                    if let Some(bytes) = val {
+                        if let Some((_, exp)) = decode(&bytes) {
                             if exp.nonce.get() == item.nonce && exp.persist.get() == 0 {
                                 tree.remove(&item.key)?;
                             }
@@ -124,7 +123,7 @@ impl SledInner {
         ))
     }
 
-    pub fn set(&self, scope: IVec, key: IVec, value: IVec) -> Result<()> {
+    pub fn set(&self, scope: IVec, key: IVec, value: OwnedValue) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
         tree.update_and_fetch(&key, |bytes| {
             let nonce = if let Some(bytes) = bytes {
@@ -136,7 +135,7 @@ impl SledInner {
             };
 
             let exp = ExpiryFlags::new_persist(nonce);
-            let val = encode(&value, &exp);
+            let val = encode(value.as_value(), &exp);
 
             Some(val)
         })
@@ -144,18 +143,14 @@ impl SledInner {
         Ok(())
     }
 
-    pub fn set_number(&self, scope: IVec, key: IVec, value: i64) -> Result<()> {
-        self.set(scope, key, IVec::from(&value.to_le_bytes()))
-    }
-
-    pub fn get(&self, scope: IVec, key: IVec) -> Result<Option<IVec>> {
+    pub fn get(&self, scope: IVec, key: IVec) -> Result<Option<OwnedValue>> {
         let tree = open_tree(&self.db, &scope)?;
         tree.get(&key)
             .map(|val| {
                 val.and_then(|bytes| {
                     let (val, exp) = decode(&bytes)?;
                     if !exp.expired() {
-                        Some(val.into())
+                        Some(val.into_owned())
                     } else {
                         None
                     }
@@ -164,22 +159,17 @@ impl SledInner {
             .map_err(StorageError::custom)
     }
 
-    pub fn get_number(&self, scope: IVec, key: IVec) -> Result<Option<i64>> {
-        self.get(scope, key)?
-            .map(|v| {
-                v.as_ref()
-                    .try_into()
-                    .map(i64::from_le_bytes)
-                    .map_err(|_| StorageError::InvalidNumber)
-            })
-            .transpose()
-    }
-
     pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<()> {
         match open_tree(&self.db, &scope)?.update_and_fetch(key, |existing| {
             let (val, exp) = if let Some((val, exp)) = existing.and_then(decode) {
                 if !exp.expired() {
-                    (i64::from_le_bytes(val.try_into().unwrap_or_default()), *exp)
+                    (
+                        match val {
+                            Value::Number(n) => n,
+                            _ => 0,
+                        },
+                        *exp,
+                    )
                 } else {
                     (0, ExpiryFlags::new_persist(exp.next_nonce()))
                 }
@@ -189,7 +179,7 @@ impl SledInner {
 
             let value = run_mutations(val, &mutations);
 
-            let val = encode(&value.to_le_bytes(), &exp);
+            let val = encode(Value::Number(value), &exp);
 
             Some(val)
         }) {
@@ -303,7 +293,7 @@ impl SledInner {
         &mut self,
         scope: IVec,
         key: IVec,
-        value: IVec,
+        value: OwnedValue,
         duration: Duration,
     ) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
@@ -319,7 +309,7 @@ impl SledInner {
             };
 
             let exp = ExpiryFlags::new_expiring(nonce, duration);
-            let val = encode(&value, &exp);
+            let val = encode(value.as_value(), &exp);
 
             Some(val)
         })
@@ -331,13 +321,17 @@ impl SledInner {
         Ok(())
     }
 
-    pub fn get_expiring(&self, scope: IVec, key: IVec) -> Result<Option<(IVec, Option<Duration>)>> {
+    pub fn get_expiring(
+        &self,
+        scope: IVec,
+        key: IVec,
+    ) -> Result<Option<(OwnedValue, Option<Duration>)>> {
         let tree = open_tree(&self.db, &scope)?;
         let val = tree.get(&key).map_err(StorageError::custom)?;
         Ok(val.and_then(|bytes| {
             let (val, exp) = decode(&bytes)?;
             if !exp.expired() {
-                Some((val.into(), exp.expires_in()))
+                Some((val.into_owned(), exp.expires_in()))
             } else {
                 None
             }
@@ -357,16 +351,8 @@ impl SledInner {
                 Request::Get(scope, key) => {
                     tx.send(self.get(scope, key).map(Response::Value)).ok();
                 }
-                Request::GetNumber(scope, key) => {
-                    tx.send(self.get_number(scope, key).map(Response::Number))
-                        .ok();
-                }
                 Request::Set(scope, key, value) => {
                     tx.send(self.set(scope, key, value).map(Response::Empty))
-                        .ok();
-                }
-                Request::SetNumber(scope, key, value) => {
-                    tx.send(self.set_number(scope, key, value).map(Response::Empty))
                         .ok();
                 }
                 Request::MutateNumber(scope, key, mutations) => {

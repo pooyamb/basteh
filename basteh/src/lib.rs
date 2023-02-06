@@ -4,6 +4,7 @@ mod builder;
 mod error;
 mod provider;
 mod storage;
+mod value;
 
 pub use builder::GLOBAL_SCOPE;
 pub use error::{Result, StorageError};
@@ -13,6 +14,7 @@ pub use storage::Storage;
 pub mod dev {
     pub use crate::builder::StorageBuilder;
     pub use crate::provider::*;
+    pub use crate::value::{OwnedValue, Value, ValueKind};
 }
 
 #[doc(hidden)]

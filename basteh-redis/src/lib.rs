@@ -3,10 +3,10 @@
 use std::time::Duration;
 
 use basteh::{
-    dev::{Action, Expiry, ExpiryStore, Mutation, Store},
+    dev::{Action, Expiry, ExpiryStore, Mutation, OwnedValue, Store, Value},
     Result, StorageError,
 };
-use redis::{aio::ConnectionManager, AsyncCommands, RedisResult};
+use redis::{aio::ConnectionManager, AsyncCommands, FromRedisValue, RedisResult, ToRedisArgs};
 
 pub use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo, RedisError};
 use utils::run_mutations;
@@ -79,45 +79,24 @@ impl Store for RedisBackend {
         Ok(Box::new(keys.into_iter()))
     }
 
-    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
-            .set(full_key, value)
+            .set(full_key, ValueWrapper(value))
             .await
             .map_err(StorageError::custom)?;
         Ok(())
     }
 
-    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
+    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
-            .set(full_key, value)
+            .get::<_, OwnedValueWrapper>(full_key)
             .await
-            .map_err(StorageError::custom)?;
-        Ok(())
-    }
-
-    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let full_key = get_full_key(scope, key);
-        self.con
-            .clone()
-            .get(full_key)
-            .await
+            .map(|v| v.0)
             .map_err(StorageError::custom)
-    }
-
-    /// Get a value for specified key, it should result in None if the value does not exist
-    async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
-        self.get(scope, key)
-            .await?
-            .map(|val| {
-                String::from_utf8_lossy(&val)
-                    .parse()
-                    .map_err(|_| StorageError::InvalidNumber)
-            })
-            .transpose()
     }
 
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
@@ -224,16 +203,51 @@ impl ExpiryStore for RedisBackend {
         &self,
         scope: &str,
         key: &[u8],
-        value: &[u8],
+        value: Value<'_>,
         expire_in: Duration,
     ) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
-            .set_ex(full_key, value, expire_in.as_secs() as usize)
+            .set_ex(full_key, ValueWrapper(value), expire_in.as_secs() as usize)
             .await
             .map_err(StorageError::custom)?;
         Ok(())
+    }
+}
+
+struct ValueWrapper<'a>(Value<'a>);
+
+impl<'a> ToRedisArgs for ValueWrapper<'a> {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + redis::RedisWrite,
+    {
+        match &self.0 {
+            Value::Number(n) => <i64 as ToRedisArgs>::write_redis_args(&n, out),
+            Value::Bytes(b) => <&[u8] as ToRedisArgs>::write_redis_args(&b.as_ref(), out),
+            Value::String(s) => <&str as ToRedisArgs>::write_redis_args(&s.as_ref(), out),
+        }
+    }
+}
+struct OwnedValueWrapper(Option<OwnedValue>);
+
+impl<'a> FromRedisValue for OwnedValueWrapper {
+    fn from_redis_value(v: &redis::Value) -> RedisResult<OwnedValueWrapper> {
+        Ok(OwnedValueWrapper(match v {
+            // If it's Nil then return None
+            redis::Value::Nil => None,
+            // Otherwise try to decode as Number, String or Bytes in order
+            _ => <i64 as FromRedisValue>::from_redis_value(v)
+                .map(OwnedValue::Number)
+                .or_else(|_| {
+                    <String as FromRedisValue>::from_redis_value(v).map(OwnedValue::String)
+                })
+                .or_else(|_| {
+                    <Vec<u8> as FromRedisValue>::from_redis_value(v).map(OwnedValue::Bytes)
+                })
+                .ok(),
+        }))
     }
 }
 
