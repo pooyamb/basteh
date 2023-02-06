@@ -10,10 +10,12 @@ pub(super) async fn run_mutations(
 ) -> std::result::Result<(), RedisError> {
     let (script, args) = make_script(mutations);
 
-    let script = Script::new(&script);
-    let mut args = args.into_iter();
+    println!("{:?}", script);
 
-    let mut script = script.arg(args.next().unwrap());
+    let script = Script::new(&script);
+    let args = args.into_iter();
+
+    let mut script = script.prepare_invoke();
 
     for arg in args {
         script.arg(arg);
@@ -25,7 +27,7 @@ pub(super) async fn run_mutations(
 fn make_script(mutations: impl IntoIterator<Item = Action>) -> (String, Vec<i64>) {
     let mut script = String::new();
     let mut args = Vec::new();
-    script.push_str("local r=redis.call('GET', KEYS[1])\n");
+    script.push_str("local r=tonumber(redis.call('GET', KEYS[1]))\n");
 
     write_operation(mutations, &mut script, &mut args);
 
@@ -44,35 +46,35 @@ fn write_operation(
             Action::Set(arg) => {
                 args.push(arg);
 
-                script.push_str("r = tonumber(ARGV[");
+                script.push_str("r=tonumber(ARGV[");
                 script.push_str(&args.len().to_string());
                 script.push_str("])\n");
             }
             Action::Incr(arg) => {
                 args.push(arg);
 
-                script.push_str("r = tonumber(r) + tonumber(ARGV[");
+                script.push_str("r=r+tonumber(ARGV[");
                 script.push_str(&args.len().to_string());
                 script.push_str("])\n");
             }
             Action::Decr(arg) => {
                 args.push(arg);
 
-                script.push_str("r = tonumber(r) - tonumber(ARGV[");
+                script.push_str("r=r-tonumber(ARGV[");
                 script.push_str(&args.len().to_string());
                 script.push_str("])\n");
             }
             Action::Mul(arg) => {
                 args.push(arg);
 
-                script.push_str("r = tonumber(r) * tonumber(ARGV[");
+                script.push_str("r=r*tonumber(ARGV[");
                 script.push_str(&args.len().to_string());
                 script.push_str("])\n");
             }
             Action::Div(arg) => {
                 args.push(arg);
 
-                script.push_str("r = tonumber(r) / tonumber(ARGV[");
+                script.push_str("r=r/tonumber(ARGV[");
                 script.push_str(&args.len().to_string());
                 script.push_str("])\n");
             }
@@ -87,7 +89,7 @@ fn write_operation(
 
                 write!(
                     script,
-                    "if(tonumber(r) {} tonumber(ARGV[{}])) then \n",
+                    "if(r{}tonumber(ARGV[{}]))then\n",
                     operator,
                     args.len()
                 )
@@ -108,7 +110,7 @@ fn write_operation(
 
                 write!(
                     script,
-                    "if(tonumber(r) {} tonumber(ARGV[{}])) then \n",
+                    "if(r{}tonumber(ARGV[{}]))then\n",
                     operator,
                     args.len()
                 )

@@ -140,6 +140,12 @@ impl Store for RedisBackend {
                     .decr(full_key, delta)
                     .await
                     .map_err(StorageError::custom)?,
+                Action::Set(value) => self
+                    .con
+                    .clone()
+                    .set(full_key, value)
+                    .await
+                    .map_err(StorageError::custom)?,
                 action => run_mutations(self.con.clone(), full_key, [action])
                     .await
                     .map_err(|e| StorageError::Custom(Box::new(e)))?,

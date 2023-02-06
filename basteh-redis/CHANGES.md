@@ -1,3 +1,7 @@
+## Version 0.4 Alpha.3
+- Updated to basteh 0.4.0-alpha.3
+- Improve lua script generation
+
 ## Version 0.4 Alpha.2
 - Updated to basteh 0.4.0-alpha.2
 
