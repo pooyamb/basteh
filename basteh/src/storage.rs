@@ -40,7 +40,8 @@ impl Storage {
         StorageBuilder::default()
     }
 
-    /// Return a new Storage struct for the specified scope.
+    /// Return a new Storage struct for the specified scope. Calling twice will just change
+    /// the current scope.
     ///
     /// Scopes may or may not be implemented as key prefixes but should provide
     /// some guarantees to not mutate other scopes.
@@ -72,8 +73,7 @@ impl Storage {
     /// # use basteh::Storage;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set("age", vec![10]).await;
-    /// storage.set("name", "Violet".as_bytes()).await;
+    /// storage.keys().await;
     /// #     "set"
     /// # }
     /// ```
@@ -92,7 +92,7 @@ impl Storage {
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
     /// storage.set("age", vec![10]).await;
-    /// storage.set("name", "Violet".as_bytes()).await;
+    /// storage.set("name", "Violet").await;
     /// #     "set"
     /// # }
     /// ```
@@ -115,7 +115,7 @@ impl Storage {
     /// # use std::time::Duration;
     /// #
     /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set_expiring("name", "Violet".as_bytes(), Duration::from_secs(10)).await;
+    /// storage.set_expiring("name", "Violet", Duration::from_secs(10)).await;
     /// #     "set"
     /// # }
     /// ```
@@ -187,7 +187,11 @@ impl Storage {
         }
     }
 
-    /// Mutate a numeric value in the storage
+    /// Mutate a numeric value in the storage.
+    ///
+    /// ## Note
+    /// The closure will called in-place(outside the backend store) and only the collected mutations
+    /// will be passed.
     ///
     /// ## Example
     /// ```rust
