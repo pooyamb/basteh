@@ -16,7 +16,7 @@ repository = "https://github.com/pooyamb/basteh/"
 [dependencies]
 basteh = "0.4.0-alpha.2"
 async-trait = "0.1"
-redb = "0.12"
+redb = "0.13"
 crossbeam-channel = "0.5"
 parking_lot = "0.12"
 priority-queue = "1.3"
