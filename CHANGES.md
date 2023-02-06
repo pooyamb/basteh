@@ -1,3 +1,6 @@
+## Version 0.4 Alpha.4
+- Fixed set_expiring method signature
+
 ## Version 0.4 Alpha.3
 - Changed get/set methods to accept bytes/strings/numbers
 - Removed set_number and get_number methods
