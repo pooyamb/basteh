@@ -1,8 +1,9 @@
+## Version 0.4 Alpha.3
+- Add test for mutation after expiration
+
 ## Version 0.4 Alpha.2
 - Changed Arc scope/key/values to refrences, backends can use Arc as they wish
 - Scope is now required to be utf-8 string
-
-## Version 0.4 Alpha.2
 - Fix doc/repo links in crate
 
 ## Version 0.4 Alpha.1

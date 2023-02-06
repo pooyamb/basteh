@@ -321,6 +321,24 @@ pub async fn test_expiry_store_override_longer(storage: Storage, delay_secs: u64
     assert_eq!(storage.get(key).await.unwrap(), None);
 }
 
+/// Testing if mutation after expiry works as expected
+pub async fn test_expiry_store_mutate_after_expiry(storage: Storage, delay_secs: u64) {
+    let delay = Duration::from_secs(delay_secs);
+    let key = "expire_store_mutate_after_expiry_key";
+    let value = 1000;
+
+    // Set a number and set expiry for it
+    assert!(storage.set_number(key, value).await.is_ok());
+    assert!(storage.expire(key, delay).await.is_ok());
+
+    // Adding some error to the delay, for the implementers sake
+    tokio::time::sleep(Duration::from_secs(delay_secs + 1)).await;
+
+    // Mutate the number
+    storage.mutate(key, |m| m.incr(100)).await.unwrap();
+    assert_eq!(storage.get_number(key).await.unwrap(), Some(100))
+}
+
 // delay_secs is the duration of time we set for expiry and we wait to see
 // the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
@@ -332,8 +350,9 @@ where
 
     tokio::join!(
         test_expiry_store_basics(storage.clone(), delay_secs),
-        test_expiry_store_override_shorter(storage.clone(), delay_secs,),
-        test_expiry_store_override_longer(storage, delay_secs)
+        test_expiry_store_override_shorter(storage.clone(), delay_secs),
+        test_expiry_store_override_longer(storage.clone(), delay_secs),
+        test_expiry_store_mutate_after_expiry(storage, delay_secs),
     );
 }
 
