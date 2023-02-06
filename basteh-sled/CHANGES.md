@@ -1,4 +1,8 @@
-## Version 0.4 Alpha.2
+## Version 0.4 Alpha.3 (Not released)
+- Updated to basteh 0.4.0-alpha.3
+- Fix a broken test for mutations of expired keys
+
+## Version 0.4 Alpha.2 (Not released)
 - Updated to basteh 0.4.0-alpha.2
 
 ## Version 0.4 Alpha.1 (Not released)

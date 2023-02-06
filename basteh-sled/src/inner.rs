@@ -181,10 +181,7 @@ impl SledInner {
                 if !exp.expired() {
                     (i64::from_le_bytes(val.try_into().unwrap_or_default()), *exp)
                 } else {
-                    (
-                        i64::from_le_bytes(val.try_into().unwrap_or_default()),
-                        ExpiryFlags::new_persist(exp.next_nonce()),
-                    )
+                    (0, ExpiryFlags::new_persist(exp.next_nonce()))
                 }
             } else {
                 (0, ExpiryFlags::new_persist(0))
