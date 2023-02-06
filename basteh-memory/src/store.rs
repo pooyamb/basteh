@@ -1,7 +1,7 @@
-use std::{collections::HashMap, convert::TryInto, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use basteh::{
-    dev::{Expiry, ExpiryStore, Mutation, Store},
+    dev::{Expiry, ExpiryStore, Mutation, OwnedValue, Store, Value},
     Result, StorageError,
 };
 use parking_lot::Mutex;
@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 use crate::delayqueue::{delayqueue, DelayQueueSender};
 use crate::utils::run_mutations;
 
-type ScopeMap = HashMap<Arc<[u8]>, Arc<[u8]>>;
+type ScopeMap = HashMap<Arc<[u8]>, OwnedValue>;
 type InternalMap = HashMap<Arc<str>, ScopeMap>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -84,7 +84,7 @@ impl Store for MemoryBackend {
         ))
     }
 
-    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
         let scope: Arc<str> = scope.into();
         let key: Arc<[u8]> = key.into();
 
@@ -93,7 +93,7 @@ impl Store for MemoryBackend {
             .lock()
             .entry(scope.clone())
             .or_default()
-            .insert(key.clone(), value.into())
+            .insert(key.clone(), value.into_owned().into())
             .is_some()
         {
             self.dq_tx
@@ -104,28 +104,13 @@ impl Store for MemoryBackend {
         Ok(())
     }
 
-    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> Result<()> {
-        self.set(scope, key, &value.to_le_bytes()).await
-    }
-
-    async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    async fn get<'a>(&'a self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
         Ok(self
             .map
             .lock()
             .get(scope)
             .and_then(|scope_map| scope_map.get(key))
-            .map(|value| value.to_vec()))
-    }
-
-    async fn get_number(&self, scope: &str, key: &[u8]) -> Result<Option<i64>> {
-        self.get(scope, key)
-            .await?
-            .map(|val| {
-                val.try_into()
-                    .map_err(|_| StorageError::InvalidNumber)
-                    .map(i64::from_le_bytes)
-            })
-            .transpose()
+            .map(|value| value.clone()))
     }
 
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
@@ -133,11 +118,10 @@ impl Store for MemoryBackend {
         let scope_map = guard.entry(scope.into()).or_default();
 
         let value = if let Some(val) = scope_map.get(key) {
-            let num = val
-                .as_ref()
-                .try_into()
-                .map(i64::from_le_bytes)
-                .map_err(StorageError::custom)?;
+            let num = match val {
+                OwnedValue::Number(n) => *n,
+                _ => return Err(StorageError::InvalidNumber),
+            };
             num
         } else {
             0
@@ -146,7 +130,7 @@ impl Store for MemoryBackend {
         let value = run_mutations(value, mutations);
 
         if let Some(value) = value {
-            scope_map.insert(key.into(), Arc::new(value.to_le_bytes()));
+            scope_map.insert(key.into(), OwnedValue::Number(value));
             Ok(())
         } else {
             Err(StorageError::InvalidNumber)
@@ -216,7 +200,7 @@ impl ExpiryStore for MemoryBackend {
         &self,
         scope: &str,
         key: &[u8],
-        value: &[u8],
+        value: Value<'_>,
         expire_in: Duration,
     ) -> Result<()> {
         let scope: Arc<str> = scope.into();
@@ -226,7 +210,7 @@ impl ExpiryStore for MemoryBackend {
             .lock()
             .entry(scope.clone())
             .or_default()
-            .insert(key.clone(), value.into());
+            .insert(key.clone(), value.to_owned().into());
         self.dq_tx
             .insert_or_update(ExpiryKey::new(scope, key), expire_in)
             .await
@@ -237,7 +221,7 @@ impl ExpiryStore for MemoryBackend {
         &self,
         scope: &str,
         key: &[u8],
-    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
+    ) -> Result<Option<(OwnedValue, Option<Duration>)>> {
         let val = self
             .map
             .lock()
@@ -250,7 +234,7 @@ impl ExpiryStore for MemoryBackend {
                 .get(ExpiryKey::new(scope.into(), key.into()))
                 .await
                 .map_err(|e| StorageError::custom(e))?;
-            Ok(Some((val.to_vec(), exp)))
+            Ok(Some((val.clone(), exp)))
         } else {
             Ok(None)
         }
