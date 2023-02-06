@@ -210,8 +210,19 @@ impl RedbInner {
         {
             let mut table = txn.open_table(table)?;
             let mut expired = false;
-            if let Ok(r) = self.db.begin_read()?.open_table(exp_table) {
-                if let Some(true) = r.get(key)?.map(|v| v.value().expired()) {
+            if let Ok(mut r) = txn.open_table(exp_table) {
+                if r.get(key)?
+                    .map(|v| v.value().expired().then_some(()))
+                    .flatten()
+                    .is_some()
+                {
+                    // If the key is already expired, remove it from queue and expiry table
+                    // to make sure it won't get deleted or expired after mutation.
+                    if self.queue_started {
+                        self.queue.remove(scope, key);
+                    }
+                    r.remove(key)?;
+
                     expired = true;
                 }
             };
