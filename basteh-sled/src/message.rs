@@ -1,19 +1,20 @@
 use std::time::Duration;
 
-use basteh::{dev::Mutation, Result};
+use basteh::{
+    dev::{Mutation, OwnedValue},
+    Result,
+};
 use sled::IVec;
 use tokio::sync::oneshot;
 
 type Scope = IVec;
 type Key = IVec;
-type Value = IVec;
+type Value = OwnedValue;
 
 pub enum Request {
     Keys(Scope),
     Get(Scope, Key),
-    GetNumber(Scope, Key),
     Set(Scope, Key, Value),
-    SetNumber(Scope, Key, i64),
     Delete(Scope, Key),
     Contains(Scope, Key),
     MutateNumber(Scope, Key, Mutation),
@@ -28,7 +29,6 @@ pub enum Request {
 pub enum Response {
     Iterator(Box<dyn Iterator<Item = Vec<u8>> + Send + Sync>),
     Value(Option<Value>),
-    Number(Option<i64>),
     Duration(Option<Duration>),
     ValueDuration(Option<(Value, Option<Duration>)>),
     Bool(bool),

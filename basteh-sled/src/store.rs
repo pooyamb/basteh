@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use basteh::dev::{Expiry, ExpiryStore, Store};
+use basteh::dev::{Expiry, ExpiryStore, OwnedValue, Store, Value};
 use basteh::{Result, StorageError};
 
 use crate::inner::SledInner;
@@ -110,9 +110,9 @@ impl Store for SledBackend {
         }
     }
 
-    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> basteh::Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> basteh::Result<()> {
         match self
-            .msg(Request::Set(scope.into(), key.into(), value.into()))
+            .msg(Request::Set(scope.into(), key.into(), value.into_owned()))
             .await?
         {
             Response::Empty(r) => Ok(r),
@@ -120,29 +120,9 @@ impl Store for SledBackend {
         }
     }
 
-    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> basteh::Result<()> {
-        match self
-            .msg(Request::SetNumber(scope.into(), key.into(), value.into()))
-            .await?
-        {
-            Response::Empty(r) => Ok(r),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn get(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<Vec<u8>>> {
+    async fn get(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<OwnedValue>> {
         match self.msg(Request::Get(scope.into(), key.into())).await? {
-            Response::Value(r) => Ok(r.map(|v| v.to_vec())),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn get_number(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<i64>> {
-        match self
-            .msg(Request::GetNumber(scope.into(), key.into()))
-            .await?
-        {
-            Response::Number(r) => Ok(r),
+            Response::Value(r) => Ok(r),
             _ => unreachable!(),
         }
     }
@@ -223,14 +203,14 @@ impl ExpiryStore for SledBackend {
         &self,
         scope: &str,
         key: &[u8],
-        value: &[u8],
+        value: Value<'_>,
         expire_in: Duration,
     ) -> basteh::Result<()> {
         match self
             .msg(Request::SetExpiring(
                 scope.into(),
                 key.into(),
-                value.into(),
+                value.into_owned(),
                 expire_in,
             ))
             .await?
@@ -244,12 +224,12 @@ impl ExpiryStore for SledBackend {
         &self,
         scope: &str,
         key: &[u8],
-    ) -> basteh::Result<Option<(Vec<u8>, Option<Duration>)>> {
+    ) -> basteh::Result<Option<(OwnedValue, Option<Duration>)>> {
         match self
             .msg(Request::GetExpiring(scope.into(), key.into()))
             .await?
         {
-            Response::ValueDuration(r) => Ok(r.map(|(v, d)| (v.to_vec(), d))),
+            Response::ValueDuration(r) => Ok(r),
             _ => unreachable!(),
         }
     }
@@ -259,9 +239,10 @@ impl ExpiryStore for SledBackend {
 mod tests {
     use std::time::Duration;
 
+    use basteh::dev::{OwnedValue, Value};
     use basteh::test_utils::*;
     use sled::IVec;
-    use zerocopy::{U16, U64};
+    use zerocopy::{AsBytes, U16, U64};
 
     use super::SledBackend;
     use crate::inner::open_tree;
@@ -317,7 +298,7 @@ mod tests {
     async fn test_sled_perform_deletion() {
         let scope: IVec = "prefix".as_bytes().into();
         let key: IVec = "key".as_bytes().into();
-        let value = "val".as_bytes().into();
+        let value = OwnedValue::String(String::from("val"));
         let db = open_database().await;
         let dur = Duration::from_secs(1);
         let store = SledBackend::from_db(db.clone())
@@ -344,9 +325,12 @@ mod tests {
         let db = open_database().await;
 
         let dur = Duration::from_secs(2);
-        let value = encode("value".as_bytes(), &ExpiryFlags::new_expiring(1, dur));
+        let value = encode(
+            Value::String("value".into()),
+            &ExpiryFlags::new_expiring(1, dur),
+        );
         let value2 = encode(
-            "value2".as_bytes(),
+            Value::Bytes(b"value2".as_bytes().into()),
             &ExpiryFlags {
                 persist: U16::ZERO,
                 nonce: U64::new(1),
