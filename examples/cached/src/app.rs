@@ -28,7 +28,7 @@ async fn get_obj_by_id(id: u64) -> Object {
 
 #[actix_web::get("/{obj_id}")]
 async fn get_obj(obj_id: web::Path<u64>, storage: web::Data<Storage>) -> web::Json<Response> {
-    let resp = if let Ok(Some(resp)) = storage.get(obj_id.to_string()).await {
+    let resp = if let Ok(Some(resp)) = storage.get::<Vec<u8>>(obj_id.to_string()).await {
         serde_json::from_slice(&resp).unwrap()
     } else {
         let object = get_obj_by_id(*obj_id).await;
