@@ -126,14 +126,14 @@ impl Storage {
     pub async fn set_expiring(
         &self,
         key: impl AsRef<[u8]>,
-        value: impl AsRef<[u8]>,
+        value: impl Into<Value<'_>>,
         expires_in: Duration,
     ) -> Result<()> {
         self.store
             .set_expiring(
                 self.scope.as_ref(),
                 key.as_ref().into(),
-                value.as_ref().into(),
+                value.into(),
                 expires_in,
             )
             .await
