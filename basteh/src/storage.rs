@@ -1,9 +1,11 @@
-use std::convert::AsRef;
+use std::convert::{AsRef, TryFrom, TryInto};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::dev::{ExpiryStore, Mutation, StorageBuilder};
+use crate::dev::{ExpiryStore, Mutation, OwnedValue, StorageBuilder};
 use crate::error::Result;
+use crate::value::Value;
+use crate::StorageError;
 
 /// Takes the underlying backend and provides common methods for it
 ///
@@ -20,8 +22,8 @@ use crate::error::Result;
 ///
 /// async fn index(storage: Storage) -> Result<String, StorageError>{
 ///     storage.set("key", "value").await;
-///     let val = storage.get("key").await?.unwrap();
-///     Ok(String::from_utf8(val.to_vec()).unwrap())
+///     let val = storage.get::<String>("key").await?;
+///     Ok(val.unwrap_or_default())
 /// }
 /// ```
 ///
@@ -94,34 +96,9 @@ impl Storage {
     /// #     "set"
     /// # }
     /// ```
-    pub async fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+    pub async fn set<'a>(&self, key: impl AsRef<[u8]>, value: impl Into<Value<'a>>) -> Result<()> {
         self.store
-            .set(
-                self.scope.as_ref(),
-                key.as_ref().into(),
-                value.as_ref().into(),
-            )
-            .await
-    }
-
-    /// Stores a number on storage
-    ///
-    /// Calling set operations twice on the same key, overwrites it's value and
-    /// clear the expiry on that key(if it exist).
-    /// How the number is represented in storage is decided by the backend.
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use basteh::Storage;
-    /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set_number("age", 10).await;
-    /// #     "set"
-    /// # }
-    /// ```
-    pub async fn set_number(&self, key: impl AsRef<[u8]>, value: i64) -> Result<()> {
-        self.store
-            .set_number(self.scope.as_ref(), key.as_ref().into(), value)
+            .set(self.scope.as_ref(), key.as_ref(), value.into())
             .await
     }
 
@@ -169,31 +146,19 @@ impl Storage {
     /// # use basteh::{Storage, StorageError};
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let val = storage.get("key").await?;
-    /// #     Ok(std::str::from_utf8(&val.unwrap()).unwrap_or_default().to_owned())
+    /// let val = storage.get::<String>("key").await?;
+    /// #     Ok(val.unwrap_or_default())
     /// # }
     /// ```
-    pub async fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+    pub async fn get<'a, T: TryFrom<OwnedValue, Error = StorageError>>(
+        &'a self,
+        key: impl AsRef<[u8]>,
+    ) -> Result<Option<T>> {
         self.store
             .get(self.scope.as_ref(), key.as_ref().into())
-            .await
-    }
-
-    /// Gets a number from storage
-    ///
-    /// ## Example
-    /// ```rust
-    /// # use basteh::{Storage, StorageError};
-    /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let val: Option<i64> = storage.get_number("key").await?;
-    /// #     Ok(val.unwrap_or(0).to_string())
-    /// # }
-    /// ```
-    pub async fn get_number(&self, key: impl AsRef<[u8]>) -> Result<Option<i64>> {
-        self.store
-            .get_number(self.scope.as_ref(), key.as_ref().into())
-            .await
+            .await?
+            .map(|v| v.try_into())
+            .transpose()
     }
 
     /// Same as `get` but it also gets expiry.
@@ -203,20 +168,20 @@ impl Storage {
     /// # use basteh::{Storage, StorageError};
     /// #
     /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let val = storage.get_expiring("key").await?;
-    /// #     Ok(std::str::from_utf8(&val.unwrap().0).unwrap_or_default().to_owned())
+    /// let val = storage.get_expiring::<String>("key").await?;
+    /// #     Ok(val.map(|v|v.0).unwrap_or_default())
     /// # }
     /// ```
-    pub async fn get_expiring(
-        &self,
+    pub async fn get_expiring<'a, T: TryFrom<OwnedValue, Error = StorageError>>(
+        &'a self,
         key: impl AsRef<[u8]>,
-    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
-        if let Some((val, expiry)) = self
+    ) -> Result<Option<(T, Option<Duration>)>> {
+        if let Some((v, expiry)) = self
             .store
             .get_expiring(self.scope.as_ref(), key.as_ref().into())
             .await?
         {
-            Ok(Some((val, expiry)))
+            Ok(Some((v.try_into()?, expiry)))
         } else {
             Ok(None)
         }

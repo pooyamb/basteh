@@ -11,8 +11,11 @@ pub enum StorageError {
     #[error("StorageError: Method not supported for the storage backend provided")]
     MethodNotSupported,
     /// States that the retrieved number is invalid
-    #[error("StorageError: Invalid number retrieved from database")]
+    #[error("StorageError: Value is not a valid number or mutation will result in overflow")]
     InvalidNumber,
+    /// States that the retrieved number is invalid
+    #[error("StorageError: Invalid type requested from backend")]
+    TypeConversion,
     /// An error from the underlying backend
     #[error("StorageError: {:?}", self)]
     Custom(Box<dyn Error + Send>),

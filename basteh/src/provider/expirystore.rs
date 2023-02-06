@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use super::{Expiry, Store};
-use crate::error::Result;
+use crate::{dev::OwnedValue, error::Result, value::Value};
 
 /// It is usefull for when store and expiry are implemented for the same struct,
 /// and should be implemented in those cases even if there can't be any optimization,
@@ -14,7 +14,7 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
         &self,
         scope: &str,
         key: &[u8],
-        value: &[u8],
+        value: Value<'_>,
         expire_in: Duration,
     ) -> Result<()> {
         self.set(scope.clone(), key.clone(), value).await?;
@@ -27,7 +27,7 @@ pub trait ExpiryStore: Store + Expiry + Send + Sync {
         &self,
         scope: &str,
         key: &[u8],
-    ) -> Result<Option<(Vec<u8>, Option<Duration>)>> {
+    ) -> Result<Option<(OwnedValue, Option<Duration>)>> {
         let val = self.get(scope.clone(), key.clone()).await?;
         match val {
             Some(val) => {
