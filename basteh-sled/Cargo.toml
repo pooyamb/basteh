@@ -1,6 +1,6 @@
 [package]
 name = "basteh-sled"
-version = "0.4.0-alpha.3"
+version = "0.4.0-alpha.4"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of basteh based on sled"
@@ -12,7 +12,7 @@ readme = "README.md"
 repository = "https://github.com/pooyamb/basteh/"
 
 [dependencies]
-basteh = "=0.4.0-alpha.3"
+basteh = "=0.4.0-alpha.4"
 async-trait = "0.1"
 log = "0.4"
 thiserror = "1"
@@ -31,5 +31,5 @@ sled = { version = "0.34", git = "https://github.com/spacejam/sled.git" }
 
 [dev-dependencies]
 tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt"] }
-basteh = { version = "=0.4.0-alpha.3", features = ["all", "test_utils"] }
+basteh = { version = "=0.4.0-alpha.4", features = ["all", "test_utils"] }
 rand = "0.8"

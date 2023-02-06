@@ -5,8 +5,8 @@ name = "cached"
 version = "0.1.0"
 
 [dependencies]
-basteh = "=0.4.0-alpha.3"
-basteh-memory = "=0.4.0-alpha.3"
+basteh = "=0.4.0-alpha.4"
+basteh-memory = "=0.4.0-alpha.4"
 actix-web = "4.0.0"
 
 rand = "0.8"
