@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use basteh::{
-    dev::{Expiry, ExpiryStore, Store},
+    dev::{Expiry, ExpiryStore, OwnedValue, Store, Value},
     StorageError,
 };
 use inner::RedbInner;
@@ -11,6 +11,7 @@ mod delayqueue;
 mod flags;
 mod inner;
 mod message;
+mod value;
 
 /// Reexport of redb Database, to make sure we're using the same version
 pub use redb::Database;
@@ -121,9 +122,9 @@ impl Store for RedbBackend<crossbeam_channel::Sender<Message>> {
         }
     }
 
-    async fn set(&self, scope: &str, key: &[u8], value: &[u8]) -> basteh::Result<()> {
+    async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> basteh::Result<()> {
         match self
-            .msg(Request::Set(scope.into(), key.into(), value.into()))
+            .msg(Request::Set(scope.into(), key.into(), value.into_owned()))
             .await?
         {
             Response::Empty(r) => Ok(r),
@@ -131,29 +132,9 @@ impl Store for RedbBackend<crossbeam_channel::Sender<Message>> {
         }
     }
 
-    async fn set_number(&self, scope: &str, key: &[u8], value: i64) -> basteh::Result<()> {
-        match self
-            .msg(Request::SetNumber(scope.into(), key.into(), value.into()))
-            .await?
-        {
-            Response::Empty(r) => Ok(r),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn get(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<Vec<u8>>> {
+    async fn get(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<OwnedValue>> {
         match self.msg(Request::Get(scope.into(), key.into())).await? {
-            Response::Value(r) => Ok(r.map(|v| v.to_vec())),
-            _ => unreachable!(),
-        }
-    }
-
-    async fn get_number(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<i64>> {
-        match self
-            .msg(Request::GetNumber(scope.into(), key.into()))
-            .await?
-        {
-            Response::Number(r) => Ok(r),
+            Response::Value(r) => Ok(r),
             _ => unreachable!(),
         }
     }
@@ -234,14 +215,14 @@ impl ExpiryStore for RedbBackend<crossbeam_channel::Sender<Message>> {
         &self,
         scope: &str,
         key: &[u8],
-        value: &[u8],
+        value: Value<'_>,
         expire_in: Duration,
     ) -> basteh::Result<()> {
         match self
             .msg(Request::SetExpiring(
                 scope.into(),
                 key.into(),
-                value.into(),
+                value.into_owned(),
                 expire_in,
             ))
             .await?
@@ -255,12 +236,12 @@ impl ExpiryStore for RedbBackend<crossbeam_channel::Sender<Message>> {
         &self,
         scope: &str,
         key: &[u8],
-    ) -> basteh::Result<Option<(Vec<u8>, Option<Duration>)>> {
+    ) -> basteh::Result<Option<(OwnedValue, Option<Duration>)>> {
         match self
             .msg(Request::GetExpiring(scope.into(), key.into()))
             .await?
         {
-            Response::ValueDuration(r) => Ok(r.map(|(v, d)| (v.to_vec(), d))),
+            Response::ValueDuration(r) => Ok(r),
             _ => unreachable!(),
         }
     }
