@@ -30,8 +30,8 @@ Basteh is meant to be used alongside one the implementer crates, ex:
 ```toml
 # Cargo.toml
 [dependencies]
-basteh = "0.4.0-alpha.4"
-basteh-memory = "0.4.0-alpha.4"
+basteh = "0.4.0-alpha.5"
+basteh-memory = "0.4.0-alpha.5"
 ```
 
 ## Usage

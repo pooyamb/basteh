@@ -1,6 +1,6 @@
 [package]
 name = "basteh"
-version = "0.4.0-alpha.4"
+version = "0.4.0-alpha.5"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]

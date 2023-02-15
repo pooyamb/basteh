@@ -1,6 +1,6 @@
 [package]
 name = "basteh-memory"
-version = "0.4.0-alpha.4"
+version = "0.4.0-alpha.5"
 
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
@@ -13,7 +13,7 @@ readme = "README.md"
 repository = "https://github.com/pooyamb/basteh/"
 
 [dependencies]
-basteh = "=0.4.0-alpha.4"
+basteh = "=0.4.0-alpha.5"
 async-trait = "0.1"
 thiserror = "1"
 
@@ -24,5 +24,5 @@ parking_lot = "0.12.1"
 
 [dev-dependencies]
 tokio = { version = "1.13.1", features = ["time", "macros", "rt"] }
-basteh = { version = "=0.4.0-alpha.4", features = ["all", "test_utils"] }
+basteh = { version = "=0.4.0-alpha.5", features = ["all", "test_utils"] }
 rand = "0.8"
