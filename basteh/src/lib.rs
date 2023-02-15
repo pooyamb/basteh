@@ -1,19 +1,21 @@
 #![doc = include_str!("../README.md")]
 
+mod basteh;
 mod builder;
 mod error;
+mod mutation;
 mod provider;
-mod storage;
 mod value;
 
+pub use basteh::Basteh;
 pub use builder::GLOBAL_SCOPE;
-pub use error::{Result, StorageError};
-pub use storage::Storage;
+pub use error::{BastehError, Result};
 
 /// Set of traits and structs used for storage backend development
 pub mod dev {
-    pub use crate::builder::StorageBuilder;
-    pub use crate::provider::*;
+    pub use crate::builder::BastehBuilder;
+    pub use crate::mutation::{Action, Mutation};
+    pub use crate::provider::Provider;
     pub use crate::value::{OwnedValue, Value, ValueKind};
 }
 

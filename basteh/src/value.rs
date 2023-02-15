@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::StorageError;
+use crate::BastehError;
 
 #[repr(u8)]
 pub enum ValueKind {
@@ -162,7 +162,7 @@ impl OwnedValue {
 }
 
 impl<'a> TryFrom<OwnedValue> for String {
-    type Error = StorageError;
+    type Error = BastehError;
 
     fn try_from(value: OwnedValue) -> Result<Self, Self::Error> {
         match value {
@@ -174,13 +174,13 @@ impl<'a> TryFrom<OwnedValue> for String {
 }
 
 impl<'a> TryFrom<OwnedValue> for Vec<u8> {
-    type Error = StorageError;
+    type Error = BastehError;
 
     fn try_from(value: OwnedValue) -> Result<Self, Self::Error> {
         match value {
             OwnedValue::String(val) => Ok(val.into_bytes()),
             OwnedValue::Bytes(b) => Ok(b),
-            _ => Err(StorageError::TypeConversion),
+            _ => Err(BastehError::TypeConversion),
         }
     }
 }
@@ -188,14 +188,14 @@ impl<'a> TryFrom<OwnedValue> for Vec<u8> {
 macro_rules! impl_from_value_for_number {
     ($number:ty) => {
         impl<'a> TryFrom<OwnedValue> for $number {
-            type Error = StorageError;
+            type Error = BastehError;
 
             fn try_from(value: OwnedValue) -> Result<Self, Self::Error> {
                 match value {
                     OwnedValue::Number(val) => {
-                        val.try_into().map_err(|_| StorageError::TypeConversion)
+                        val.try_into().map_err(|_| BastehError::TypeConversion)
                     }
-                    _ => Err(StorageError::TypeConversion),
+                    _ => Err(BastehError::TypeConversion),
                 }
             }
         }

@@ -6,22 +6,22 @@ use thiserror::Error;
 ///
 /// implementers should generally use Custom variant for their own errors.
 #[derive(Debug, Error)]
-pub enum StorageError {
+pub enum BastehError {
     /// States that the method(mostly expiration methods) is not supported by the backend
-    #[error("StorageError: Method not supported for the storage backend provided")]
+    #[error("BastehError: Method not supported for the Basteh backend provided")]
     MethodNotSupported,
     /// States that the retrieved number is invalid
-    #[error("StorageError: Value is not a valid number or mutation will result in overflow")]
+    #[error("BastehError: Value is not a valid number or mutation will result in overflow")]
     InvalidNumber,
     /// States that the retrieved number is invalid
-    #[error("StorageError: Invalid type requested from backend")]
+    #[error("BastehError: Invalid type requested from backend")]
     TypeConversion,
     /// An error from the underlying backend
-    #[error("StorageError: {:?}", self)]
+    #[error("BastehError: {:?}", self)]
     Custom(Box<dyn Error + Send>),
 }
 
-impl StorageError {
+impl BastehError {
     /// Shortcut method to construct Custom variant
     pub fn custom<E>(err: E) -> Self
     where
@@ -31,4 +31,4 @@ impl StorageError {
     }
 }
 
-pub type Result<T> = std::result::Result<T, StorageError>;
+pub type Result<T> = std::result::Result<T, BastehError>;

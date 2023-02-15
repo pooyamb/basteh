@@ -1,3 +1,9 @@
+## Version 0.4 Alpha.5
+- Renamed Storage to Basteh
+- Combined all the provider traits(Store/Expiry/ExpiryStore) into a single trait named Provider
+- Removed the glue code and no_expiry method
+- Renamed `store` method to `provider` in builder
+
 ## Version 0.4 Alpha.4
 - Fixed set_expiring method signature
 

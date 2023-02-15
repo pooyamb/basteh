@@ -2,45 +2,45 @@ use std::convert::{AsRef, TryFrom, TryInto};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::dev::{ExpiryStore, Mutation, OwnedValue, StorageBuilder};
+use crate::dev::{BastehBuilder, Mutation, OwnedValue, Provider};
 use crate::error::Result;
 use crate::value::Value;
-use crate::StorageError;
+use crate::BastehError;
 
 /// Takes the underlying backend and provides common methods for it
 ///
 /// As it is type erased, it's suitable to be stored in a web framework's state or extensions.
 ///
-/// The backend this struct holds should implement [`ExpiryStore`](dev/trait.ExpiryStore.html)
+/// The backend this struct holds should implement [`ExpiryBasteh`](dev/trait.Expirystore.html)
 /// either directly, or by depending on the default polyfill.
-/// Look [`StorageBuilder`](dev/struct.StorageBuilder.html) for more details.
+/// Look [`BastehBuilder`](dev/struct.BastehBuilder.html) for more details.
 ///
 /// ## Example
 ///
 /// ```rust
-/// use basteh::{Storage, StorageError};
+/// use basteh::{Basteh, BastehError};
 ///
-/// async fn index(storage: Storage) -> Result<String, StorageError>{
-///     storage.set("key", "value").await;
-///     let val = storage.get::<String>("key").await?;
+/// async fn index(store: Basteh) -> Result<String, BastehError>{
+///     store.set("key", "value").await;
+///     let val = store.get::<String>("key").await?;
 ///     Ok(val.unwrap_or_default())
 /// }
 /// ```
 ///
 ///
 #[derive(Clone)]
-pub struct Storage {
+pub struct Basteh {
     pub(crate) scope: Arc<str>,
-    pub(crate) store: Arc<dyn ExpiryStore>,
+    pub(crate) provider: Arc<dyn Provider>,
 }
 
-impl Storage {
-    /// Returns the storage builder struct
-    pub fn build() -> StorageBuilder {
-        StorageBuilder::default()
+impl Basteh {
+    /// Returns the Basteh builder struct
+    pub fn build() -> BastehBuilder {
+        BastehBuilder::default()
     }
 
-    /// Return a new Storage struct for the specified scope. Calling twice will just change
+    /// Return a new Basteh struct for the specified scope. Calling twice will just change
     /// the current scope.
     ///
     /// Scopes may or may not be implemented as key prefixes but should provide
@@ -48,61 +48,61 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::Storage;
+    /// # use basteh::Basteh;
     /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// let cache = storage.scope("cache");
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// let cache = store.scope("cache");
     /// cache.set("age", "60").await;
     /// #     "set"
     /// # }
     /// ```
-    pub fn scope(&self, scope: &str) -> Storage {
-        Storage {
+    pub fn scope(&self, scope: &str) -> Basteh {
+        Basteh {
             scope: scope.into(),
-            store: self.store.clone(),
+            provider: self.provider.clone(),
         }
     }
 
-    /// Stores a sequence of bytes on storage
+    /// Bastehs a sequence of bytes on Basteh
     ///
     /// Calling set operations twice on the same key, overwrites it's value and
     /// clear the expiry on that key(if it exist).
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::Storage;
+    /// # use basteh::Basteh;
     /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.keys().await;
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// store.keys().await;
     /// #     "set"
     /// # }
     /// ```
     pub async fn keys(&self) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
-        self.store.keys(self.scope.as_ref()).await
+        self.provider.keys(self.scope.as_ref()).await
     }
 
-    /// Stores a sequence of bytes on storage
+    /// Bastehs a sequence of bytes on Basteh
     ///
     /// Calling set operations twice on the same key, overwrites it's value and
     /// clear the expiry on that key(if it exist).
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::Storage;
+    /// # use basteh::Basteh;
     /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set("age", vec![10]).await;
-    /// storage.set("name", "Violet").await;
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// store.set("age", vec![10]).await;
+    /// store.set("name", "Violet").await;
     /// #     "set"
     /// # }
     /// ```
     pub async fn set<'a>(&self, key: impl AsRef<[u8]>, value: impl Into<Value<'a>>) -> Result<()> {
-        self.store
+        self.provider
             .set(self.scope.as_ref(), key.as_ref(), value.into())
             .await
     }
 
-    /// Stores a sequence of bytes on storage and sets expiry on the key
+    /// Bastehs a sequence of bytes on Basteh and sets expiry on the key
     /// It should be prefered over calling set and expire as backends may define
     /// a more optimized way to do both operations at once.
     ///
@@ -111,17 +111,17 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::Storage;
+    /// # use basteh::Basteh;
     /// # use std::time::Duration;
     /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.set_expiring("name", "Violet", Duration::from_secs(10)).await;
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// store.set_expiring("name", "Violet", Duration::from_secs(10)).await;
     /// #     "set"
     /// # }
     /// ```
     ///
     /// ## Errors
-    /// Beside the normal errors caused by the storage itself, it will result in error if
+    /// Beside the normal errors caused by the Basteh itself, it will result in error if
     /// expiry provider is not set.(no_expiry is called on builder)
     pub async fn set_expiring(
         &self,
@@ -129,7 +129,7 @@ impl Storage {
         value: impl Into<Value<'_>>,
         expires_in: Duration,
     ) -> Result<()> {
-        self.store
+        self.provider
             .set_expiring(
                 self.scope.as_ref(),
                 key.as_ref().into(),
@@ -143,18 +143,18 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let val = storage.get::<String>("key").await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// let val = store.get::<String>("key").await?;
     /// #     Ok(val.unwrap_or_default())
     /// # }
     /// ```
-    pub async fn get<'a, T: TryFrom<OwnedValue, Error = StorageError>>(
+    pub async fn get<'a, T: TryFrom<OwnedValue, Error = BastehError>>(
         &'a self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<T>> {
-        self.store
+        self.provider
             .get(self.scope.as_ref(), key.as_ref().into())
             .await?
             .map(|v| v.try_into())
@@ -165,19 +165,19 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let val = storage.get_expiring::<String>("key").await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// let val = store.get_expiring::<String>("key").await?;
     /// #     Ok(val.map(|v|v.0).unwrap_or_default())
     /// # }
     /// ```
-    pub async fn get_expiring<'a, T: TryFrom<OwnedValue, Error = StorageError>>(
+    pub async fn get_expiring<'a, T: TryFrom<OwnedValue, Error = BastehError>>(
         &'a self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<(T, Option<Duration>)>> {
         if let Some((v, expiry)) = self
-            .store
+            .provider
             .get_expiring(self.scope.as_ref(), key.as_ref().into())
             .await?
         {
@@ -187,7 +187,7 @@ impl Storage {
         }
     }
 
-    /// Mutate a numeric value in the storage.
+    /// Mutate a numeric value in the store.
     ///
     /// ## Note
     /// The closure will called in-place(outside the backend store) and only the collected mutations
@@ -195,13 +195,13 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::Storage;
+    /// # use basteh::Basteh;
     /// # use std::cmp::Ordering;
     /// #
-    /// # async fn index<'a>(storage: Storage) -> &'a str {
-    /// storage.mutate("age", |v| v.incr(5)).await;
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// store.mutate("age", |v| v.incr(5)).await;
     /// // Or conditionally set it to 100
-    /// storage.mutate("age", |v| v.if_(Ordering::Greater, 100, |m| m.set(100))).await;
+    /// store.mutate("age", |v| v.if_(Ordering::Greater, 100, |m| m.set(100))).await;
     /// #     "set"
     /// # }
     /// ```
@@ -209,7 +209,7 @@ impl Storage {
     where
         F: Fn(Mutation) -> Mutation,
     {
-        self.store
+        self.provider
             .mutate(
                 self.scope.as_ref(),
                 key.as_ref().into(),
@@ -218,36 +218,36 @@ impl Storage {
             .await
     }
 
-    /// Deletes/Removes a key value pair from storage.
+    /// Deletes/Removes a key value pair from store.
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// storage.delete("key").await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// store.delete("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
     pub async fn delete(&self, key: impl AsRef<[u8]>) -> Result<()> {
-        self.store
+        self.provider
             .delete(self.scope.as_ref(), key.as_ref().into())
             .await
     }
 
-    /// Checks if storage contains a key.
+    /// Checks if Basteh contains a key.
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let exist = storage.contains_key("key").await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// let exist = store.contains_key("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
     pub async fn contains_key(&self, key: impl AsRef<[u8]>) -> Result<bool> {
-        self.store
+        self.provider
             .contains_key(self.scope.as_ref(), key.as_ref().into())
             .await
     }
@@ -259,16 +259,16 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// storage.expire("key", Duration::from_secs(10)).await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// store.expire("key", Duration::from_secs(10)).await?;
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
     pub async fn expire(&self, key: impl AsRef<[u8]>, expire_in: Duration) -> Result<()> {
-        self.store
+        self.provider
             .expire(self.scope.as_ref(), key.as_ref().into(), expire_in)
             .await
     }
@@ -280,11 +280,11 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// let exp = storage.expiry("key").await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// let exp = store.expiry("key").await?;
     /// if let Some(exp) = exp{
     ///     println!("Key will expire in {} seconds", exp.as_secs());
     /// } else {
@@ -294,7 +294,7 @@ impl Storage {
     /// # }
     /// ```
     pub async fn expiry(&self, key: impl AsRef<[u8]>) -> Result<Option<Duration>> {
-        self.store
+        self.provider
             .expiry(self.scope.as_ref(), key.as_ref().into())
             .await
     }
@@ -305,17 +305,17 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// storage.expire("key", Duration::from_secs(5)).await?;
-    /// storage.extend("key", Duration::from_secs(5)).await?; // ket will expire in ~10 seconds
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// store.expire("key", Duration::from_secs(5)).await?;
+    /// store.extend("key", Duration::from_secs(5)).await?; // ket will expire in ~10 seconds
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
     pub async fn extend(&self, key: impl AsRef<[u8]>, expire_in: Duration) -> Result<()> {
-        self.store
+        self.provider
             .extend(self.scope.as_ref(), key.as_ref().into(), expire_in)
             .await
     }
@@ -326,16 +326,16 @@ impl Storage {
     ///
     /// ## Example
     /// ```rust
-    /// # use basteh::{Storage, StorageError};
+    /// # use basteh::{Basteh, BastehError};
     /// # use std::time::Duration;
     /// #
-    /// # async fn index(storage: Storage) -> Result<String, StorageError> {
-    /// storage.persist("key").await?;
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// store.persist("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
     pub async fn persist(&self, key: impl AsRef<[u8]>) -> Result<()> {
-        self.store
+        self.provider
             .persist(self.scope.as_ref(), key.as_ref().into())
             .await
     }
