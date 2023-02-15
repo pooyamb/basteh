@@ -39,25 +39,26 @@ basteh-memory = "0.4.0-alpha.5"
 After you picked a backend:
 
 ```rust,ignore
-use basteh::{Storage, Format};
+use basteh::{Basteh, BastehError};
 use basteh_memory::MemoryBackend;
 
-async fn make_storage() -> Storage {
+async fn handler() -> Result<String, BastehError> {
    // Intialize the implementer according to its docs
    let store = MemoryBackend::start_default();
 
    // Give it to the Storage struct
-   let storage = Storage::build().store(store).finish();
+   let basteh = Basteh::build().store(store).finish();
 
-   // Or if it doesn't support expiring functionality
-   // it will give errors if those methods are called
-   let storage = Storage::build().store(store).no_expiry().finish();
+   // Set a key, value can be stringy, bytes or numbers
+   basteh.set("key", "value").await;
 
-   // It is also possible to feed a seprate expiry,
-   // as long as it works on the same storage backend
-   let storage = Storage::build().store(store).expiry(expiry).finish();
-   
-   storage
+   // And make it expire after 5 seconds
+   basteh.expire("key", Duration::from_secs(5)).await;
+
+   // Or just do both in one command(usually faster)
+   basteh.set_expiring("key", "value", Duration::from_secs(5)).await;
+
+   basteh.get::<String>("key").await
 }
 ```
 
@@ -69,8 +70,8 @@ basteh-memory
       alt="docs.rs docs" />
 </a>
 
-basteh-sled
-<a href="https://docs.rs/basteh-sled">
+basteh-redb
+<a href="https://docs.rs/basteh-redb">
 <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs docs" />
 </a>
@@ -81,7 +82,17 @@ basteh-redis
       alt="docs.rs docs" />
 </a>
 
+There is also an implementation based on sled, but because of sled's situation, it has not been released to crates.io
+
+## What does basteh mean?
+
+The word `basteh` is persian for box/package, that simple! Does it sound like some other words in english? sure! But I'm bad at naming packages and my other option was `testorage` as in type-erased storage... so... `basteh` is cool.
+
 ## Use cases
+
+The main idea for having a kv storage around while developing applications, came from my love for django framework and how it makes your life easier. There is a cache framework in django that does just that! Basteh is a bit more, it is not just for a cache but also for persistent values which is why there will always be some persistent implementations around.
+
+Although it is designed to work with small, mostly temporary data, I don't have any plans to make it less effecient for other workflows, and pull requests are always welcome.
 
 It can be usefull when:
 
