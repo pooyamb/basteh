@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use basteh::{
-    dev::{Expiry, ExpiryStore, Mutation, OwnedValue, Store, Value},
-    Result, StorageError,
+    dev::{Mutation, OwnedValue, Provider, Value},
+    BastehError, Result,
 };
 use parking_lot::Mutex;
 
@@ -29,12 +29,12 @@ impl ExpiryKey {
 ///
 /// ## Example
 /// ```no_run
-/// use basteh::Storage;
+/// use basteh::Basteh;
 /// use basteh_memory::{MemoryBackend};
 ///
 /// # async fn your_main() {
-/// let store = MemoryBackend::start_default();
-/// let storage = Storage::build().store(store).finish();
+/// let provider = MemoryBackend::start_default();
+/// let storage = Basteh::build().provider(provider).finish();
 /// # }
 /// ```
 ///
@@ -70,7 +70,7 @@ impl MemoryBackend {
 }
 
 #[async_trait::async_trait]
-impl Store for MemoryBackend {
+impl Provider for MemoryBackend {
     async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         Ok(Box::new(
             self.map
@@ -99,7 +99,7 @@ impl Store for MemoryBackend {
             self.dq_tx
                 .remove(ExpiryKey::new(scope, key))
                 .await
-                .map_err(StorageError::custom)?;
+                .map_err(BastehError::custom)?;
         }
         Ok(())
     }
@@ -120,7 +120,7 @@ impl Store for MemoryBackend {
         let value = if let Some(val) = scope_map.get(key) {
             let num = match val {
                 OwnedValue::Number(n) => *n,
-                _ => return Err(StorageError::InvalidNumber),
+                _ => return Err(BastehError::InvalidNumber),
             };
             num
         } else {
@@ -133,7 +133,7 @@ impl Store for MemoryBackend {
             scope_map.insert(key.into(), OwnedValue::Number(value));
             Ok(())
         } else {
-            Err(StorageError::InvalidNumber)
+            Err(BastehError::InvalidNumber)
         }
     }
 
@@ -161,41 +161,35 @@ impl Store for MemoryBackend {
             .map(|scope_map| scope_map.contains_key(key))
             .unwrap_or(false))
     }
-}
 
-#[async_trait::async_trait]
-impl Expiry for MemoryBackend {
     async fn persist(&self, scope: &str, key: &[u8]) -> Result<()> {
         self.dq_tx
             .remove(ExpiryKey::new(scope.into(), key.into()))
             .await
-            .map_err(StorageError::custom)
+            .map_err(BastehError::custom)
     }
 
     async fn expire(&self, scope: &str, key: &[u8], expire_in: Duration) -> Result<()> {
         self.dq_tx
             .insert_or_update(ExpiryKey::new(scope.into(), key.into()), expire_in)
             .await
-            .map_err(StorageError::custom)
+            .map_err(BastehError::custom)
     }
 
     async fn expiry(&self, scope: &str, key: &[u8]) -> Result<Option<Duration>> {
         self.dq_tx
             .get(ExpiryKey::new(scope.into(), key.into()))
             .await
-            .map_err(StorageError::custom)
+            .map_err(BastehError::custom)
     }
 
     async fn extend(&self, scope: &str, key: &[u8], duration: Duration) -> Result<()> {
         self.dq_tx
             .extend(ExpiryKey::new(scope.into(), key.into()), duration)
             .await
-            .map_err(|e| StorageError::custom(e))
+            .map_err(|e| BastehError::custom(e))
     }
-}
 
-#[async_trait::async_trait]
-impl ExpiryStore for MemoryBackend {
     async fn set_expiring(
         &self,
         scope: &str,
@@ -214,7 +208,7 @@ impl ExpiryStore for MemoryBackend {
         self.dq_tx
             .insert_or_update(ExpiryKey::new(scope, key), expire_in)
             .await
-            .map_err(|e| StorageError::custom(e))
+            .map_err(|e| BastehError::custom(e))
     }
 
     async fn get_expiring(
@@ -233,7 +227,7 @@ impl ExpiryStore for MemoryBackend {
                 .dq_tx
                 .get(ExpiryKey::new(scope.into(), key.into()))
                 .await
-                .map_err(|e| StorageError::custom(e))?;
+                .map_err(|e| BastehError::custom(e))?;
             Ok(Some((val.clone(), exp)))
         } else {
             Ok(None)
@@ -252,19 +246,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_hashmap_store_numbers() {
-        test_store_numbers(MemoryBackend::start_default()).await;
-    }
-
-    #[tokio::test]
     async fn test_hashmap_mutate_numbers() {
-        test_mutate_numbers(MemoryBackend::start_default()).await;
+        test_mutations(MemoryBackend::start_default()).await;
     }
 
     #[tokio::test]
     async fn test_hashmap_expiry() {
-        let store = MemoryBackend::start_default();
-        test_expiry(store.clone(), store, 2).await;
+        test_expiry(MemoryBackend::start_default(), 2).await;
     }
 
     #[tokio::test]

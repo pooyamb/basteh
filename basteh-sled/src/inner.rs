@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use basteh::dev::{Mutation, OwnedValue, Value};
-use basteh::StorageError;
+use basteh::BastehError;
 use sled::IVec;
 
 use crate::decode;
@@ -13,11 +13,11 @@ use crate::{
     encode, ExpiryFlags,
 };
 
-type Result<T> = std::result::Result<T, StorageError>;
+type Result<T> = std::result::Result<T, BastehError>;
 
 #[inline]
 pub(crate) fn open_tree(db: &sled::Db, scope: &[u8]) -> Result<sled::Tree> {
-    db.open_tree(scope).map_err(StorageError::custom)
+    db.open_tree(scope).map_err(BastehError::custom)
 }
 
 #[derive(Clone)]
@@ -139,7 +139,7 @@ impl SledInner {
 
             Some(val)
         })
-        .map_err(StorageError::custom)?;
+        .map_err(BastehError::custom)?;
         Ok(())
     }
 
@@ -156,7 +156,7 @@ impl SledInner {
                     }
                 })
             })
-            .map_err(StorageError::custom)
+            .map_err(BastehError::custom)
     }
 
     pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<()> {
@@ -184,18 +184,18 @@ impl SledInner {
             Some(val)
         }) {
             Ok(_) => Ok(()),
-            Err(err) => Err(StorageError::custom(err)),
+            Err(err) => Err(BastehError::custom(err)),
         }
     }
 
     pub fn delete(&self, scope: IVec, key: IVec) -> Result<()> {
         let tree = open_tree(&self.db, &scope)?;
-        tree.remove(&key).map(|_| ()).map_err(StorageError::custom)
+        tree.remove(&key).map(|_| ()).map_err(BastehError::custom)
     }
 
     pub fn contains(&self, scope: IVec, key: IVec) -> Result<bool> {
         let tree = open_tree(&self.db, &scope)?;
-        tree.contains_key(&key).map_err(StorageError::custom)
+        tree.contains_key(&key).map_err(BastehError::custom)
     }
 }
 
@@ -219,7 +219,7 @@ impl SledInner {
                 }
                 Some(bytes)
             })
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
 
         // We can't add item to queue in update_and_fetch as it may run multiple times
         // before taking into effect.
@@ -239,7 +239,7 @@ impl SledInner {
                     exp.expires_in()
                 })
             })
-            .map_err(StorageError::custom)
+            .map_err(BastehError::custom)
     }
 
     pub fn persist(&self, scope: IVec, key: IVec) -> Result<()> {
@@ -251,7 +251,7 @@ impl SledInner {
             }
             Some(bytes)
         })
-        .map_err(StorageError::custom)?;
+        .map_err(BastehError::custom)?;
         Ok(())
     }
 
@@ -278,7 +278,7 @@ impl SledInner {
             }
             Some(bytes)
         })
-        .map_err(StorageError::custom)?;
+        .map_err(BastehError::custom)?;
         if let Some(total_duration) = total_duration {
             self.queue
                 .push(DelayedIem::new(scope, key, nonce, total_duration));
@@ -313,7 +313,7 @@ impl SledInner {
 
             Some(val)
         })
-        .map_err(StorageError::custom)?;
+        .map_err(BastehError::custom)?;
 
         self.queue
             .push(DelayedIem::new(scope, key, nonce, duration));
@@ -327,7 +327,7 @@ impl SledInner {
         key: IVec,
     ) -> Result<Option<(OwnedValue, Option<Duration>)>> {
         let tree = open_tree(&self.db, &scope)?;
-        let val = tree.get(&key).map_err(StorageError::custom)?;
+        let val = tree.get(&key).map_err(BastehError::custom)?;
         Ok(val.and_then(|bytes| {
             let (val, exp) = decode(&bytes)?;
             if !exp.expired() {

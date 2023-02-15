@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use basteh::dev::{Expiry, ExpiryStore, OwnedValue, Store, Value};
-use basteh::{Result, StorageError};
+use basteh::dev::{OwnedValue, Provider, Value};
+use basteh::{BastehError, Result};
 
 use crate::inner::SledInner;
 use crate::message::{Message, Request, Response};
@@ -15,15 +15,15 @@ use crate::message::{Message, Request, Response};
 ///
 /// ## Example
 /// ```no_run
-/// use basteh::Storage;
+/// use basteh::Basteh;
 /// use basteh_sled::{SledBackend, SledConfig};
 ///
 /// const THREADS_NUMBER: usize = 4;
 ///
 /// # async fn your_main() {
 /// let db = SledConfig::default().open().expect("Couldn't open sled database");
-/// let store = SledBackend::from_db(db).start(THREADS_NUMBER);
-/// let storage = Storage::build().store(store).finish();
+/// let provider = SledBackend::from_db(db).start(THREADS_NUMBER);
+/// let storage = Basteh::build().provider(provider).finish();
 /// # }
 /// ```
 ///
@@ -96,13 +96,13 @@ impl SledBackend {
             .map(|tx| tx.clone())
             .unwrap()
             .try_send(Message { req, tx })
-            .map_err(StorageError::custom)?;
-        rx.await.map_err(StorageError::custom)?
+            .map_err(BastehError::custom)?;
+        rx.await.map_err(BastehError::custom)?
     }
 }
 
 #[async_trait::async_trait]
-impl Store for SledBackend {
+impl Provider for SledBackend {
     async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         match self.msg(Request::Keys(scope.into())).await? {
             Response::Iterator(r) => Ok(r),
@@ -158,10 +158,7 @@ impl Store for SledBackend {
             _ => unreachable!(),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl Expiry for SledBackend {
     async fn persist(&self, scope: &str, key: &[u8]) -> basteh::Result<()> {
         match self.msg(Request::Persist(scope.into(), key.into())).await? {
             Response::Empty(r) => Ok(r),
@@ -195,10 +192,7 @@ impl Expiry for SledBackend {
             _ => unreachable!(),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl ExpiryStore for SledBackend {
     async fn set_expiring(
         &self,
         scope: &str,
@@ -274,19 +268,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sled_store_numbers() {
-        test_store_numbers(SledBackend::from_db(open_database().await).start(1)).await;
-    }
-
-    #[tokio::test]
     async fn test_sled_mutate_numbers() {
-        test_mutate_numbers(SledBackend::from_db(open_database().await).start(1)).await;
+        test_mutations(SledBackend::from_db(open_database().await).start(1)).await;
     }
 
     #[tokio::test]
     async fn test_sled_expiry() {
-        let store = SledBackend::from_db(open_database().await).start(1);
-        test_expiry(store.clone(), store, 4).await;
+        test_expiry(SledBackend::from_db(open_database().await).start(1), 4).await;
     }
 
     #[tokio::test]

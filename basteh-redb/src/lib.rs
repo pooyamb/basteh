@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use basteh::{
-    dev::{Expiry, ExpiryStore, OwnedValue, Store, Value},
-    StorageError,
+    dev::{OwnedValue, Provider, Value},
+    BastehError,
 };
 use inner::RedbInner;
 use message::{Message, Request, Response};
@@ -25,15 +25,15 @@ pub use redb::Database;
 ///
 /// ## Example
 /// ```no_run
-/// use basteh::Storage;
+/// use basteh::Basteh;
 /// use basteh_redb::{RedbBackend, Database};
 ///
 /// const THREADS_NUMBER: usize = 4;
 ///
 /// # async fn your_main() {
 /// let db = Database::open("/tmp/test.db").expect("Couldn't open sled database");
-/// let store = RedbBackend::from_db(db).start(THREADS_NUMBER);
-/// let storage = Storage::build().store(store).finish();
+/// let provider = RedbBackend::from_db(db).start(THREADS_NUMBER);
+/// let storage = Basteh::build().provider(provider).finish();
 /// # }
 /// ```
 ///
@@ -108,13 +108,13 @@ impl RedbBackend<crossbeam_channel::Sender<Message>> {
 
         self.inner
             .try_send(Message { req, tx })
-            .map_err(StorageError::custom)?;
-        rx.await.map_err(StorageError::custom)?
+            .map_err(BastehError::custom)?;
+        rx.await.map_err(BastehError::custom)?
     }
 }
 
 #[async_trait::async_trait]
-impl Store for RedbBackend<crossbeam_channel::Sender<Message>> {
+impl Provider for RedbBackend<crossbeam_channel::Sender<Message>> {
     async fn keys(&self, scope: &str) -> basteh::Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         match self.msg(Request::Keys(scope.into())).await? {
             Response::Iterator(r) => Ok(r),
@@ -170,10 +170,7 @@ impl Store for RedbBackend<crossbeam_channel::Sender<Message>> {
             _ => unreachable!(),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl Expiry for RedbBackend<crossbeam_channel::Sender<Message>> {
     async fn persist(&self, scope: &str, key: &[u8]) -> basteh::Result<()> {
         match self.msg(Request::Persist(scope.into(), key.into())).await? {
             Response::Empty(r) => Ok(r),
@@ -207,10 +204,7 @@ impl Expiry for RedbBackend<crossbeam_channel::Sender<Message>> {
             _ => unreachable!(),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl ExpiryStore for RedbBackend<crossbeam_channel::Sender<Message>> {
     async fn set_expiring(
         &self,
         scope: &str,
@@ -272,56 +266,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_redb_store_numbers() {
-        test_store_numbers(open_database("/tmp/redb.store_numbers.db").start(1)).await;
-    }
-
-    #[tokio::test]
     async fn test_redb_mutate_numbers() {
-        test_mutate_numbers(open_database("/tmp/redb.mutate.db").start(1)).await;
+        test_mutations(open_database("/tmp/redb.mutate.db").start(1)).await;
     }
 
     #[tokio::test]
     async fn test_redb_expiry() {
-        let store = open_database("/tmp/redb.expiry.db").start(1);
-        test_expiry(store.clone(), store, 2).await;
+        test_expiry(open_database("/tmp/redb.expiry.db").start(1), 2).await;
     }
 
     #[tokio::test]
     async fn test_redb_expiry_store() {
         test_expiry_store(open_database("/tmp/redb.exp_store.db").start(1), 2).await;
     }
-
-    // #[tokio::test]
-    // async fn test_redb_scan_on_start() {
-    //     let db = open_database().await;
-
-    //     let dur = Duration::from_secs(2);
-    //     let value = encode("value".as_bytes(), &ExpiryFlags::new_expiring(1, dur));
-    //     let value2 = encode(
-    //         "value2".as_bytes(),
-    //         &ExpiryFlags {
-    //             persist: U16::ZERO,
-    //             nonce: U64::new(1),
-    //             expires_at: U64::new(get_current_timestamp() - 1),
-    //         },
-    //     );
-
-    //     db.insert("key", value).unwrap();
-    //     db.insert("key2", value2).unwrap();
-    //     let store = SledBackend::from_db(db.clone())
-    //         .scan_db_on_start(true)
-    //         .perform_deletion(true)
-    //         .start(1);
-
-    //     // Waiting for the actor to start up, there should be a better way
-    //     tokio::time::sleep(Duration::from_millis(500)).await;
-    //     assert!(db.contains_key("key").unwrap());
-    //     assert!(!db.contains_key("key2").unwrap());
-    //     tokio::time::sleep(Duration::from_millis(2000)).await;
-    //     assert!(!db.contains_key("key").unwrap());
-
-    //     // Making sure store stays alive
-    //     drop(store)
-    // }
 }

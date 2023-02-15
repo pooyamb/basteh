@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use basteh::{
-    dev::{Action, Expiry, ExpiryStore, Mutation, OwnedValue, Store, Value},
-    Result, StorageError,
+    dev::{Action, Mutation, OwnedValue, Provider, Value},
+    BastehError, Result,
 };
 use redis::{aio::ConnectionManager, AsyncCommands, FromRedisValue, RedisResult, ToRedisArgs};
 
@@ -23,11 +23,11 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
 ///
 /// ## Example
 /// ```no_run
-/// use basteh::Storage;
+/// use basteh::Basteh;
 /// use basteh_redis::{RedisBackend, ConnectionInfo, RedisConnectionInfo, ConnectionAddr};
 ///
 /// # async fn your_main() {
-/// let store = RedisBackend::connect_default();
+/// let provider = RedisBackend::connect_default();
 /// // OR
 /// let connection_info = ConnectionInfo {
 ///     addr: ConnectionAddr::Tcp("127.0.0.1".to_string(), 1234).into(),
@@ -37,8 +37,8 @@ fn get_full_key(scope: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Vec<u8> {
 ///         password: Some("bless".to_string()),
 ///     }
 /// };
-/// let store = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
-/// let storage = Storage::build().store(store).finish();
+/// let provider = RedisBackend::connect(connection_info).await.expect("Redis connection failed");
+/// let basteh = Basteh::build().provider(provider).finish();
 /// # }
 /// ```
 ///
@@ -62,14 +62,14 @@ impl RedisBackend {
 }
 
 #[async_trait::async_trait]
-impl Store for RedisBackend {
+impl Provider for RedisBackend {
     async fn keys(&self, scope: &str) -> Result<Box<dyn Iterator<Item = Vec<u8>>>> {
         let keys = self
             .con
             .clone()
             .keys::<_, Vec<Vec<u8>>>([scope, ":*"].concat())
             .await
-            .map_err(StorageError::custom)?
+            .map_err(BastehError::custom)?
             .into_iter()
             .map(move |k| {
                 let ignored = scope.len() + 1;
@@ -85,7 +85,7 @@ impl Store for RedisBackend {
             .clone()
             .set(full_key, ValueWrapper(value))
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(())
     }
 
@@ -96,7 +96,7 @@ impl Store for RedisBackend {
             .get::<_, OwnedValueWrapper>(full_key)
             .await
             .map(|v| v.0)
-            .map_err(StorageError::custom)
+            .map_err(BastehError::custom)
     }
 
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
@@ -112,27 +112,27 @@ impl Store for RedisBackend {
                     .clone()
                     .incr(full_key, delta)
                     .await
-                    .map_err(StorageError::custom)?,
+                    .map_err(BastehError::custom)?,
                 Action::Decr(delta) => self
                     .con
                     .clone()
                     .decr(full_key, delta)
                     .await
-                    .map_err(StorageError::custom)?,
+                    .map_err(BastehError::custom)?,
                 Action::Set(value) => self
                     .con
                     .clone()
                     .set(full_key, value)
                     .await
-                    .map_err(StorageError::custom)?,
+                    .map_err(BastehError::custom)?,
                 action => run_mutations(self.con.clone(), full_key, [action])
                     .await
-                    .map_err(|e| StorageError::Custom(Box::new(e)))?,
+                    .map_err(|e| BastehError::Custom(Box::new(e)))?,
             }
         } else {
             run_mutations(self.con.clone(), full_key, mutations.into_iter())
                 .await
-                .map_err(|e| StorageError::Custom(Box::new(e)))?
+                .map_err(|e| BastehError::Custom(Box::new(e)))?
         }
         Ok(())
     }
@@ -143,7 +143,7 @@ impl Store for RedisBackend {
             .clone()
             .del(full_key)
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(())
     }
 
@@ -154,20 +154,17 @@ impl Store for RedisBackend {
             .clone()
             .exists(full_key)
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(res > 0)
     }
-}
 
-#[async_trait::async_trait]
-impl Expiry for RedisBackend {
     async fn persist(&self, scope: &str, key: &[u8]) -> Result<()> {
         let full_key = get_full_key(scope, key);
         self.con
             .clone()
             .persist(full_key)
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(())
     }
 
@@ -178,7 +175,7 @@ impl Expiry for RedisBackend {
             .clone()
             .ttl(full_key)
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(if res >= 0 {
             Some(Duration::from_secs(res as u64))
         } else {
@@ -192,13 +189,10 @@ impl Expiry for RedisBackend {
             .clone()
             .expire(full_key, expire_in.as_secs() as usize)
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(())
     }
-}
 
-#[async_trait::async_trait]
-impl ExpiryStore for RedisBackend {
     async fn set_expiring(
         &self,
         scope: &str,
@@ -211,7 +205,7 @@ impl ExpiryStore for RedisBackend {
             .clone()
             .set_ex(full_key, ValueWrapper(value), expire_in.as_secs() as usize)
             .await
-            .map_err(StorageError::custom)?;
+            .map_err(BastehError::custom)?;
         Ok(())
     }
 }
@@ -279,19 +273,13 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_redis_store_numbers() {
-        test_store_numbers(get_connection().await).await;
-    }
-
-    #[tokio::test]
     async fn test_redis_mutate_numbers() {
-        test_mutate_numbers(get_connection().await).await;
+        test_mutations(get_connection().await).await;
     }
 
     #[tokio::test]
     async fn test_redis_expiry() {
-        let store = get_connection().await;
-        test_expiry(store.clone(), store, 5).await;
+        test_expiry(get_connection().await, 5).await;
     }
 
     #[tokio::test]

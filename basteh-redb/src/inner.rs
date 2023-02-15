@@ -6,7 +6,7 @@ use std::{
 
 use basteh::{
     dev::{Action, Mutation, OwnedValue},
-    StorageError,
+    BastehError,
 };
 use redb::{Error, ReadableTable, TableDefinition};
 
@@ -416,7 +416,7 @@ impl RedbInner {
                 Request::Keys(scope) => {
                     tx.send(
                         self.keys(&scope)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(|v| Response::Iterator(Box::new(v))),
                     )
                     .ok();
@@ -424,7 +424,7 @@ impl RedbInner {
                 Request::Get(scope, key) => {
                     tx.send(
                         self.get(&scope, &key)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Value),
                     )
                     .ok();
@@ -432,7 +432,7 @@ impl RedbInner {
                 Request::Set(scope, key, value) => {
                     tx.send(
                         self.set(&scope, &key, value)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -440,7 +440,7 @@ impl RedbInner {
                 Request::MutateNumber(scope, key, mutations) => {
                     tx.send(
                         self.mutate(&scope, &key, mutations)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -448,7 +448,7 @@ impl RedbInner {
                 Request::Delete(scope, key) => {
                     tx.send(
                         self.delete(&scope, &key)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -456,7 +456,7 @@ impl RedbInner {
                 Request::Contains(scope, key) => {
                     tx.send(
                         self.contains_key(&scope, &key)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Bool),
                     )
                     .ok();
@@ -465,7 +465,7 @@ impl RedbInner {
                 Request::Persist(scope, key) => {
                     tx.send(
                         self.persist(&scope, &key)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -473,7 +473,7 @@ impl RedbInner {
                 Request::Expire(scope, key, dur) => {
                     tx.send(
                         self.expire(&scope, &key, dur)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -481,7 +481,7 @@ impl RedbInner {
                 Request::Expiry(scope, key) => {
                     tx.send(
                         self.expiry(&scope, &key)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Duration),
                     )
                     .ok();
@@ -489,7 +489,7 @@ impl RedbInner {
                 Request::Extend(scope, key, dur) => {
                     tx.send(
                         self.extend(&scope, &key, dur)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -498,7 +498,7 @@ impl RedbInner {
                 Request::SetExpiring(scope, key, value, dur) => {
                     tx.send(
                         self.set_expiring(&scope, &key, value, dur)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )
                     .ok();
@@ -506,7 +506,7 @@ impl RedbInner {
                 Request::GetExpiring(scope, key) => {
                     tx.send(
                         self.get_expiring(&scope, &key)
-                            .map_err(StorageError::custom)
+                            .map_err(BastehError::custom)
                             .map(Response::ValueDuration),
                     )
                     .ok();
