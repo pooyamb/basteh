@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
 use actix_web::{web, App, HttpServer};
-use basteh::Storage;
+use basteh::Basteh;
 
 #[derive(Serialize, Deserialize)]
 struct Object {
@@ -27,8 +27,8 @@ async fn get_obj_by_id(id: u64) -> Object {
 }
 
 #[actix_web::get("/{obj_id}")]
-async fn get_obj(obj_id: web::Path<u64>, storage: web::Data<Storage>) -> web::Json<Response> {
-    let resp = if let Ok(Some(resp)) = storage.get::<Vec<u8>>(obj_id.to_string()).await {
+async fn get_obj(obj_id: web::Path<u64>, basteh: web::Data<Basteh>) -> web::Json<Response> {
+    let resp = if let Ok(Some(resp)) = basteh.get::<Vec<u8>>(obj_id.to_string()).await {
         serde_json::from_slice(&resp).unwrap()
     } else {
         let object = get_obj_by_id(*obj_id).await;
@@ -38,7 +38,7 @@ async fn get_obj(obj_id: web::Path<u64>, storage: web::Data<Storage>) -> web::Js
         };
 
         // Cache for 5 seconds
-        storage
+        basteh
             .set_expiring(
                 &obj_id.to_string(),
                 &serde_json::to_vec(&resp).unwrap(),
@@ -68,9 +68,13 @@ async fn main() -> std::io::Result<()> {
     // )
     // .start(1);
 
-    let storage = Storage::build().store(provider).finish();
-    let storage = web::Data::new(storage);
+    let basteh = Basteh::build().provider(provider).finish();
 
-    let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(get_obj));
+    // We don't need to wrap basteh inside data, as it's Arced and clonable, but we do it for the sake of
+    // easy extraction with web::Data. If you're too worried about double arcing, you can make a new type
+    // and implement the extraction logic there.
+    let basteh = web::Data::new(basteh);
+
+    let server = HttpServer::new(move || App::new().app_data(basteh.clone()).service(get_obj));
     server.bind("localhost:5000")?.run().await
 }

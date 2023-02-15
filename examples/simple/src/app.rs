@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use actix_web::{web, App, Error, HttpServer};
-use basteh::Storage;
+use basteh::Basteh;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -24,13 +24,13 @@ struct PersonOut {
 #[actix_web::get("/{name}/{lesson}/{point}")]
 async fn index(
     path: web::Path<(String, String, u16)>,
-    storage: web::Data<Storage>,
+    basteh: web::Data<Basteh>,
 ) -> Result<web::Json<PersonOut>, Error> {
     let new: bool;
     let (name, lesson, point) = path.into_inner();
     let mut previous_point: Option<u16> = None;
 
-    let person = if let Some(Ok(mut person)) = storage
+    let person = if let Some(Ok(mut person)) = basteh
         .get::<Vec<u8>>(&name)
         .await
         .unwrap()
@@ -53,8 +53,8 @@ async fn index(
         person
     };
 
-    // Setting back the data to storage
-    storage
+    // Setting back the data to basteh
+    basteh
         .set(&name, &serde_json::to_vec(&person).unwrap())
         .await
         .unwrap();
@@ -81,9 +81,13 @@ async fn main() -> std::io::Result<()> {
     //         .open()?,
     // ).start(1);
 
-    let storage = Storage::build().store(provider).no_expiry().finish();
-    let storage = web::Data::new(storage);
+    let basteh = Basteh::build().provider(provider).finish();
 
-    let server = HttpServer::new(move || App::new().app_data(storage.clone()).service(index));
+    // We don't need to wrap basteh inside data, as it's Arced and clonable, but we do it for the sake of
+    // easy extraction with web::Data. If you're too worried about double arcing, you can make a new type
+    // and implement the extraction logic there.
+    let basteh = web::Data::new(basteh);
+
+    let server = HttpServer::new(move || App::new().app_data(basteh.clone()).service(index));
     server.bind("localhost:5000")?.run().await
 }
