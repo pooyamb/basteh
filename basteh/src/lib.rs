@@ -7,7 +7,7 @@ mod mutation;
 mod provider;
 mod value;
 
-pub use basteh::Basteh;
+pub use crate::basteh::Basteh;
 pub use builder::GLOBAL_SCOPE;
 pub use error::{BastehError, Result};
 

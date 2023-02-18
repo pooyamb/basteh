@@ -29,6 +29,7 @@ pub enum Request {
 pub enum Response {
     Iterator(Box<dyn Iterator<Item = Vec<u8>> + Send + Sync>),
     Value(Option<Value>),
+    Number(i64),
     Duration(Option<Duration>),
     ValueDuration(Option<(Value, Option<Duration>)>),
     Bool(bool),

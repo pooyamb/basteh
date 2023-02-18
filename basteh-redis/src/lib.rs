@@ -99,42 +99,57 @@ impl Provider for RedisBackend {
             .map_err(BastehError::custom)
     }
 
-    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
-        if mutations.len() == 0 {
-            return Ok(());
-        }
-
+    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64> {
         let full_key = get_full_key(scope, key);
-        if mutations.len() == 1 {
+
+        if mutations.len() == 0 {
+            let mut con = self.con.clone();
+
+            // Get the value or set to 0 and return
+            let res = con
+                .get::<_, Option<i64>>(&full_key)
+                .await
+                .map_err(BastehError::custom)?;
+
+            if let Some(res) = res {
+                Ok(res)
+            } else {
+                con.set(full_key, 0__i64)
+                    .await
+                    .map_err(BastehError::custom)?;
+                Ok(0)
+            }
+        } else if mutations.len() == 1 {
             match mutations.into_iter().next().unwrap() {
                 Action::Incr(delta) => self
                     .con
                     .clone()
                     .incr(full_key, delta)
                     .await
-                    .map_err(BastehError::custom)?,
+                    .map_err(BastehError::custom),
                 Action::Decr(delta) => self
                     .con
                     .clone()
                     .decr(full_key, delta)
                     .await
-                    .map_err(BastehError::custom)?,
-                Action::Set(value) => self
-                    .con
-                    .clone()
-                    .set(full_key, value)
-                    .await
-                    .map_err(BastehError::custom)?,
+                    .map_err(BastehError::custom),
+                Action::Set(value) => {
+                    self.con
+                        .clone()
+                        .set(full_key, value)
+                        .await
+                        .map_err(BastehError::custom)?;
+                    return Ok(value);
+                }
                 action => run_mutations(self.con.clone(), full_key, [action])
                     .await
-                    .map_err(|e| BastehError::Custom(Box::new(e)))?,
+                    .map_err(|e| BastehError::Custom(Box::new(e))),
             }
         } else {
             run_mutations(self.con.clone(), full_key, mutations.into_iter())
                 .await
-                .map_err(|e| BastehError::Custom(Box::new(e)))?
+                .map_err(|e| BastehError::Custom(Box::new(e)))
         }
-        Ok(())
     }
 
     async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {

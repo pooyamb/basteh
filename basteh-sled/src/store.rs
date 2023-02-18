@@ -132,12 +132,12 @@ impl Provider for SledBackend {
         scope: &str,
         key: &[u8],
         mutations: basteh::dev::Mutation,
-    ) -> basteh::Result<()> {
+    ) -> basteh::Result<i64> {
         match self
             .msg(Request::MutateNumber(scope.into(), key.into(), mutations))
             .await?
         {
-            Response::Empty(r) => Ok(r),
+            Response::Number(r) => Ok(r),
             _ => unreachable!(),
         }
     }

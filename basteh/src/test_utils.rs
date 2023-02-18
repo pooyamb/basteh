@@ -384,60 +384,65 @@ where
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 pub async fn test_mutate_numbers(store: Basteh) {
-    let key = "mutate_number_key";
+    let key = "mutate_key";
 
     // Increase by 1600, key doesn't exist so it should be considered 0
-    store.mutate(key, |m| m.incr(1600)).await.ok();
+    let mut_res = store.mutate(key, |m| m.incr(1600)).await;
+    assert_eq!(mut_res.unwrap(), 1600);
 
-    let get_res = store.get::<i64>(key).await;
+    let get_res = store.get(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(1600));
 
     // Decrease by 200
-    store.mutate(key, |m| m.decr(200)).await.ok();
+    let mut_res = store.mutate(key, |m| m.decr(200)).await;
+    assert_eq!(mut_res.unwrap(), 1400);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(1400));
 
     // Mutiply by 2
-    store.mutate(key, |m| m.mul(2)).await.ok();
+    let mut_res = store.mutate(key, |m| m.mul(2)).await;
+    assert_eq!(mut_res.unwrap(), 2800);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(2800));
 
     // Divide by 4
-    store.mutate(key, |m| m.div(4)).await.ok();
+    let mut_res = store.mutate(key, |m| m.div(4)).await;
+    assert_eq!(mut_res.unwrap(), 700);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(700));
 
     // Set to 100
-    store.mutate(key, |m| m.set(100)).await.ok();
+    let mut_res = store.mutate(key, |m| m.set(100)).await;
+    assert_eq!(mut_res.unwrap(), 100);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(100));
 
     // Conditional if
-    store
+    let mut_res = store
         .mutate(key, |m| m.if_(Ordering::Equal, 100, |m| m.set(200)))
-        .await
-        .ok();
+        .await;
+    assert_eq!(mut_res.unwrap(), 200);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(200));
 
     // Conditional if else
-    store
+    let mut_res = store
         .mutate(key, |m| {
             m.if_else(Ordering::Greater, 200, |m| m.decr(100), |m| m.decr(50))
         })
-        .await
-        .ok();
+        .await;
+    assert_eq!(mut_res.unwrap(), 150);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
@@ -451,16 +456,18 @@ pub async fn test_mutate_numbers(store: Basteh) {
             })
         })
     };
-    store.mutate(key, mutation).await.ok();
+    let mut_res = store.mutate(key, mutation).await;
+    assert_eq!(mut_res.unwrap(), 175);
 
     let get_res = store.get::<i64>(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(175));
 
     // Multi level conditionals
-    store.mutate(key, mutation).await.ok();
+    let mut_res = store.mutate(key, mutation).await;
+    assert_eq!(mut_res.unwrap(), 125);
 
-    let get_res = store.get::<i64>(key).await;
+    let get_res = store.get(key).await;
     assert!(get_res.is_ok());
     assert_eq!(get_res.unwrap(), Some(125));
 }
@@ -474,5 +481,5 @@ where
 {
     let store = Basteh::build().provider(provider).finish();
 
-    tokio::join!(test_mutate_numbers(store.clone()));
+    tokio::join!(test_mutate_numbers(store.clone()),);
 }

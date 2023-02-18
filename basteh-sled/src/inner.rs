@@ -159,7 +159,9 @@ impl SledInner {
             .map_err(BastehError::custom)
     }
 
-    pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<()> {
+    pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<i64> {
+        let mut value = 0;
+
         match open_tree(&self.db, &scope)?.update_and_fetch(key, |existing| {
             let (val, exp) = if let Some((val, exp)) = existing.and_then(decode) {
                 if !exp.expired() {
@@ -177,13 +179,13 @@ impl SledInner {
                 (0, ExpiryFlags::new_persist(0))
             };
 
-            let value = run_mutations(val, &mutations);
+            value = run_mutations(val, &mutations);
 
             let val = encode(Value::Number(value), &exp);
 
             Some(val)
         }) {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(value),
             Err(err) => Err(BastehError::custom(err)),
         }
     }
@@ -356,7 +358,7 @@ impl SledInner {
                         .ok();
                 }
                 Request::MutateNumber(scope, key, mutations) => {
-                    tx.send(self.mutate(scope, key, mutations).map(Response::Empty))
+                    tx.send(self.mutate(scope, key, mutations).map(Response::Number))
                         .ok();
                 }
                 Request::Delete(scope, key) => {

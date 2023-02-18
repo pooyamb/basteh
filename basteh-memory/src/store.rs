@@ -113,7 +113,7 @@ impl Provider for MemoryBackend {
             .map(|value| value.clone()))
     }
 
-    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()> {
+    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64> {
         let mut guard = self.map.lock();
         let scope_map = guard.entry(scope.into()).or_default();
 
@@ -131,7 +131,7 @@ impl Provider for MemoryBackend {
 
         if let Some(value) = value {
             scope_map.insert(key.into(), OwnedValue::Number(value));
-            Ok(())
+            Ok(value)
         } else {
             Err(BastehError::InvalidNumber)
         }
@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_hashmap_mutate_numbers() {
+    async fn test_hashmap_mutations() {
         test_mutations(MemoryBackend::start_default()).await;
     }
 

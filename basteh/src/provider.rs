@@ -16,8 +16,8 @@ pub trait Provider: Send + Sync {
     /// Get a value for specified key, it should result in None if the value does not exist
     async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>>;
 
-    /// Get a value for specified key, it should result in None if the value does not exist
-    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<()>;
+    /// Mutate and get a value for specified key, it should set the value to 0 if it doesn't exist
+    async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64>;
 
     /// Delete the key from storage, if the key doesn't exist, it shouldn't return an error
     async fn delete(&self, scope: &str, key: &[u8]) -> Result<()>;

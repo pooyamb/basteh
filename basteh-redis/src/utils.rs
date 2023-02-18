@@ -7,10 +7,8 @@ pub(super) async fn run_mutations(
     mut con: ConnectionManager,
     key: Vec<u8>,
     mutations: impl IntoIterator<Item = Action>,
-) -> std::result::Result<(), RedisError> {
+) -> std::result::Result<i64, RedisError> {
     let (script, args) = make_script(mutations);
-
-    println!("{:?}", script);
 
     let script = Script::new(&script);
     let args = args.into_iter();
@@ -31,7 +29,7 @@ fn make_script(mutations: impl IntoIterator<Item = Action>) -> (String, Vec<i64>
 
     write_operation(mutations, &mut script, &mut args);
 
-    script.push_str("redis.call('SET', KEYS[1], r)\n");
+    script.push_str("redis.call('SET', KEYS[1], r)\nreturn r");
 
     (script, args)
 }

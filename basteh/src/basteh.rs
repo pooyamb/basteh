@@ -2,8 +2,9 @@ use std::convert::{AsRef, TryFrom, TryInto};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::dev::{BastehBuilder, Mutation, OwnedValue, Provider};
+use crate::dev::{BastehBuilder, OwnedValue, Provider};
 use crate::error::Result;
+use crate::mutation::Mutation;
 use crate::value::Value;
 use crate::BastehError;
 
@@ -187,7 +188,7 @@ impl Basteh {
         }
     }
 
-    /// Mutate a numeric value in the store.
+    /// Mutate a numeric value in the store. It may overwrite the value if it's not a number.
     ///
     /// ## Note
     /// The closure will called in-place(outside the backend store) and only the collected mutations
@@ -205,10 +206,11 @@ impl Basteh {
     /// #     "set"
     /// # }
     /// ```
-    pub async fn mutate<F>(&self, key: impl AsRef<[u8]>, mutate_f: F) -> Result<()>
-    where
-        F: Fn(Mutation) -> Mutation,
-    {
+    pub async fn mutate(
+        &self,
+        key: impl AsRef<[u8]>,
+        mutate_f: impl Fn(Mutation) -> Mutation,
+    ) -> Result<i64> {
         self.provider
             .mutate(
                 self.scope.as_ref(),

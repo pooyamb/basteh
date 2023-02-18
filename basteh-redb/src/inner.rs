@@ -177,12 +177,12 @@ impl RedbInner {
         }
     }
 
-    fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<(), Error> {
+    fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64, Error> {
         table_def!(table, scope);
         exp_table_def!(exp_table, scope, &self.exp_table);
 
         let txn = self.db.begin_write()?;
-        {
+        let value = {
             let mut table = txn.open_table(table)?;
             let mut expired = false;
             if let Ok(mut r) = txn.open_table(exp_table) {
@@ -210,8 +210,11 @@ impl RedbInner {
             let value = run_mutations(current.unwrap_or(0), &mutations);
 
             table.insert(key, OwnedValue::Number(value))?;
-        }
-        txn.commit()
+            value
+        };
+        txn.commit()?;
+
+        Ok(value)
     }
 
     fn delete(&self, scope: &str, key: &[u8]) -> Result<(), Error> {
@@ -441,7 +444,7 @@ impl RedbInner {
                     tx.send(
                         self.mutate(&scope, &key, mutations)
                             .map_err(BastehError::custom)
-                            .map(Response::Empty),
+                            .map(Response::Number),
                     )
                     .ok();
                 }

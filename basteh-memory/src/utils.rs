@@ -1,5 +1,6 @@
 use basteh::dev::{Action, Mutation};
 
+#[inline]
 pub(crate) fn run_mutations(mut value: i64, mutations: Mutation) -> Option<i64> {
     for act in mutations.into_iter() {
         match act {
