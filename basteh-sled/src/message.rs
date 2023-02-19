@@ -15,7 +15,7 @@ pub enum Request {
     Keys(Scope),
     Get(Scope, Key),
     Set(Scope, Key, Value),
-    Delete(Scope, Key),
+    Remove(Scope, Key),
     Contains(Scope, Key),
     MutateNumber(Scope, Key, Mutation),
     Expire(Scope, Key, Duration),

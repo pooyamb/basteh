@@ -4,6 +4,8 @@
 - Removed the glue code and no_expiry method
 - Renamed `store` method to `provider` in builder
 - Changed `mutate` to return the value
+- Renamed `delete` to `remove`
+- Changed `remove` to return the removed value
 
 ## Version 0.4 Alpha.4
 - Fixed set_expiring method signature

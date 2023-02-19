@@ -220,21 +220,26 @@ impl Basteh {
             .await
     }
 
-    /// Deletes/Removes a key value pair from store.
+    /// Removes a key value pair from store, returning the value if exist.
     ///
     /// ## Example
     /// ```rust
     /// # use basteh::{Basteh, BastehError};
     /// #
     /// # async fn index(store: Basteh) -> Result<String, BastehError> {
-    /// store.delete("key").await?;
+    /// store.remove::<String>("key").await?;
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
-    pub async fn delete(&self, key: impl AsRef<[u8]>) -> Result<()> {
+    pub async fn remove<T: TryFrom<OwnedValue, Error = BastehError>>(
+        &self,
+        key: impl AsRef<[u8]>,
+    ) -> Result<Option<T>> {
         self.provider
-            .delete(self.scope.as_ref(), key.as_ref().into())
-            .await
+            .remove(self.scope.as_ref(), key.as_ref().into())
+            .await?
+            .map(|v| v.try_into())
+            .transpose()
     }
 
     /// Checks if Basteh contains a key.

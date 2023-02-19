@@ -152,14 +152,18 @@ impl Provider for RedisBackend {
         }
     }
 
-    async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
+    async fn remove(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
         let full_key = get_full_key(scope, key);
-        self.con
-            .clone()
+        Ok(redis::pipe()
+            .get(&full_key)
             .del(full_key)
+            .ignore()
+            .query_async::<_, Vec<OwnedValueWrapper>>(&mut self.con.clone())
             .await
-            .map_err(BastehError::custom)?;
-        Ok(())
+            .map_err(BastehError::custom)?
+            .into_iter()
+            .next()
+            .and_then(|v| v.0))
     }
 
     async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool> {

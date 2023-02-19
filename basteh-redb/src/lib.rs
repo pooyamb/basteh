@@ -154,9 +154,9 @@ impl Provider for RedbBackend<crossbeam_channel::Sender<Message>> {
         }
     }
 
-    async fn delete(&self, scope: &str, key: &[u8]) -> basteh::Result<()> {
-        match self.msg(Request::Delete(scope.into(), key.into())).await? {
-            Response::Empty(r) => Ok(r),
+    async fn remove(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<OwnedValue>> {
+        match self.msg(Request::Remove(scope.into(), key.into())).await? {
+            Response::Value(r) => Ok(r),
             _ => unreachable!(),
         }
     }

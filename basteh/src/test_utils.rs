@@ -34,7 +34,9 @@ pub async fn test_store_methods(store: Basteh) {
     assert!(contains_res.is_ok());
     assert!(contains_res.unwrap());
 
-    assert!(store.delete(key).await.is_ok());
+    let removed_value = store.remove::<String>(key).await;
+    assert!(removed_value.is_ok());
+    assert_eq!(removed_value.unwrap(), Some(value.to_owned()));
 
     let get_res = store.get::<String>(key).await;
     assert!(get_res.is_ok());

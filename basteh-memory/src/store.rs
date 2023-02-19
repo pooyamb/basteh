@@ -137,20 +137,21 @@ impl Provider for MemoryBackend {
         }
     }
 
-    async fn delete(&self, scope: &str, key: &[u8]) -> Result<()> {
-        if self
+    async fn remove(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
+        let value = self
             .map
             .lock()
             .get_mut(scope)
-            .and_then(|scope_map| scope_map.remove(key))
-            .is_some()
-        {
+            .and_then(|scope_map| scope_map.remove(key));
+
+        if value.is_some() {
             self.dq_tx
                 .remove(ExpiryKey::new(scope.into(), key.into()))
                 .await
                 .ok();
         }
-        Ok(())
+
+        Ok(value)
     }
 
     async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool> {

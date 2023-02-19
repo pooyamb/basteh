@@ -217,19 +217,20 @@ impl RedbInner {
         Ok(value)
     }
 
-    fn delete(&self, scope: &str, key: &[u8]) -> Result<(), Error> {
+    fn remove(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>, Error> {
         table_def!(table, scope);
         exp_table_def!(exp_table, scope, &self.exp_table);
 
         let txn = self.db.begin_write()?;
-        txn.open_table(table)?.remove(key)?;
+        let val = txn.open_table(table)?.remove(key)?.map(|v| v.value());
         txn.open_table(exp_table)?.remove(key)?;
         txn.commit()?;
 
         if self.queue_started {
             self.queue.remove(scope, key);
         }
-        Ok(())
+
+        Ok(val)
     }
 
     fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool, Error> {
@@ -448,11 +449,11 @@ impl RedbInner {
                     )
                     .ok();
                 }
-                Request::Delete(scope, key) => {
+                Request::Remove(scope, key) => {
                     tx.send(
-                        self.delete(&scope, &key)
+                        self.remove(&scope, &key)
                             .map_err(BastehError::custom)
-                            .map(Response::Empty),
+                            .map(Response::Value),
                     )
                     .ok();
                 }

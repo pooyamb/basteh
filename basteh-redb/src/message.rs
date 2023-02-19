@@ -10,7 +10,7 @@ pub enum Request {
     Keys(Box<str>),
     Get(Box<str>, Box<[u8]>),
     Set(Box<str>, Box<[u8]>, OwnedValue),
-    Delete(Box<str>, Box<[u8]>),
+    Remove(Box<str>, Box<[u8]>),
     Contains(Box<str>, Box<[u8]>),
     MutateNumber(Box<str>, Box<[u8]>, Mutation),
     Expire(Box<str>, Box<[u8]>, Duration),

@@ -20,7 +20,7 @@ pub trait Provider: Send + Sync {
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64>;
 
     /// Delete the key from storage, if the key doesn't exist, it shouldn't return an error
-    async fn delete(&self, scope: &str, key: &[u8]) -> Result<()>;
+    async fn remove(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>>;
 
     /// Check if key exist in storage
     async fn contains_key(&self, scope: &str, key: &[u8]) -> Result<bool>;

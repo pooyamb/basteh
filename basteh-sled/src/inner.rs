@@ -190,9 +190,20 @@ impl SledInner {
         }
     }
 
-    pub fn delete(&self, scope: IVec, key: IVec) -> Result<()> {
+    pub fn remove(&self, scope: IVec, key: IVec) -> Result<Option<OwnedValue>> {
         let tree = open_tree(&self.db, &scope)?;
-        tree.remove(&key).map(|_| ()).map_err(BastehError::custom)
+        tree.remove(&key)
+            .map(|val| {
+                val.and_then(|bytes| {
+                    let (val, exp) = decode(&bytes)?;
+                    if !exp.expired() {
+                        Some(val.into_owned())
+                    } else {
+                        None
+                    }
+                })
+            })
+            .map_err(BastehError::custom)
     }
 
     pub fn contains(&self, scope: IVec, key: IVec) -> Result<bool> {
@@ -361,8 +372,8 @@ impl SledInner {
                     tx.send(self.mutate(scope, key, mutations).map(Response::Number))
                         .ok();
                 }
-                Request::Delete(scope, key) => {
-                    tx.send(self.delete(scope, key).map(Response::Empty)).ok();
+                Request::Remove(scope, key) => {
+                    tx.send(self.remove(scope, key).map(Response::Value)).ok();
                 }
                 Request::Contains(scope, key) => {
                     tx.send(self.contains(scope, key).map(Response::Bool)).ok();
