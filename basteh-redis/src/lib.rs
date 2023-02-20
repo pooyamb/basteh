@@ -251,15 +251,16 @@ impl<'a> FromRedisValue for OwnedValueWrapper {
             // If it's Nil then return None
             redis::Value::Nil => None,
             // Otherwise try to decode as Number, String or Bytes in order
-            _ => <i64 as FromRedisValue>::from_redis_value(v)
-                .map(OwnedValue::Number)
-                .or_else(|_| {
-                    <String as FromRedisValue>::from_redis_value(v).map(OwnedValue::String)
-                })
-                .or_else(|_| {
-                    <Vec<u8> as FromRedisValue>::from_redis_value(v).map(OwnedValue::Bytes)
-                })
-                .ok(),
+            _ => Some(
+                <i64 as FromRedisValue>::from_redis_value(v)
+                    .map(OwnedValue::Number)
+                    .or_else(|_| {
+                        <String as FromRedisValue>::from_redis_value(v).map(OwnedValue::String)
+                    })
+                    .or_else(|_| {
+                        <Vec<u8> as FromRedisValue>::from_redis_value(v).map(OwnedValue::Bytes)
+                    })?,
+            ),
         }))
     }
 }
