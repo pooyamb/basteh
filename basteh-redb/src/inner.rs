@@ -203,11 +203,22 @@ impl RedbInner {
             };
 
             let current = if expired {
-                None
+                0
             } else {
-                table.remove(key)?.and_then(|v| v.value().try_into().ok())
+                if let Some(value) = table.remove(key)? {
+                    if let Ok(value) = value.value().try_into() {
+                        value
+                    } else {
+                        // Abort will be called by drop
+                        return Err(redb::Error::TableTypeMismatch(
+                            "Value is not a number".to_string(),
+                        ));
+                    }
+                } else {
+                    0
+                }
             };
-            let value = run_mutations(current.unwrap_or(0), &mutations);
+            let value = run_mutations(current, &mutations);
 
             table.insert(key, OwnedValue::Number(value))?;
             value
