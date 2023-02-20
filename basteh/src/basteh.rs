@@ -64,10 +64,7 @@ impl Basteh {
         }
     }
 
-    /// Bastehs a sequence of bytes on Basteh
-    ///
-    /// Calling set operations twice on the same key, overwrites it's value and
-    /// clear the expiry on that key(if it exist).
+    /// Get all keys matching the requested pattern(not implemented yet)
     ///
     /// ## Example
     /// ```rust
@@ -82,7 +79,7 @@ impl Basteh {
         self.provider.keys(self.scope.as_ref()).await
     }
 
-    /// Bastehs a sequence of bytes on Basteh
+    /// Saves a single key-value on store
     ///
     /// Calling set operations twice on the same key, overwrites it's value and
     /// clear the expiry on that key(if it exist).
@@ -103,7 +100,7 @@ impl Basteh {
             .await
     }
 
-    /// Bastehs a sequence of bytes on Basteh and sets expiry on the key
+    /// Sets a value on store with expiry on the key
     /// It should be prefered over calling set and expire as backends may define
     /// a more optimized way to do both operations at once.
     ///
@@ -140,7 +137,7 @@ impl Basteh {
             .await
     }
 
-    /// Gets a sequence of bytes from backend, resulting in an arc
+    /// Gets a single owned value from store
     ///
     /// ## Example
     /// ```rust
@@ -242,7 +239,7 @@ impl Basteh {
             .transpose()
     }
 
-    /// Checks if Basteh contains a key.
+    /// Checks if store contains a key.
     ///
     /// ## Example
     /// ```rust
@@ -280,7 +277,7 @@ impl Basteh {
             .await
     }
 
-    /// Gets expiry for the provided key, it will give none if there is no expiry set.
+    /// Gets expiry for the provided key, it will return none if there is no expiry set.
     ///
     /// The result of this method is not guaranteed to be exact and may be inaccurate
     /// depending on sotrage implementation.
@@ -327,7 +324,7 @@ impl Basteh {
             .await
     }
 
-    /// Clears expiry from the provided key, making it persistant.
+    /// Clears expiry from the provided key, making it persistent.
     ///
     /// Calling expire will overwrite persist.
     ///
