@@ -474,6 +474,46 @@ pub async fn test_mutate_numbers(store: Basteh) {
     assert_eq!(get_res.unwrap(), Some(125));
 }
 
+async fn test_mutate_edge_cases(store: Basteh) {
+    let key = "mutate_edge_key";
+
+    // No mutations, no value, should be set to 0
+    let mut_res = store.mutate(key, |m| m).await;
+    assert_eq!(mut_res.unwrap(), 0);
+
+    // Check if it is actually set to 0
+    let get_res = store.get(key).await;
+    assert_eq!(get_res.unwrap(), Some(0));
+
+    store.set(key, 100).await.ok();
+
+    // No mutations, with value, should keep the value
+    let mut_res = store.mutate(key, |m| m).await;
+    assert_eq!(mut_res.unwrap(), 100);
+
+    // Check if it is actually kept the value
+    let get_res = store.get(key).await;
+    assert_eq!(get_res.unwrap(), Some(100));
+
+    store.set(key, "Hi").await.ok();
+
+    // No mutations, with string value
+    let mut_res = store.mutate(key, |m| m).await;
+    assert!(mut_res.is_err());
+
+    // Check if it is actually kept the value
+    let get_res = store.get::<String>(key).await;
+    assert_eq!(get_res.unwrap(), Some("Hi".to_string()));
+
+    // No mutations, with string value
+    let mut_res = store.mutate(key, |m| m.incr(100)).await;
+    assert!(mut_res.is_err());
+
+    // Check if it is actually kept the value
+    let get_res = store.get::<String>(key).await;
+    assert_eq!(get_res.unwrap(), Some("Hi".to_string()));
+}
+
 // delay_secs is the duration of time we set for expiry and we wait to see
 // the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
@@ -483,5 +523,8 @@ where
 {
     let store = Basteh::build().provider(provider).finish();
 
-    tokio::join!(test_mutate_numbers(store.clone()),);
+    tokio::join!(
+        test_mutate_numbers(store.clone()),
+        test_mutate_edge_cases(store)
+    );
 }
