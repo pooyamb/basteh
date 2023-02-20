@@ -160,32 +160,42 @@ impl SledInner {
     }
 
     pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<i64> {
-        let mut value = 0;
+        // value will be some if the stored value is either expired or valid number
+        let mut value = None;
 
         match open_tree(&self.db, &scope)?.update_and_fetch(key, |existing| {
             let (val, exp) = if let Some((val, exp)) = existing.and_then(decode) {
                 if !exp.expired() {
                     (
                         match val {
-                            Value::Number(n) => n,
-                            _ => 0,
+                            Value::Number(n) => Some(n),
+                            _ => None,
                         },
                         *exp,
                     )
                 } else {
-                    (0, ExpiryFlags::new_persist(exp.next_nonce()))
+                    (Some(0), ExpiryFlags::new_persist(exp.next_nonce()))
                 }
             } else {
-                (0, ExpiryFlags::new_persist(0))
+                (Some(0), ExpiryFlags::new_persist(0))
             };
 
-            value = run_mutations(val, &mutations);
+            if let Some(val) = val {
+                let val = run_mutations(val, &mutations);
+                value = Some(val);
 
-            let val = encode(Value::Number(value), &exp);
+                let val = encode(Value::Number(val), &exp);
 
-            Some(val)
+                Some(val)
+            } else {
+                // If the value is not numeric, leave it as is
+                existing.map(|v| v.into())
+            }
         }) {
-            Ok(_) => Ok(value),
+            Ok(_) => match value {
+                Some(value) => Ok(value),
+                None => Err(BastehError::InvalidNumber),
+            },
             Err(err) => Err(BastehError::custom(err)),
         }
     }
