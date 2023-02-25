@@ -113,6 +113,87 @@ impl Provider for MemoryBackend {
             .map(|value| value.clone()))
     }
 
+    async fn get_range<'a>(
+        &'a self,
+        scope: &str,
+        key: &[u8],
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<OwnedValue>> {
+        Ok(self
+            .map
+            .lock()
+            .get(scope)
+            .and_then(|scope_map| scope_map.get(key))
+            .map(|value| match value {
+                OwnedValue::List(l) => {
+                    let start = if start < 0 {
+                        l.len() - (-start as usize)
+                    } else {
+                        start as usize
+                    };
+                    let end = if end < 0 {
+                        l.len() - (-end as usize)
+                    } else {
+                        end as usize
+                    };
+
+                    l.iter()
+                        .skip(start)
+                        .take(
+                            end.checked_sub(start.checked_sub(1).unwrap_or(0))
+                                .unwrap_or(0),
+                        )
+                        .map(|v| v.clone())
+                        .collect()
+                }
+                _ => Vec::new(),
+            })
+            .unwrap_or_default())
+    }
+
+    async fn push(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
+        let mut lock = self.map.lock();
+        let val = lock
+            .entry(scope.into())
+            .or_default()
+            .entry(key.into())
+            .or_insert_with(|| OwnedValue::List(Vec::new()));
+
+        match val {
+            OwnedValue::List(l) => l.push(value.into_owned()),
+            _ => return Err(BastehError::TypeConversion),
+        }
+
+        Ok(())
+    }
+
+    async fn push_multiple(&self, scope: &str, key: &[u8], value: Vec<Value<'_>>) -> Result<()> {
+        let mut lock = self.map.lock();
+        let val = lock
+            .entry(scope.into())
+            .or_default()
+            .entry(key.into())
+            .or_insert_with(|| OwnedValue::List(Vec::new()));
+
+        match val {
+            OwnedValue::List(l) => l.extend(value.into_iter().map(|v| v.into_owned())),
+            _ => return Err(BastehError::TypeConversion),
+        }
+
+        Ok(())
+    }
+
+    async fn pop(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
+        let mut lock = self.map.lock();
+        let val = lock.entry(scope.into()).or_default().get_mut(key.into());
+
+        match val {
+            Some(OwnedValue::List(l)) => Ok(l.pop()),
+            _ => Err(BastehError::TypeConversion),
+        }
+    }
+
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64> {
         let mut guard = self.map.lock();
         let scope_map = guard.entry(scope.into()).or_default();
