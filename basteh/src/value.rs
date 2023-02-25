@@ -7,11 +7,13 @@ use std::{
 
 use crate::BastehError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum ValueKind {
     Number = 0,
     String = 1,
     Bytes = 2,
+    List = 3,
 }
 
 impl ValueKind {
@@ -20,6 +22,7 @@ impl ValueKind {
             0 => Some(ValueKind::Number),
             1 => Some(ValueKind::String),
             2 => Some(ValueKind::Bytes),
+            3 => Some(ValueKind::List),
             _ => None,
         }
     }
@@ -30,6 +33,7 @@ pub enum Value<'a> {
     Number(i64),
     String(Cow<'a, str>),
     Bytes(Cow<'a, [u8]>),
+    List(Vec<Value<'a>>),
 }
 
 impl<'a> Value<'a> {
@@ -38,6 +42,7 @@ impl<'a> Value<'a> {
             Self::Number(_) => ValueKind::Number,
             Self::String(_) => ValueKind::String,
             Self::Bytes(_) => ValueKind::Bytes,
+            Self::List(_) => ValueKind::List,
         }
     }
 
@@ -46,6 +51,7 @@ impl<'a> Value<'a> {
             Value::Number(n) => OwnedValue::Number(*n),
             Value::String(s) => OwnedValue::String(s.as_ref().to_owned()),
             Value::Bytes(b) => OwnedValue::Bytes(b.as_ref().to_owned()),
+            Value::List(l) => OwnedValue::List(l.iter().map(|v| v.to_owned()).collect()),
         }
     }
 
@@ -54,6 +60,7 @@ impl<'a> Value<'a> {
             Value::Number(n) => OwnedValue::Number(n),
             Value::String(s) => OwnedValue::String(s.into_owned()),
             Value::Bytes(b) => OwnedValue::Bytes(b.into_owned()),
+            Value::List(l) => OwnedValue::List(l.into_iter().map(|v| v.into_owned()).collect()),
         }
     }
 }
@@ -141,6 +148,7 @@ pub enum OwnedValue {
     Number(i64),
     String(String),
     Bytes(Vec<u8>),
+    List(Vec<OwnedValue>),
 }
 
 impl OwnedValue {
@@ -149,6 +157,7 @@ impl OwnedValue {
             Self::Number(_) => ValueKind::Number,
             Self::String(_) => ValueKind::String,
             Self::Bytes(_) => ValueKind::Bytes,
+            Self::List(_) => ValueKind::List,
         }
     }
 
@@ -157,6 +166,7 @@ impl OwnedValue {
             OwnedValue::Number(n) => Value::Number(*n),
             OwnedValue::String(s) => Value::String(Cow::Borrowed(&s)),
             OwnedValue::Bytes(b) => Value::Bytes(Cow::Borrowed(&b)),
+            OwnedValue::List(l) => Value::List(l.into_iter().map(|v| v.as_value()).collect()),
         }
     }
 }
@@ -169,6 +179,7 @@ impl<'a> TryFrom<OwnedValue> for String {
             OwnedValue::String(val) => Ok(val),
             OwnedValue::Number(n) => Ok(n.to_string()),
             OwnedValue::Bytes(b) => Ok(String::from_utf8_lossy(&b).into_owned()),
+            OwnedValue::List(_) => Err(BastehError::TypeConversion),
         }
     }
 }

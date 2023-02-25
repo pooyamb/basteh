@@ -137,7 +137,7 @@ impl Basteh {
             .await
     }
 
-    /// Gets a single owned value from store
+    /// Gets a single value from store(use `get_range` for lists)
     ///
     /// ## Example
     /// ```rust
@@ -148,15 +148,42 @@ impl Basteh {
     /// #     Ok(val.unwrap_or_default())
     /// # }
     /// ```
-    pub async fn get<'a, T: TryFrom<OwnedValue, Error = BastehError>>(
+    pub async fn get<'a, T: TryFrom<OwnedValue, Error = impl Into<BastehError>>>(
         &'a self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<T>> {
         self.provider
             .get(self.scope.as_ref(), key.as_ref().into())
             .await?
-            .map(|v| v.try_into())
+            .map(TryInto::try_into)
             .transpose()
+            .map_err(Into::into)
+    }
+
+    /// Gets a list of values from store, start/end works like redis with support for negative indexes
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use basteh::{Basteh, BastehError};
+    /// #
+    /// # async fn index(store: Basteh) -> Result<Vec<String>, BastehError> {
+    /// let val = store.get_range::<String>("key", 0, -1).await?;
+    /// #     Ok(val)
+    /// # }
+    /// ```
+    pub async fn get_range<'a, T: TryFrom<OwnedValue, Error = impl Into<BastehError>>>(
+        &'a self,
+        key: impl AsRef<[u8]>,
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<T>> {
+        self.provider
+            .get_range(self.scope.as_ref(), key.as_ref().into(), start, end)
+            .await?
+            .into_iter()
+            .map(|v| v.try_into().map_err(Into::into))
+            .collect::<Result<Vec<_>>>()
+            .map_err(Into::into)
     }
 
     /// Same as `get` but it also gets expiry.
@@ -170,19 +197,88 @@ impl Basteh {
     /// #     Ok(val.map(|v|v.0).unwrap_or_default())
     /// # }
     /// ```
-    pub async fn get_expiring<'a, T: TryFrom<OwnedValue, Error = BastehError>>(
+    pub async fn get_expiring<'a, T: TryFrom<OwnedValue, Error = impl Into<BastehError>>>(
         &'a self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<(T, Option<Duration>)>> {
-        if let Some((v, expiry)) = self
-            .provider
+        self.provider
             .get_expiring(self.scope.as_ref(), key.as_ref().into())
             .await?
-        {
-            Ok(Some((v.try_into()?, expiry)))
-        } else {
-            Ok(None)
-        }
+            .map(|(v, e)| v.try_into().map(|v| (v, e)).map_err(Into::into))
+            .transpose()
+    }
+
+    /// Push a single value into the list stored for this key
+    ///
+    /// Calling set operations twice on the same key, overwrites it's value and
+    /// clear the expiry on that key(if it exist).
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use basteh::Basteh;
+    /// #
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// store.set("age", vec![10]).await;
+    /// store.set("name", "Violet").await;
+    /// #     "set"
+    /// # }
+    /// ```
+    pub async fn push<'a>(&self, key: impl AsRef<[u8]>, value: impl Into<Value<'a>>) -> Result<()> {
+        self.provider
+            .push(self.scope.as_ref(), key.as_ref(), value.into())
+            .await
+    }
+
+    /// Push all the given values into the list stored for this key
+    ///
+    /// Calling set operations twice on the same key, overwrites it's value and
+    /// clear the expiry on that key(if it exist).
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use basteh::Basteh;
+    /// #
+    /// # async fn index<'a>(store: Basteh) -> &'a str {
+    /// store.set("age", vec![10]).await;
+    /// store.set("name", "Violet").await;
+    /// #     "set"
+    /// # }
+    /// ```
+    pub async fn push_mutiple<'a>(
+        &self,
+        key: impl AsRef<[u8]>,
+        values: impl Iterator<Item = impl Into<Value<'a>>>,
+    ) -> Result<()> {
+        self.provider
+            .push_multiple(
+                self.scope.as_ref(),
+                key.as_ref(),
+                values.map(|v| v.into()).collect(),
+            )
+            .await
+    }
+
+    /// Pop all the value from the list stored for this key
+    ///
+    /// ## Example
+    /// ```rust
+    /// # use basteh::{Basteh, BastehError};
+    /// #
+    /// # async fn index(store: Basteh) -> Result<String, BastehError> {
+    /// let val = store.get::<String>("key").await?;
+    /// #     Ok(val.unwrap_or_default())
+    /// # }
+    /// ```
+    pub async fn pop<'a, T: TryFrom<OwnedValue, Error = impl Into<BastehError>>>(
+        &'a self,
+        key: impl AsRef<[u8]>,
+    ) -> Result<Option<T>> {
+        self.provider
+            .pop(self.scope.as_ref(), key.as_ref().into())
+            .await?
+            .map(TryInto::try_into)
+            .transpose()
+            .map_err(Into::into)
     }
 
     /// Mutate a numeric value in the store. It may overwrite the value if it's not a number.
@@ -228,15 +324,16 @@ impl Basteh {
     /// #     Ok("deleted".to_string())
     /// # }
     /// ```
-    pub async fn remove<T: TryFrom<OwnedValue, Error = BastehError>>(
+    pub async fn remove<T: TryFrom<OwnedValue, Error = impl Into<BastehError>>>(
         &self,
         key: impl AsRef<[u8]>,
     ) -> Result<Option<T>> {
         self.provider
             .remove(self.scope.as_ref(), key.as_ref().into())
             .await?
-            .map(|v| v.try_into())
+            .map(TryInto::try_into)
             .transpose()
+            .map_err(Into::into)
     }
 
     /// Checks if store contains a key.

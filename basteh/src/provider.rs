@@ -13,8 +13,29 @@ pub trait Provider: Send + Sync {
     /// Set a key-value pair, if the key already exist, value should be overwritten
     async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()>;
 
-    /// Get a value for specified key, it should result in None if the value does not exist
+    /// Get a single value for specified key, it should return None if the value does not exist
     async fn get(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>>;
+
+    /// Get a list of values for specified key, it should return an empty vector if the value does not exist
+    async fn get_range(
+        &self,
+        scope: &str,
+        key: &[u8],
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<OwnedValue>>;
+
+    /// Push a value into the list associated with this key, if the key has a value of
+    /// another type, it should return error
+    async fn push(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()>;
+
+    /// Push multiple values into the list associated with this key, if the key has a value of
+    /// another type, it should return error
+    async fn push_multiple(&self, scope: &str, key: &[u8], value: Vec<Value<'_>>) -> Result<()>;
+
+    /// Pop a value from the list associated with this key, if the key has a value of
+    /// another type, it should return error
+    async fn pop(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>>;
 
     /// Mutate and get a value for specified key, it should set the value to 0 if it doesn't exist
     async fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64>;

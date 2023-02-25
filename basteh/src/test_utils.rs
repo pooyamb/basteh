@@ -6,20 +6,6 @@ use crate::{dev::*, *};
 ////////////////////////////////////////////////////    Basteh tests     ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub async fn test_store<P>(store: P)
-where
-    P: 'static + Provider,
-{
-    let store = Basteh::build().provider(store).finish();
-
-    tokio::join!(
-        test_store_methods(store.clone()),
-        test_store_bytes(store.clone()),
-        test_store_numbers(store.clone()),
-        test_store_keys(store.clone())
-    );
-}
-
 pub async fn test_store_methods(store: Basteh) {
     let key = "store_key";
     let value = "val";
@@ -92,6 +78,40 @@ pub async fn test_store_keys(store: Basteh) {
         .collect::<HashSet<_>>();
 
     assert_eq!(retrieved_keys, keys);
+}
+
+pub async fn test_store_list(store: Basteh) {
+    store
+        .set(
+            "list_key",
+            Value::List(
+                vec![100_i64, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+                    .into_iter()
+                    .map(|v| v.into())
+                    .collect(),
+            ),
+        )
+        .await
+        .unwrap();
+
+    let g = store.get_range::<i64>("list_key", -5, -5).await.unwrap();
+
+    println!("{g:?}");
+}
+
+pub async fn test_store<P>(store: P)
+where
+    P: 'static + Provider,
+{
+    let store = Basteh::build().provider(store).finish();
+
+    tokio::join!(
+        test_store_methods(store.clone()),
+        test_store_bytes(store.clone()),
+        test_store_numbers(store.clone()),
+        test_store_keys(store.clone()),
+        test_store_list(store.clone())
+    );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -514,6 +534,53 @@ async fn test_mutate_edge_cases(store: Basteh) {
     assert_eq!(get_res.unwrap(), Some("Hi".to_string()));
 }
 
+async fn test_mutate_list(store: Basteh) {
+    store.push("mutate_list", "value").await.unwrap();
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some("value".to_string()));
+
+    store
+        .push_mutiple(
+            "mutate_list",
+            vec!["value1", "value2", "value3", "value4"].into_iter(),
+        )
+        .await
+        .unwrap();
+
+    store.push("mutate_list", 100).await.unwrap();
+    store
+        .push("mutate_list", "\0100\0".as_bytes())
+        .await
+        .unwrap();
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some(b"\0100\0".to_vec()));
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some(100));
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some("value4".to_string()));
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some("value3".to_string()));
+
+    store.push("mutate_list", "value5").await.unwrap();
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some("value5".to_string()));
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some("value2".to_string()));
+
+    let pop_value = store.pop("mutate_list").await.unwrap();
+    assert_eq!(pop_value, Some("value1".to_string()));
+
+    let pop_value = store.pop::<String>("mutate_list").await.unwrap();
+    assert_eq!(pop_value, None);
+}
+
 // delay_secs is the duration of time we set for expiry and we wait to see
 // the result, it should depend on how much delay an implementer has between
 // getting a command and executing it
@@ -525,6 +592,7 @@ where
 
     tokio::join!(
         test_mutate_numbers(store.clone()),
-        test_mutate_edge_cases(store)
+        test_mutate_edge_cases(store.clone()),
+        test_mutate_list(store.clone()),
     );
 }

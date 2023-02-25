@@ -6,6 +6,7 @@
 - Changed `mutate` to return the value
 - Renamed `delete` to `remove`
 - Changed `remove` to return the removed value
+- Added support for lists of values
 
 ## Version 0.4 Alpha.4
 - Fixed set_expiring method signature

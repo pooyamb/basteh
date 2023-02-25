@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{convert::Infallible, error::Error};
 
 use thiserror::Error;
 
@@ -28,6 +28,13 @@ impl BastehError {
         E: 'static + Error + Send,
     {
         Self::Custom(Box::new(err))
+    }
+}
+
+impl From<Infallible> for BastehError {
+    fn from(_value: Infallible) -> Self {
+        // It never happens
+        BastehError::MethodNotSupported
     }
 }
 
