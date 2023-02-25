@@ -177,6 +177,163 @@ impl RedbInner {
         }
     }
 
+    fn get_range(
+        &self,
+        scope: &str,
+        key: &[u8],
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<OwnedValue>, Error> {
+        table_def!(table, scope);
+        exp_table_def!(exp_table, scope, &self.exp_table);
+
+        if let Ok(r) = self.db.begin_read()?.open_table(exp_table) {
+            if let Some(true) = r.get(key)?.map(|v| v.value().expired()) {
+                return Ok(Vec::new());
+            }
+        };
+
+        match self.db.begin_read()?.open_table(table) {
+            Ok(r) => Ok(r
+                .get(key)?
+                .map(|v| match v.value() {
+                    OwnedValue::List(l) => {
+                        let start = if start < 0 {
+                            l.len() - (-start as usize)
+                        } else {
+                            start as usize
+                        };
+                        let end = if end < 0 {
+                            l.len() - (-end as usize)
+                        } else {
+                            end as usize
+                        };
+
+                        l.into_iter()
+                            .skip(start)
+                            .take(
+                                end.checked_sub(start.checked_sub(1).unwrap_or(0))
+                                    .unwrap_or(0),
+                            )
+                            .collect()
+                    }
+                    _ => Vec::new(),
+                })
+                .unwrap_or_default()),
+            Err(e) => match e {
+                Error::TableDoesNotExist(_) => Ok(Vec::new()),
+                e => Err(e),
+            },
+        }
+    }
+
+    fn pop(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>, Error> {
+        table_def!(table, scope);
+        exp_table_def!(exp_table, scope, &self.exp_table);
+
+        let txn = self.db.begin_write()?;
+        let val;
+
+        {
+            let mut table = txn.open_table(table)?;
+            let list = if let Some(list) = table.get(key)? {
+                match list.value() {
+                    OwnedValue::List(mut l) => {
+                        val = l.pop();
+                        l
+                    }
+                    _ => {
+                        return Err(redb::Error::TableTypeMismatch(
+                            "Trying to push into an invalid list".to_string(),
+                        ))
+                    }
+                }
+            } else {
+                val = None;
+                Vec::new()
+            };
+            table.insert(key, OwnedValue::List(list))?;
+        }
+
+        txn.open_table(exp_table)?.remove(key)?;
+        txn.commit()?;
+
+        if self.queue_started {
+            self.queue.remove(scope, key);
+        }
+        Ok(val)
+    }
+
+    fn push(&self, scope: &str, key: &[u8], value: OwnedValue) -> Result<(), Error> {
+        table_def!(table, scope);
+        exp_table_def!(exp_table, scope, &self.exp_table);
+
+        let txn = self.db.begin_write()?;
+
+        {
+            let mut table = txn.open_table(table)?;
+            let val = if let Some(list) = table.get(key)? {
+                match list.value() {
+                    OwnedValue::List(mut l) => {
+                        l.push(value);
+                        l
+                    }
+                    _ => {
+                        return Err(redb::Error::TableTypeMismatch(
+                            "Trying to push into an invalid list".to_string(),
+                        ))
+                    }
+                }
+            } else {
+                vec![value]
+            };
+            table.insert(key, OwnedValue::List(val))?;
+        }
+
+        txn.open_table(exp_table)?.remove(key)?;
+        txn.commit()?;
+
+        if self.queue_started {
+            self.queue.remove(scope, key);
+        }
+        Ok(())
+    }
+
+    fn push_multiple(&self, scope: &str, key: &[u8], value: Vec<OwnedValue>) -> Result<(), Error> {
+        table_def!(table, scope);
+        exp_table_def!(exp_table, scope, &self.exp_table);
+
+        let txn = self.db.begin_write()?;
+
+        {
+            let mut table = txn.open_table(table)?;
+            let val = if let Some(list) = table.get(key)? {
+                match list.value() {
+                    OwnedValue::List(mut l) => {
+                        l.extend(value);
+                        l
+                    }
+                    _ => {
+                        return Err(redb::Error::TableTypeMismatch(
+                            "Trying to push into an invalid list".to_string(),
+                        ))
+                    }
+                }
+            } else {
+                value
+            };
+            table.insert(key, OwnedValue::List(val))?;
+        }
+
+        txn.open_table(exp_table)?.remove(key)?;
+        txn.commit()?;
+
+        if self.queue_started {
+            self.queue.remove(scope, key);
+        }
+        Ok(())
+    }
+
     fn mutate(&self, scope: &str, key: &[u8], mutations: Mutation) -> Result<i64, Error> {
         table_def!(table, scope);
         exp_table_def!(exp_table, scope, &self.exp_table);
@@ -444,9 +601,41 @@ impl RedbInner {
                     )
                     .ok();
                 }
+                Request::GetRange(scope, key, start, end) => {
+                    tx.send(
+                        self.get_range(&scope, &key, start, end)
+                            .map_err(BastehError::custom)
+                            .map(Response::ValueVec),
+                    )
+                    .ok();
+                }
                 Request::Set(scope, key, value) => {
                     tx.send(
                         self.set(&scope, &key, value)
+                            .map_err(BastehError::custom)
+                            .map(Response::Empty),
+                    )
+                    .ok();
+                }
+                Request::Pop(scope, key) => {
+                    tx.send(
+                        self.pop(&scope, &key)
+                            .map_err(BastehError::custom)
+                            .map(Response::Value),
+                    )
+                    .ok();
+                }
+                Request::Push(scope, key, value) => {
+                    tx.send(
+                        self.push(&scope, &key, value)
+                            .map_err(BastehError::custom)
+                            .map(Response::Empty),
+                    )
+                    .ok();
+                }
+                Request::PushMulti(scope, key, value) => {
+                    tx.send(
+                        self.push_multiple(&scope, &key, value)
                             .map_err(BastehError::custom)
                             .map(Response::Empty),
                     )

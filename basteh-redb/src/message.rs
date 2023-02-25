@@ -9,7 +9,11 @@ use tokio::sync::oneshot;
 pub enum Request {
     Keys(Box<str>),
     Get(Box<str>, Box<[u8]>),
+    GetRange(Box<str>, Box<[u8]>, i64, i64),
     Set(Box<str>, Box<[u8]>, OwnedValue),
+    Pop(Box<str>, Box<[u8]>),
+    Push(Box<str>, Box<[u8]>, OwnedValue),
+    PushMulti(Box<str>, Box<[u8]>, Vec<OwnedValue>),
     Remove(Box<str>, Box<[u8]>),
     Contains(Box<str>, Box<[u8]>),
     MutateNumber(Box<str>, Box<[u8]>, Mutation),
@@ -24,6 +28,7 @@ pub enum Request {
 pub enum Response {
     Iterator(Box<dyn Iterator<Item = Vec<u8>> + Send + Sync>),
     Value(Option<OwnedValue>),
+    ValueVec(Vec<OwnedValue>),
     Number(i64),
     Duration(Option<Duration>),
     ValueDuration(Option<(OwnedValue, Option<Duration>)>),
