@@ -159,6 +159,54 @@ impl SledInner {
             .map_err(BastehError::custom)
     }
 
+    pub fn get_range(
+        &self,
+        scope: IVec,
+        key: IVec,
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<OwnedValue>> {
+        let tree = open_tree(&self.db, &scope)?;
+        tree.get(&key)
+            .map(|val| {
+                val.and_then(|bytes| {
+                    let (val, exp) = decode(&bytes)?;
+                    if !exp.expired() {
+                        match val {
+                            Value::List(l) => {
+                                let start = if start < 0 {
+                                    l.len() - (-start as usize)
+                                } else {
+                                    start as usize
+                                };
+                                let end = if end < 0 {
+                                    l.len() - (-end as usize)
+                                } else {
+                                    end as usize
+                                };
+
+                                Some(
+                                    l.into_iter()
+                                        .skip(start)
+                                        .take(
+                                            end.checked_sub(start.checked_sub(1).unwrap_or(0))
+                                                .unwrap_or(0),
+                                        )
+                                        .map(|v| v.into_owned())
+                                        .collect(),
+                                )
+                            }
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default()
+            })
+            .map_err(BastehError::custom)
+    }
+
     pub fn mutate(&self, scope: IVec, key: IVec, mutations: Mutation) -> Result<i64> {
         // value will be some if the stored value is either expired or valid number
         let mut value = None;
@@ -197,6 +245,99 @@ impl SledInner {
                 None => Err(BastehError::InvalidNumber),
             },
             Err(err) => Err(BastehError::custom(err)),
+        }
+    }
+
+    fn pop(&self, scope: IVec, key: IVec) -> Result<Option<OwnedValue>> {
+        let tree = open_tree(&self.db, &scope)?;
+
+        let mut succeed = false;
+        let mut poped_value = None;
+
+        tree.update_and_fetch(&key, |bytes| {
+            let (val, exp) = bytes
+                .and_then(decode)
+                .map(|(v, exp)| (v, *exp))
+                .unwrap_or_else(|| (Value::List(Vec::new()), ExpiryFlags::new_persist(0)));
+
+            match val {
+                Value::List(mut l) => {
+                    succeed = true;
+                    poped_value = l.pop().map(|v| v.into_owned());
+                    let val = encode(Value::List(l), &exp);
+                    Some(val)
+                }
+                _ => bytes.map(|v| v.to_vec()),
+            }
+        })
+        .map_err(BastehError::custom)?;
+
+        if succeed {
+            Ok(poped_value)
+        } else {
+            Err(BastehError::TypeConversion)
+        }
+    }
+
+    fn push(&self, scope: IVec, key: IVec, value: OwnedValue) -> Result<()> {
+        let tree = open_tree(&self.db, &scope)?;
+        let mut succeed = false;
+
+        tree.update_and_fetch(&key, |bytes| {
+            let (val, exp) = bytes
+                .and_then(decode)
+                .map(|(v, exp)| (v, *exp))
+                .unwrap_or_else(|| (Value::List(Vec::new()), ExpiryFlags::new_persist(0)));
+
+            match val {
+                Value::List(mut l) => {
+                    succeed = true;
+
+                    l.push(value.as_value());
+                    let val = encode(Value::List(l), &exp);
+                    Some(val)
+                }
+                _ => bytes.map(|v| v.to_vec()),
+            }
+        })
+        .map_err(BastehError::custom)?;
+
+        if succeed {
+            Ok(())
+        } else {
+            Err(BastehError::TypeConversion)
+        }
+    }
+
+    fn push_multiple(&self, scope: IVec, key: IVec, value: Vec<OwnedValue>) -> Result<()> {
+        let tree = open_tree(&self.db, &scope)?;
+        let mut succeed = false;
+
+        tree.update_and_fetch(&key, |bytes| {
+            let (val, exp) = bytes
+                .and_then(decode)
+                .map(|(v, exp)| (v, *exp))
+                .unwrap_or_else(|| (Value::List(Vec::new()), ExpiryFlags::new_persist(0)));
+
+            match val {
+                Value::List(mut l) => {
+                    succeed = true;
+
+                    for v in value.iter() {
+                        l.push(v.as_value());
+                    }
+                    let val = encode(Value::List(l), &exp);
+                    Some(val)
+                }
+                _ => bytes.map(|v| v.to_vec()),
+            }
+        })
+        .map_err(BastehError::custom)?;
+
+        if succeed {
+            Ok(())
+        } else {
+            Err(BastehError::TypeConversion)
         }
     }
 
@@ -374,9 +515,40 @@ impl SledInner {
                 Request::Get(scope, key) => {
                     tx.send(self.get(scope, key).map(Response::Value)).ok();
                 }
+                Request::GetRange(scope, key, start, end) => {
+                    tx.send(
+                        self.get_range(scope, key, start, end)
+                            .map(Response::ValueVec),
+                    )
+                    .ok();
+                }
                 Request::Set(scope, key, value) => {
                     tx.send(self.set(scope, key, value).map(Response::Empty))
                         .ok();
+                }
+                Request::Pop(scope, key) => {
+                    tx.send(
+                        self.pop(scope, key)
+                            .map_err(BastehError::custom)
+                            .map(Response::Value),
+                    )
+                    .ok();
+                }
+                Request::Push(scope, key, value) => {
+                    tx.send(
+                        self.push(scope, key, value)
+                            .map_err(BastehError::custom)
+                            .map(Response::Empty),
+                    )
+                    .ok();
+                }
+                Request::PushMulti(scope, key, value) => {
+                    tx.send(
+                        self.push_multiple(scope, key, value)
+                            .map_err(BastehError::custom)
+                            .map(Response::Empty),
+                    )
+                    .ok();
                 }
                 Request::MutateNumber(scope, key, mutations) => {
                     tx.send(self.mutate(scope, key, mutations).map(Response::Number))

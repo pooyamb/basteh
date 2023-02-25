@@ -127,6 +127,22 @@ impl Provider for SledBackend {
         }
     }
 
+    async fn get_range(
+        &self,
+        scope: &str,
+        key: &[u8],
+        start: i64,
+        end: i64,
+    ) -> basteh::Result<Vec<OwnedValue>> {
+        match self
+            .msg(Request::GetRange(scope.into(), key.into(), start, end))
+            .await?
+        {
+            Response::ValueVec(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
     async fn mutate(
         &self,
         scope: &str,
@@ -138,6 +154,42 @@ impl Provider for SledBackend {
             .await?
         {
             Response::Number(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn push(&self, scope: &str, key: &[u8], value: Value<'_>) -> basteh::Result<()> {
+        match self
+            .msg(Request::Push(scope.into(), key.into(), value.into_owned()))
+            .await?
+        {
+            Response::Empty(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn push_multiple(
+        &self,
+        scope: &str,
+        key: &[u8],
+        value: Vec<Value<'_>>,
+    ) -> basteh::Result<()> {
+        match self
+            .msg(Request::PushMulti(
+                scope.into(),
+                key.into(),
+                value.into_iter().map(|v| v.into_owned()).collect(),
+            ))
+            .await?
+        {
+            Response::Empty(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
+
+    async fn pop(&self, scope: &str, key: &[u8]) -> basteh::Result<Option<OwnedValue>> {
+        match self.msg(Request::Pop(scope.into(), key.into())).await? {
+            Response::Value(r) => Ok(r),
             _ => unreachable!(),
         }
     }
@@ -268,7 +320,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sled_mutate_numbers() {
+    async fn test_sled_mutations() {
         test_mutations(SledBackend::from_db(open_database().await).start(1)).await;
     }
 

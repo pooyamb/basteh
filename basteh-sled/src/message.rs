@@ -14,7 +14,11 @@ type Value = OwnedValue;
 pub enum Request {
     Keys(Scope),
     Get(Scope, Key),
+    GetRange(Scope, Key, i64, i64),
     Set(Scope, Key, Value),
+    Pop(Scope, Key),
+    Push(Scope, Key, Value),
+    PushMulti(Scope, Key, Vec<Value>),
     Remove(Scope, Key),
     Contains(Scope, Key),
     MutateNumber(Scope, Key, Mutation),
@@ -29,6 +33,7 @@ pub enum Request {
 pub enum Response {
     Iterator(Box<dyn Iterator<Item = Vec<u8>> + Send + Sync>),
     Value(Option<Value>),
+    ValueVec(Vec<Value>),
     Number(i64),
     Duration(Option<Duration>),
     ValueDuration(Option<(Value, Option<Duration>)>),
