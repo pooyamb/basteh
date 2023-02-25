@@ -81,11 +81,26 @@ impl Provider for RedisBackend {
 
     async fn set(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
         let full_key = get_full_key(scope, key);
-        self.con
-            .clone()
-            .set(full_key, ValueWrapper(value))
-            .await
-            .map_err(BastehError::custom)?;
+        match value {
+            Value::List(l) => {
+                redis::pipe()
+                    .del(&full_key)
+                    .rpush(
+                        full_key,
+                        l.into_iter().map(ValueWrapper).collect::<Vec<_>>(),
+                    )
+                    .query_async(&mut self.con.clone())
+                    .await
+                    .map_err(BastehError::custom)?;
+            }
+            _ => {
+                self.con
+                    .clone()
+                    .set(full_key, ValueWrapper(value))
+                    .await
+                    .map_err(BastehError::custom)?;
+            }
+        }
         Ok(())
     }
 
@@ -94,6 +109,64 @@ impl Provider for RedisBackend {
         self.con
             .clone()
             .get::<_, OwnedValueWrapper>(full_key)
+            .await
+            .map(|v| v.0)
+            .map_err(BastehError::custom)
+    }
+
+    async fn get_range(
+        &self,
+        scope: &str,
+        key: &[u8],
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<OwnedValue>> {
+        let full_key = get_full_key(scope, key);
+        self.con
+            .clone()
+            .lrange::<_, OwnedValueWrapper>(full_key, start as isize, end as isize)
+            .await
+            .map(|v| v.0)
+            .map_err(BastehError::custom)
+            .and_then(|v| match v {
+                Some(OwnedValue::List(l)) => Ok(l),
+                Some(OwnedValue::Bytes(b)) => Ok(b
+                    .into_iter()
+                    .map(Into::<Value>::into)
+                    .map(|v| v.into_owned())
+                    .collect::<Vec<_>>()),
+                _ => Err(BastehError::TypeConversion),
+            })
+    }
+
+    async fn push(&self, scope: &str, key: &[u8], value: Value<'_>) -> Result<()> {
+        let full_key = get_full_key(scope, key);
+        self.con
+            .clone()
+            .rpush(full_key, ValueWrapper(value))
+            .await
+            .map_err(BastehError::custom)?;
+        Ok(())
+    }
+
+    async fn push_multiple(&self, scope: &str, key: &[u8], value: Vec<Value<'_>>) -> Result<()> {
+        let full_key = get_full_key(scope, key);
+        self.con
+            .clone()
+            .rpush(
+                full_key,
+                value.into_iter().map(ValueWrapper).collect::<Vec<_>>(),
+            )
+            .await
+            .map_err(BastehError::custom)?;
+        Ok(())
+    }
+
+    async fn pop(&self, scope: &str, key: &[u8]) -> Result<Option<OwnedValue>> {
+        let full_key = get_full_key(scope, key);
+        self.con
+            .clone()
+            .rpop::<_, OwnedValueWrapper>(full_key, None)
             .await
             .map(|v| v.0)
             .map_err(BastehError::custom)
@@ -240,6 +313,11 @@ impl<'a> ToRedisArgs for ValueWrapper<'a> {
             Value::Number(n) => <i64 as ToRedisArgs>::write_redis_args(&n, out),
             Value::Bytes(b) => <&[u8] as ToRedisArgs>::write_redis_args(&b.as_ref(), out),
             Value::String(s) => <&str as ToRedisArgs>::write_redis_args(&s.as_ref(), out),
+            Value::List(l) => {
+                for item in l {
+                    ValueWrapper(item.clone()).write_redis_args(out);
+                }
+            }
         }
     }
 }
@@ -259,6 +337,11 @@ impl<'a> FromRedisValue for OwnedValueWrapper {
                     })
                     .or_else(|_| {
                         <Vec<u8> as FromRedisValue>::from_redis_value(v).map(OwnedValue::Bytes)
+                    })
+                    .or_else(|_| {
+                        <Vec<OwnedValueWrapper> as FromRedisValue>::from_redis_value(v)
+                            .map(|v| v.into_iter().filter_map(|v| v.0).collect())
+                            .map(OwnedValue::List)
                     })?,
             ),
         }))
@@ -293,7 +376,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_redis_mutate_numbers() {
+    async fn test_redis_mutations() {
         test_mutations(get_connection().await).await;
     }
 
