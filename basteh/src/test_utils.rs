@@ -94,6 +94,15 @@ pub async fn test_store_list(store: Basteh) {
     let get_vec = store.get_range::<i64>("list_key", -5, -5).await.unwrap();
     assert_eq!(get_vec, vec![600]);
 
+    let get_vec = store.get_range::<i64>("list_key", 5, -5).await.unwrap();
+    assert_eq!(get_vec, vec![600]);
+
+    let get_vec = store.get_range::<i64>("list_key", -5, 5).await.unwrap();
+    assert_eq!(get_vec, vec![600]);
+
+    let get_vec = store.get_range::<i64>("list_key", 5, 5).await.unwrap();
+    assert_eq!(get_vec, vec![600]);
+
     let get_vec = store.get_range::<i64>("list_key", 0, -5).await.unwrap();
     assert_eq!(get_vec, vec![100, 200, 300, 400, 500, 600]);
 
@@ -104,6 +113,12 @@ pub async fn test_store_list(store: Basteh) {
 
     let get_vec = store.get_range::<String>("list_key", 0, -1).await.unwrap();
     assert_eq!(get_vec, vec!["Hello".to_string(), "World".to_string()]);
+
+    let get_vec = store.get_range::<String>("list_key", -5, -1).await.unwrap();
+    assert_eq!(get_vec, vec!["Hello".to_string(), "World".to_string()]);
+
+    let get_vec = store.get_range::<String>("list_key", 1, -1).await.unwrap();
+    assert_eq!(get_vec, vec!["World".to_string()]);
 }
 
 pub async fn test_store<P>(store: P)
