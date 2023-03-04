@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, convert::TryInto, sync::Arc, time::Duration};
 
 use basteh::{
     dev::{Mutation, OwnedValue, Provider, Value},
@@ -127,25 +127,18 @@ impl Provider for MemoryBackend {
             .and_then(|scope_map| scope_map.get(key))
             .map(|value| match value {
                 OwnedValue::List(l) => {
-                    let start = if start < 0 {
-                        l.len() - (-start as usize)
-                    } else {
-                        start as usize
-                    };
-                    let end = if end < 0 {
-                        l.len() - (-end as usize)
-                    } else {
-                        end as usize
-                    };
+                    let start: usize = start.try_into().unwrap_or_else(|_| {
+                        l.len().checked_sub(-start as usize).unwrap_or_default()
+                    });
 
-                    l.iter()
-                        .skip(start)
-                        .take(
-                            end.checked_sub(start.checked_sub(1).unwrap_or(0))
-                                .unwrap_or(0),
-                        )
-                        .map(|v| v.clone())
-                        .collect()
+                    let take: usize = end
+                        .try_into()
+                        .unwrap_or_else(|_| l.len().checked_sub(-end as usize).unwrap_or_default())
+                        .checked_sub(start)
+                        .and_then(|end| end.checked_add(1))
+                        .unwrap_or(0);
+
+                    l.iter().skip(start).take(take).map(|v| v.clone()).collect()
                 }
                 _ => Vec::new(),
             })
