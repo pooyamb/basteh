@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::HashSet, time::Duration};
 
+use bytes::Bytes;
+
 use crate::{dev::*, *};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,11 +50,11 @@ pub async fn test_store_bytes(store: Basteh) {
     let key = "bytes_key";
     let value = b"Some Value";
 
-    assert!(store.set(key, value.as_ref()).await.is_ok());
+    assert!(store.set(key, Bytes::from_static(value)).await.is_ok());
 
-    let get_res = store.get::<Vec<u8>>(key).await;
+    let get_res = store.get::<Bytes>(key).await;
     assert!(get_res.is_ok());
-    assert_eq!(get_res.unwrap(), Some(value.to_vec()));
+    assert_eq!(get_res.unwrap().map(|v| v.to_vec()), Some(value.to_vec()));
 }
 
 pub async fn test_store_keys(store: Basteh) {
@@ -550,12 +552,12 @@ async fn test_mutate_list(store: Basteh) {
 
     store.push("mutate_list", 100).await.unwrap();
     store
-        .push("mutate_list", "\0100\0".as_bytes())
+        .push("mutate_list", Bytes::from_static(b"\0100\0"))
         .await
         .unwrap();
 
     let pop_value = store.pop("mutate_list").await.unwrap();
-    assert_eq!(pop_value, Some(b"\0100\0".to_vec()));
+    assert_eq!(pop_value, Some(Bytes::from_static(b"\0100\0")));
 
     let pop_value = store.pop("mutate_list").await.unwrap();
     assert_eq!(pop_value, Some(100));

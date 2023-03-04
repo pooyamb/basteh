@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use basteh::dev::{Value, ValueKind};
+use bytes::Bytes;
 
 pub struct SledValue<'a>(pub Value<'a>);
 
@@ -18,7 +19,7 @@ impl<'a> SledValue<'a> {
                 }
             }
             ValueKind::String => Value::String(String::from_utf8_lossy(&data[1..])),
-            ValueKind::Bytes => Value::Bytes(data[1..].into()),
+            ValueKind::Bytes => Value::Bytes(Bytes::copy_from_slice(&data[1..])),
             ValueKind::List => {
                 let mut index = 1;
                 let mut values = Vec::new();

@@ -17,6 +17,9 @@ async-trait = "0.1"
 redis = { version = "0.22", default-features = false, features = ["connection-manager", "tokio-comp", "script"] }
 thiserror = "1"
 
+# Used to specialize support of Bytes or [u8]
+bytes = "1"
+
 [dev-dependencies]
 tokio = { version = "1.13.1", features = ["time", "sync", "macros", "rt"] }
 basteh = { version = "=0.4.0-alpha.5", features = ["all", "test_utils"] }

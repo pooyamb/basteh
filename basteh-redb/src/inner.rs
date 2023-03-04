@@ -724,6 +724,7 @@ impl RedbInner {
 mod tests {
     use std::{path::Path, sync::Arc, time::Duration};
 
+    use bytes::{Bytes, BytesMut};
     use redb::TableDefinition;
 
     use super::*;
@@ -760,7 +761,7 @@ mod tests {
             .set_expiring(
                 "some_scope",
                 b"key",
-                OwnedValue::Bytes(b"value".to_vec()),
+                OwnedValue::Bytes(BytesMut::from(b"value".as_ref())),
                 dur,
             )
             .unwrap();
@@ -769,8 +770,8 @@ mod tests {
             store
                 .get("some_scope", b"key")
                 .unwrap()
-                .map(|v| TryInto::<Vec<u8>>::try_into(v).unwrap()),
-            Some(b"value".to_vec())
+                .map(|v| TryInto::<Bytes>::try_into(v).unwrap()),
+            Some(Bytes::from_static(b"value"))
         );
         assert_eq!(
             db.begin_read()
@@ -781,7 +782,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .value(),
-            OwnedValue::Bytes(b"value".to_vec())
+            OwnedValue::Bytes(BytesMut::from(b"value".as_ref()))
         );
 
         tokio::time::sleep(dur * 2).await;
@@ -810,11 +811,17 @@ mod tests {
             let txn = db.begin_write().unwrap();
             txn.open_table(table)
                 .unwrap()
-                .insert(b"key".as_ref(), OwnedValue::Bytes(b"value".to_vec()))
+                .insert(
+                    b"key".as_ref(),
+                    OwnedValue::Bytes(BytesMut::from(b"value".as_ref())),
+                )
                 .unwrap();
             txn.open_table(table2)
                 .unwrap()
-                .insert(b"key2".as_ref(), OwnedValue::Bytes(b"value".to_vec()))
+                .insert(
+                    b"key2".as_ref(),
+                    OwnedValue::Bytes(BytesMut::from(b"value".as_ref())),
+                )
                 .unwrap();
 
             txn.open_table(exp_table)

@@ -31,10 +31,10 @@ async fn index(
     let mut previous_point: Option<u16> = None;
 
     let person = if let Some(Ok(mut person)) = basteh
-        .get::<Vec<u8>>(&name)
+        .get::<String>(&name)
         .await
         .unwrap()
-        .map(|person| serde_json::from_slice::<Person>(&person))
+        .map(|person| serde_json::from_str::<Person>(&person))
     {
         new = false;
         if let Some(point) = person.points.insert(lesson, point) {
@@ -55,7 +55,7 @@ async fn index(
 
     // Setting back the data to basteh
     basteh
-        .set(&name, &serde_json::to_vec(&person).unwrap())
+        .set(&name, &serde_json::to_string(&person).unwrap())
         .await
         .unwrap();
 

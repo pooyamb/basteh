@@ -17,6 +17,9 @@ async-trait = "0.1"
 log = "0.4"
 thiserror = "1"
 
+# Used to specialize support of Bytes or [u8]
+bytes = "1" 
+
 # For tests
 tokio = { version = "1.20", default-features = false, features = ["macros", "time", "rt"], optional = true }
 

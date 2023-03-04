@@ -5,6 +5,8 @@ use std::{
     sync::Arc,
 };
 
+use bytes::{Bytes, BytesMut};
+
 use crate::BastehError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -32,7 +34,7 @@ impl ValueKind {
 pub enum Value<'a> {
     Number(i64),
     String(Cow<'a, str>),
-    Bytes(Cow<'a, [u8]>),
+    Bytes(Bytes),
     List(Vec<Value<'a>>),
 }
 
@@ -49,8 +51,8 @@ impl<'a> Value<'a> {
     pub fn to_owned(&self) -> OwnedValue {
         match &self {
             Value::Number(n) => OwnedValue::Number(*n),
-            Value::String(s) => OwnedValue::String(s.as_ref().to_owned()),
-            Value::Bytes(b) => OwnedValue::Bytes(b.as_ref().to_owned()),
+            Value::String(s) => OwnedValue::String(s.clone().into_owned()),
+            Value::Bytes(b) => OwnedValue::Bytes(b.iter().collect()),
             Value::List(l) => OwnedValue::List(l.iter().map(|v| v.to_owned()).collect()),
         }
     }
@@ -59,7 +61,7 @@ impl<'a> Value<'a> {
         match self {
             Value::Number(n) => OwnedValue::Number(n),
             Value::String(s) => OwnedValue::String(s.into_owned()),
-            Value::Bytes(b) => OwnedValue::Bytes(b.into_owned()),
+            Value::Bytes(b) => OwnedValue::Bytes(b.iter().collect()),
             Value::List(l) => OwnedValue::List(l.into_iter().map(|v| v.into_owned()).collect()),
         }
     }
@@ -95,33 +97,15 @@ impl<'a> From<&'a String> for Value<'a> {
     }
 }
 
-impl<'a> From<&'a [u8]> for Value<'a> {
-    fn from(value: &'a [u8]) -> Self {
-        Self::Bytes(Cow::Borrowed(value))
+impl<'a> From<Bytes> for Value<'a> {
+    fn from(value: Bytes) -> Self {
+        Self::Bytes(value.clone())
     }
 }
 
-impl<'a> From<&'a Rc<[u8]>> for Value<'a> {
-    fn from(value: &'a Rc<[u8]>) -> Self {
-        Self::Bytes(Cow::Borrowed(&value))
-    }
-}
-
-impl<'a> From<&'a Arc<[u8]>> for Value<'a> {
-    fn from(value: &'a Arc<[u8]>) -> Self {
-        Self::Bytes(Cow::Borrowed(&value))
-    }
-}
-
-impl<'a> From<&'a Vec<u8>> for Value<'a> {
-    fn from(value: &'a Vec<u8>) -> Self {
-        Self::Bytes(Cow::Borrowed(&value))
-    }
-}
-
-impl<'a> From<Vec<u8>> for Value<'a> {
-    fn from(value: Vec<u8>) -> Self {
-        Self::Bytes(Cow::Owned(value))
+impl<'a> From<&'a Bytes> for Value<'a> {
+    fn from(value: &'a Bytes) -> Self {
+        Self::Bytes(value.clone())
     }
 }
 
@@ -130,6 +114,12 @@ macro_rules! impl_from_number {
         impl<'a> From<$number> for Value<'a> {
             fn from(value: $number) -> Self {
                 Self::Number(value as i64)
+            }
+        }
+
+        impl<'a, 'b> From<&'b $number> for Value<'a> {
+            fn from(value: &'b $number) -> Self {
+                Self::Number(*value as i64)
             }
         }
     };
@@ -147,7 +137,7 @@ impl_from_number!(i64);
 pub enum OwnedValue {
     Number(i64),
     String(String),
-    Bytes(Vec<u8>),
+    Bytes(BytesMut),
     List(Vec<OwnedValue>),
 }
 
@@ -165,7 +155,7 @@ impl OwnedValue {
         match &self {
             OwnedValue::Number(n) => Value::Number(*n),
             OwnedValue::String(s) => Value::String(Cow::Borrowed(&s)),
-            OwnedValue::Bytes(b) => Value::Bytes(Cow::Borrowed(&b)),
+            OwnedValue::Bytes(b) => Value::Bytes(b.clone().freeze()),
             OwnedValue::List(l) => Value::List(l.into_iter().map(|v| v.as_value()).collect()),
         }
     }
@@ -184,12 +174,24 @@ impl<'a> TryFrom<OwnedValue> for String {
     }
 }
 
-impl<'a> TryFrom<OwnedValue> for Vec<u8> {
+impl<'a> TryFrom<OwnedValue> for Bytes {
     type Error = BastehError;
 
     fn try_from(value: OwnedValue) -> Result<Self, Self::Error> {
         match value {
-            OwnedValue::String(val) => Ok(val.into_bytes()),
+            OwnedValue::String(val) => Ok(Bytes::from(val.into_bytes())),
+            OwnedValue::Bytes(b) => Ok(b.freeze()),
+            _ => Err(BastehError::TypeConversion),
+        }
+    }
+}
+
+impl<'a> TryFrom<OwnedValue> for BytesMut {
+    type Error = BastehError;
+
+    fn try_from(value: OwnedValue) -> Result<Self, Self::Error> {
+        match value {
+            OwnedValue::String(val) => Ok(BytesMut::from(val.as_bytes())),
             OwnedValue::Bytes(b) => Ok(b),
             _ => Err(BastehError::TypeConversion),
         }

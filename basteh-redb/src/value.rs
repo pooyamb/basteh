@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use basteh::dev::{OwnedValue, ValueKind};
+use bytes::BytesMut;
 
 #[derive(Debug)]
 pub(crate) struct OwnedValueWrapper(pub(crate) OwnedValue);
@@ -38,7 +39,7 @@ impl redb::RedbValue for OwnedValueWrapper {
             ValueKind::String => {
                 OwnedValue::String(String::from_utf8_lossy(&data[1..]).into_owned())
             }
-            ValueKind::Bytes => OwnedValue::Bytes(data[1..].to_vec()),
+            ValueKind::Bytes => OwnedValue::Bytes(BytesMut::from(&data[1..])),
             ValueKind::List => {
                 let mut index = 1;
                 let mut values = Vec::new();
@@ -61,7 +62,7 @@ impl redb::RedbValue for OwnedValueWrapper {
                             values.push(OwnedValue::Number(n));
                         }
                         ValueKind::Bytes => {
-                            let b = data[index..(index + len as usize)].to_vec();
+                            let b = BytesMut::from(&data[index..(index + len as usize)]);
                             index += b.len();
                             values.push(OwnedValue::Bytes(b));
                         }

@@ -6,9 +6,10 @@ use basteh::{
     dev::{Action, Mutation, OwnedValue, Provider, Value},
     BastehError, Result,
 };
+use bytes::BytesMut;
 use redis::{aio::ConnectionManager, AsyncCommands, FromRedisValue, RedisResult, ToRedisArgs};
 
-pub use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo, RedisError};
+pub use redis::{ConnectionAddr, ConnectionInfo, ErrorKind, RedisConnectionInfo, RedisError};
 use utils::run_mutations;
 
 mod utils;
@@ -335,8 +336,14 @@ impl<'a> FromRedisValue for OwnedValueWrapper {
                     .or_else(|_| {
                         <String as FromRedisValue>::from_redis_value(v).map(OwnedValue::String)
                     })
-                    .or_else(|_| {
-                        <Vec<u8> as FromRedisValue>::from_redis_value(v).map(OwnedValue::Bytes)
+                    .or_else(|_| match v {
+                        redis::Value::Data(bytes_vec) => {
+                            Ok(OwnedValue::Bytes(BytesMut::from(bytes_vec.as_slice())))
+                        }
+                        _ => Err(RedisError::from((
+                            redis::ErrorKind::TypeError,
+                            "Response was of incompatible type",
+                        ))),
                     })
                     .or_else(|_| {
                         <Vec<OwnedValueWrapper> as FromRedisValue>::from_redis_value(v)

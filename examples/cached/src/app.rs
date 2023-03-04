@@ -28,8 +28,8 @@ async fn get_obj_by_id(id: u64) -> Object {
 
 #[actix_web::get("/{obj_id}")]
 async fn get_obj(obj_id: web::Path<u64>, basteh: web::Data<Basteh>) -> web::Json<Response> {
-    let resp = if let Ok(Some(resp)) = basteh.get::<Vec<u8>>(obj_id.to_string()).await {
-        serde_json::from_slice(&resp).unwrap()
+    let resp = if let Ok(Some(resp)) = basteh.get::<String>(obj_id.to_string()).await {
+        serde_json::from_str(&resp).unwrap()
     } else {
         let object = get_obj_by_id(*obj_id).await;
         let resp = Response {
@@ -41,7 +41,7 @@ async fn get_obj(obj_id: web::Path<u64>, basteh: web::Data<Basteh>) -> web::Json
         basteh
             .set_expiring(
                 &obj_id.to_string(),
-                &serde_json::to_vec(&resp).unwrap(),
+                &serde_json::to_string(&resp).unwrap(),
                 Duration::from_secs(5),
             )
             .await

@@ -8,6 +8,7 @@ mod provider;
 mod value;
 
 pub use crate::basteh::Basteh;
+pub use crate::value::{OwnedValue, Value};
 pub use builder::GLOBAL_SCOPE;
 pub use error::{BastehError, Result};
 
