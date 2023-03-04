@@ -109,6 +109,42 @@ impl<'a> From<&'a Bytes> for Value<'a> {
     }
 }
 
+impl<'a, 'b, T> From<&'b [T]> for Value<'a>
+where
+    &'b T: Into<Value<'a>> + 'static,
+{
+    fn from(value: &'b [T]) -> Self {
+        Value::List(value.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<'a, T, const N: usize> From<[T; N]> for Value<'a>
+where
+    T: Into<Value<'a>>,
+{
+    fn from(value: [T; N]) -> Self {
+        Value::List(value.map(Into::into).to_vec())
+    }
+}
+
+impl<'a, 'b, T> From<&'b Vec<T>> for Value<'a>
+where
+    &'b T: Into<Value<'a>> + 'static,
+{
+    fn from(value: &'b Vec<T>) -> Self {
+        Value::List(value.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<'a, T> From<Vec<T>> for Value<'a>
+where
+    T: Into<Value<'a>>,
+{
+    fn from(value: Vec<T>) -> Self {
+        Value::List(value.into_iter().map(Into::into).collect())
+    }
+}
+
 macro_rules! impl_from_number {
     ($number:ty) => {
         impl<'a> From<$number> for Value<'a> {

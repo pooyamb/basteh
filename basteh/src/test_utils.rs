@@ -86,19 +86,24 @@ pub async fn test_store_list(store: Basteh) {
     store
         .set(
             "list_key",
-            Value::List(
-                vec![100_i64, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-                    .into_iter()
-                    .map(|v| v.into())
-                    .collect(),
-            ),
+            [100_i64, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
         )
         .await
         .unwrap();
 
-    let g = store.get_range::<i64>("list_key", -5, -5).await.unwrap();
+    let get_vec = store.get_range::<i64>("list_key", -5, -5).await.unwrap();
+    assert_eq!(get_vec, vec![600]);
 
-    println!("{g:?}");
+    let get_vec = store.get_range::<i64>("list_key", 0, -5).await.unwrap();
+    assert_eq!(get_vec, vec![100, 200, 300, 400, 500, 600]);
+
+    let get_vec = store.get_range::<i64>("list_key", -5, -1).await.unwrap();
+    assert_eq!(get_vec, vec![600, 700, 800, 900, 1000]);
+
+    store.set("list_key", vec!["Hello", "World"]).await.unwrap();
+
+    let get_vec = store.get_range::<String>("list_key", 0, -1).await.unwrap();
+    assert_eq!(get_vec, vec!["Hello".to_string(), "World".to_string()]);
 }
 
 pub async fn test_store<P>(store: P)
