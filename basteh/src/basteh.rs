@@ -79,7 +79,9 @@ impl Basteh {
         self.provider.keys(self.scope.as_ref()).await
     }
 
-    /// Saves a single key-value on store
+    /// Saves a single key-value on store, use bytes for bytes
+    ///
+    /// ## Note
     ///
     /// Calling set operations twice on the same key, overwrites it's value and
     /// clear the expiry on that key(if it exist).
@@ -87,10 +89,13 @@ impl Basteh {
     /// ## Example
     /// ```rust
     /// # use basteh::Basteh;
+    /// # use bytes::Bytes;
     /// #
     /// # async fn index<'a>(store: Basteh) -> &'a str {
-    /// store.set("age", vec![10]).await;
-    /// store.set("name", "Violet").await;
+    /// store.set("name", "Violet").await; // String
+    /// store.set("age", 20).await; // Number
+    /// store.set("points", vec![20__u32, 25, 30]).await; // Lists
+    /// store.set("data", Bytes::from_static(b"123456")).await; // Or bytes
     /// #     "set"
     /// # }
     /// ```
