@@ -8,7 +8,9 @@ use basteh::{
     dev::{Action, Mutation, OwnedValue},
     BastehError,
 };
-use redb::{Error, ReadableTable, TableDefinition};
+use redb::{
+    Error, ReadableTable, StorageError, TableDefinition, TableError, TableHandle, TypeName,
+};
 
 use crate::{
     delayqueue::DelayQueue,
@@ -55,8 +57,8 @@ impl RedbInner {
     pub fn scan_db(&mut self) -> Result<(), Error> {
         let guard = self.db.begin_write()?;
         for table_name in guard.list_tables()? {
-            table_def!(table, &table_name);
-            exp_table_def!(exp_table, &table_name, &self.exp_table);
+            table_def!(table, table_name.name());
+            exp_table_def!(exp_table, table_name.name(), &self.exp_table);
 
             let exp_table = if let Ok(table) = guard.open_table(exp_table) {
                 table
@@ -74,12 +76,12 @@ impl RedbInner {
                 continue;
             };
 
-            for (key, value) in exp_table_iter {
+            for (key, value) in exp_table_iter.filter_map(Result::ok) {
                 let exp = value.value();
                 if exp.expired() {
                     deleted_keys.push(key);
                 } else if let Some(dur) = exp.expires_at() {
-                    self.queue.push(&table_name, key.value(), dur);
+                    self.queue.push(table_name.name(), key.value(), dur);
                 }
             }
 
@@ -95,7 +97,7 @@ impl RedbInner {
             }
         }
 
-        guard.commit()
+        guard.commit().map_err(Into::into)
     }
 
     pub fn spawn_expiry_thread(&mut self) {
@@ -115,7 +117,7 @@ impl RedbInner {
                 (|| {
                     let txn = db.begin_write()?;
                     txn.open_table(table)?.remove(item.key.as_ref())?;
-                    txn.commit()
+                    txn.commit().map_err(Error::from)
                 })()
                 .ok();
             }
@@ -133,12 +135,12 @@ impl RedbInner {
         match self.db.begin_read()?.open_table(table) {
             Ok(r) => Ok(r
                 .iter()?
-                .map(|v| v.0.value().to_vec())
-                .collect::<Vec<_>>()
+                .map(|v| v.map(|v| v.0.value().to_vec()))
+                .collect::<Result<Vec<_>, StorageError>>()?
                 .into_iter()),
             Err(e) => match e {
-                Error::TableDoesNotExist(_) => Ok(Vec::new().into_iter()),
-                e => Err(e),
+                TableError::TableDoesNotExist(_) => Ok(Vec::new().into_iter()),
+                e => Err(e.into()),
             },
         }
     }
@@ -171,8 +173,8 @@ impl RedbInner {
         match self.db.begin_read()?.open_table(table) {
             Ok(r) => Ok(r.get(key)?.map(|v| v.value())),
             Err(e) => match e {
-                Error::TableDoesNotExist(_) => Ok(None),
-                e => Err(e),
+                TableError::TableDoesNotExist(_) => Ok(None),
+                e => return Err(e.into()),
             },
         }
     }
@@ -217,8 +219,8 @@ impl RedbInner {
                 })
                 .unwrap_or_default()),
             Err(e) => match e {
-                Error::TableDoesNotExist(_) => Ok(Vec::new()),
-                e => Err(e),
+                TableError::TableDoesNotExist(_) => Ok(Vec::new()),
+                e => return Err(e.into()),
             },
         }
     }
@@ -239,9 +241,11 @@ impl RedbInner {
                         l
                     }
                     _ => {
-                        return Err(redb::Error::TableTypeMismatch(
-                            "Trying to push into an invalid list".to_string(),
-                        ))
+                        return Err(redb::Error::TableTypeMismatch {
+                            table: scope.to_string(),
+                            key: TypeName::new("Unknown"),
+                            value: TypeName::new("Vec<_>"),
+                        });
                     }
                 }
             } else {
@@ -275,9 +279,11 @@ impl RedbInner {
                         l
                     }
                     _ => {
-                        return Err(redb::Error::TableTypeMismatch(
-                            "Trying to push into an invalid list".to_string(),
-                        ))
+                        return Err(redb::Error::TableTypeMismatch {
+                            table: scope.to_string(),
+                            key: TypeName::new("Unknown"),
+                            value: TypeName::new("Vec<_>"),
+                        });
                     }
                 }
             } else {
@@ -310,9 +316,11 @@ impl RedbInner {
                         l
                     }
                     _ => {
-                        return Err(redb::Error::TableTypeMismatch(
-                            "Trying to push into an invalid list".to_string(),
-                        ))
+                        return Err(redb::Error::TableTypeMismatch {
+                            table: scope.to_string(),
+                            key: TypeName::new("Unknown"),
+                            value: TypeName::new("Vec<_>"),
+                        });
                     }
                 }
             } else {
@@ -363,9 +371,11 @@ impl RedbInner {
                         value
                     } else {
                         // Abort will be called by drop
-                        return Err(redb::Error::TableTypeMismatch(
-                            "Value is not a number".to_string(),
-                        ));
+                        return Err(redb::Error::TableTypeMismatch {
+                            table: scope.to_string(),
+                            key: TypeName::new("i64"),
+                            value: TypeName::new("Unknown"),
+                        });
                     }
                 } else {
                     0
@@ -430,8 +440,8 @@ impl RedbInner {
         match self.db.begin_read()?.open_table(exp_table) {
             Ok(r) => Ok(r.get(key)?.and_then(|v| v.value().expires_in())),
             Err(e) => match e {
-                Error::TableDoesNotExist(_) => Ok(None),
-                e => Err(e),
+                TableError::TableDoesNotExist(_) => Ok(None),
+                e => return Err(e.into()),
             },
         }
     }
@@ -462,8 +472,8 @@ impl RedbInner {
                     exp
                 }),
                 Err(e) => match e {
-                    Error::TableDoesNotExist(_) => None,
-                    e => return Err(e),
+                    TableError::TableDoesNotExist(_) => None,
+                    e => return Err(e.into()),
                 },
             };
             exp.map(|mut v| {
@@ -518,8 +528,8 @@ impl RedbInner {
         let exp_flags = match self.db.begin_read()?.open_table(exp_table) {
             Ok(r) => r.get(key)?.map(|v| v.value()),
             Err(e) => match e {
-                Error::TableDoesNotExist(_) => None,
-                e => return Err(e),
+                TableError::TableDoesNotExist(_) => None,
+                e => return Err(e.into()),
             },
         };
 
@@ -532,8 +542,8 @@ impl RedbInner {
         let value = match self.db.begin_read()?.open_table(table) {
             Ok(r) => r.get(key)?.map(|v| v.value()),
             Err(e) => match e {
-                Error::TableDoesNotExist(_) => None,
-                e => return Err(e),
+                TableError::TableDoesNotExist(_) => None,
+                e => return Err(e.into()),
             },
         };
 
