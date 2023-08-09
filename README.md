@@ -30,8 +30,8 @@ Basteh is meant to be used alongside one the implementer crates, ex:
 ```toml
 # Cargo.toml
 [dependencies]
-basteh = "0.4.0-alpha.5"
-basteh-memory = "0.4.0-alpha.5"
+basteh = "=0.4.0-alpha.5"
+basteh-memory = "=0.4.0-alpha.5"
 ```
 
 ## Usage
@@ -44,10 +44,10 @@ use basteh_memory::MemoryBackend;
 
 async fn handler() -> Result<String, BastehError> {
    // Intialize the implementer according to its docs
-   let store = MemoryBackend::start_default();
+   let provider = MemoryBackend::start_default();
 
    // Give it to the Storage struct
-   let basteh = Basteh::build().store(store).finish();
+   let basteh = Basteh::build().provider(provider).finish();
 
    // Set a key, value can be stringy, bytes or numbers
    basteh.set("key", "value").await;
