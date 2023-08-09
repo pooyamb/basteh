@@ -10,6 +10,7 @@ keywords = ["storage", "web", "async", "sled"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/pooyamb/basteh/"
+publish = false
 
 [dependencies]
 basteh = "=0.4.0-alpha.5"
