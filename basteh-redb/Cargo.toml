@@ -1,6 +1,6 @@
 [package]
 name = "basteh-redb"
-version = "0.4.0-alpha.5"
+version = "0.4.0-alpha.6"
 authors = ["Pouya M. B. <pooyamb@gmail.com>"]
 categories = ["asynchronous", "caching", "web-programming::http-server"]
 description = "An implementation of basteh based on redb"
